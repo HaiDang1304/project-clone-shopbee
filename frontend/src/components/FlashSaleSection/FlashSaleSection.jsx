@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 
 function pad2(value) {
   return String(value).padStart(2, '0')
@@ -43,7 +44,7 @@ function FlashSaleProductCard({
   progressLabel,
 }) {
   return (
-    <div className="w-48 group cursor-pointer">
+    <Link className="w-48 group cursor-pointer" to="/product" aria-label={title}>
       <div className="relative aspect-square rounded-lg overflow-hidden bg-surface-container mb-3">
         <img
           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
@@ -74,7 +75,7 @@ function FlashSaleProductCard({
           {progressLabel}
         </span>
       </div>
-    </div>
+    </Link>
   )
 }
 

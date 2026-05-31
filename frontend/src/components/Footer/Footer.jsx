@@ -3,11 +3,11 @@ export default function Footer() {
     <footer className="bg-surface-container-highest">
       <div className="max-w-container-max mx-auto grid grid-cols-1 md:grid-cols-4 gap-gutter px-margin-desktop py-12">
         <div>
-          <h4 className="font-headline-md text-on-surface mb-6">AI Market</h4>
-          <p className="font-body-md text-on-surface-variant mb-4">
-            © 2024 AI Market. Nền tảng thương mại điện tử hàng đầu tích hợp trí
-            tuệ nhân tạo.
-          </p>
+          <img
+            src="/logo_shop_remote.png"
+            alt="ShopBee"
+            className="h-30 w-auto"
+          />
           <div className="flex gap-4">
             <a
               className="w-8 h-8 bg-surface-container flex items-center justify-center rounded-full text-on-surface hover:text-primary"
@@ -62,7 +62,9 @@ export default function Footer() {
         </div>
 
         <div>
-          <h5 className="font-title-md text-on-surface mb-6">Trung tâm hỗ trợ</h5>
+          <h5 className="font-title-md text-on-surface mb-6">
+            Trung tâm hỗ trợ
+          </h5>
           <ul className="space-y-3 font-body-md text-on-surface-variant">
             <li>
               <a className="hover:text-primary transition-colors" href="#">
@@ -113,7 +115,9 @@ export default function Footer() {
             </div>
           </div>
 
-          <h5 className="font-title-md text-on-surface mt-6 mb-4">Tải ứng dụng</h5>
+          <h5 className="font-title-md text-on-surface mt-6 mb-4">
+            Tải ứng dụng
+          </h5>
           <div className="flex flex-col gap-2">
             <div className="bg-black text-white px-4 py-2 rounded-lg flex items-center gap-2 cursor-pointer">
               <span className="material-symbols-outlined text-2xl">shop</span>
@@ -130,7 +134,9 @@ export default function Footer() {
               </span>
               <div className="flex flex-col">
                 <span className="text-[8px]">DOWNLOAD ON THE</span>
-                <span className="text-xs font-bold leading-none">App Store</span>
+                <span className="text-xs font-bold leading-none">
+                  App Store
+                </span>
               </div>
             </div>
           </div>
@@ -138,8 +144,8 @@ export default function Footer() {
       </div>
 
       <div className="border-t border-surface-container py-6 text-center text-label-md text-on-surface-variant">
-        <p>© 2024 AI Market. Nền tảng thương mại điện tử hàng đầu.</p>
+        <p>© 2026 ShopBee. Nền tảng thương mại điện tử hàng đầu.</p>
       </div>
     </footer>
-  )
+  );
 }

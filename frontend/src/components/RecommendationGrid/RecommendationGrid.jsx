@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom'
+
 function Rating({ value }) {
   return (
     <div className="flex items-center gap-1">
@@ -14,7 +16,11 @@ function Rating({ value }) {
 
 function RecommendationCard({ imageSrc, badge, badgeTone, title, price, rating, sold, location }) {
   return (
-    <div className="bg-surface-container-lowest rounded-xl p-4 shadow-none hover:shadow-[0px_8px_30px_rgba(0,0,0,0.1)] transition-all group flex flex-col h-full border border-surface-container">
+    <Link
+      className="bg-surface-container-lowest rounded-xl p-4 shadow-none hover:shadow-[0px_8px_30px_rgba(0,0,0,0.1)] transition-all group flex flex-col h-full border border-surface-container"
+      to="/product"
+      aria-label={title}
+    >
       <div className="aspect-square rounded-lg overflow-hidden bg-surface-container mb-4 relative">
         <img
           className="w-full h-full object-cover group-hover:scale-105 transition-transform"
@@ -40,7 +46,7 @@ function RecommendationCard({ imageSrc, badge, badgeTone, title, price, rating, 
           {location}
         </div>
       </div>
-    </div>
+    </Link>
   )
 }
 

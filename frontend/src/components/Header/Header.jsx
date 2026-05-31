@@ -1,9 +1,13 @@
+import { Link } from 'react-router-dom'
+
 export default function Header() {
   return (
     <header className="fixed top-0 left-0 w-full z-50 bg-surface shadow-[0px_4px_20px_rgba(0,0,0,0.05)] h-16 flex items-center">
       <div className="flex justify-between items-center w-full px-margin-desktop max-w-container-max mx-auto h-16">
         <div className="flex items-center gap-8 flex-1">
-          <h1 className="text-title-lg font-headline-lg text-primary">AI Market</h1>
+          <Link to="/" aria-label="Trang chủ">
+            <img src="/logo_shop_remote.png" alt="ShopBee" className="h-20 w-auto" />
+          </Link>
           <div className="hidden md:flex flex-1 max-w-xl relative">
             <input
               className="w-full h-10 pl-4 pr-12 rounded-lg border border-outline-variant bg-surface-container-low focus:border-primary focus:ring-0 text-body-md"
