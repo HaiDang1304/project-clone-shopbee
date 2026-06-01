@@ -1,0 +1,17 @@
+{
+  "name": "thuongmaidientu",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "frontend:install": "npm --prefix frontend install",
+    "frontend:dev": "npm --prefix frontend run dev",
+    "frontend:dev:force": "npm --prefix frontend run dev -- --force",
+    "frontend:build": "npm --prefix frontend run build",
+
+    "backend:install": "npm --prefix backend install",
+    "backend:dev": "npm --prefix backend run dev",
+    "backend:start": "npm --prefix backend run start",
+
+    "install:all": "npm run frontend:install; npm run backend:install"
+  }
+}

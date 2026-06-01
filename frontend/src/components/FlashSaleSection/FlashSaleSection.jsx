@@ -1,20 +1,36 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 
+import { apiGet } from '../../lib/api'
+import { formatCurrency, productPath } from '../../lib/format'
+
+const fallbackImage = '/logo_shop.png'
+
 function pad2(value) {
   return String(value).padStart(2, '0')
 }
 
-function Countdown({ initialSeconds = 2 * 3600 + 45 * 60 + 12 }) {
-  const [secondsLeft, setSecondsLeft] = useState(initialSeconds)
+function Countdown({ products }) {
+  const endAt = useMemo(() => {
+    const dates = products
+      .map((product) => product.flashSale?.endAt)
+      .filter(Boolean)
+      .map((value) => new Date(value).getTime())
+      .filter(Number.isFinite)
+
+    return dates.length ? Math.min(...dates) : Date.now() + 2 * 3600 * 1000
+  }, [products])
+
+  const [secondsLeft, setSecondsLeft] = useState(() => Math.max(0, Math.floor((endAt - Date.now()) / 1000)))
 
   useEffect(() => {
+    setSecondsLeft(Math.max(0, Math.floor((endAt - Date.now()) / 1000)))
     const timer = setInterval(() => {
-      setSecondsLeft((prev) => (prev > 0 ? prev - 1 : 0))
+      setSecondsLeft(Math.max(0, Math.floor((endAt - Date.now()) / 1000)))
     }, 1000)
 
     return () => clearInterval(timer)
-  }, [])
+  }, [endAt])
 
   const { h, m, s } = useMemo(() => {
     const hVal = Math.floor(secondsLeft / 3600)
@@ -24,7 +40,7 @@ function Countdown({ initialSeconds = 2 * 3600 + 45 * 60 + 12 }) {
   }, [secondsLeft])
 
   return (
-    <div className="flex gap-1" aria-label="Đếm ngược flash sale">
+    <div className="flex gap-1" aria-label="Dem nguoc flash sale">
       <span className="bg-black/20 px-2 py-1 rounded font-bold">{pad2(h)}</span>
       <span>:</span>
       <span className="bg-black/20 px-2 py-1 rounded font-bold">{pad2(m)}</span>
@@ -34,37 +50,38 @@ function Countdown({ initialSeconds = 2 * 3600 + 45 * 60 + 12 }) {
   )
 }
 
-function FlashSaleProductCard({
-  imageSrc,
-  discount,
-  title,
-  price,
-  originalPrice,
-  progress,
-  progressLabel,
-}) {
+function FlashSaleProductCard({ product }) {
+  const imageSrc = product.thumbnailUrl || product.imageUrl || fallbackImage
+  const flashSale = product.flashSale || {}
+  const discount = Number(flashSale.discountPercent || 0)
+  const eventStock = Number(flashSale.eventStock || 0)
+  const soldInEvent = Number(flashSale.soldInEvent || 0)
+  const progress = eventStock > 0 ? Math.min(100, Math.round((soldInEvent / eventStock) * 100)) : 0
+
   return (
-    <Link className="w-48 group cursor-pointer" to="/product" aria-label={title}>
+    <Link className="w-48 group cursor-pointer" to={productPath(product)} aria-label={product.name}>
       <div className="relative aspect-square rounded-lg overflow-hidden bg-surface-container mb-3">
         <img
           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-          alt={title}
+          alt={product.name}
           src={imageSrc}
         />
         <div className="absolute top-0 right-0 bg-error text-white font-bold text-label-md px-2 py-1 rounded-bl-lg">
-          {discount}
+          -{discount}%
         </div>
       </div>
       <h4 className="font-body-md text-body-md line-clamp-2 mb-2 text-on-surface">
-        {title}
+        {product.name}
       </h4>
       <div className="flex items-baseline gap-2">
         <span className="text-primary font-bold font-title-lg text-title-lg">
-          {price}
+          {formatCurrency(product.price)}
         </span>
-        <span className="text-secondary text-label-md line-through">
-          {originalPrice}
-        </span>
+        {product.originalPrice ? (
+          <span className="text-secondary text-label-md line-through">
+            {formatCurrency(product.originalPrice)}
+          </span>
+        ) : null}
       </div>
       <div className="mt-2 h-3 bg-surface-container-high rounded-full relative overflow-hidden">
         <div
@@ -72,7 +89,7 @@ function FlashSaleProductCard({
           style={{ width: `${progress}%` }}
         />
         <span className="absolute inset-0 flex items-center justify-center text-[8px] font-bold text-on-primary">
-          {progressLabel}
+          Da ban {soldInEvent}
         </span>
       </div>
     </Link>
@@ -80,58 +97,32 @@ function FlashSaleProductCard({
 }
 
 export default function FlashSaleSection() {
-  const products = [
-    {
-      imageSrc:
-        'https://lh3.googleusercontent.com/aida-public/AB6AXuAxbD1F1ojazGZyyWX3XpPLOZQ9vGWLzEfcZHGeU3AfO2x1SP-yS6AD834aRCbg8V5E3Pw78-177cSrDYTRqFinZZE3Qhv-dzo4ROW1HKj_lC0AMw2l60aj9e_c7BRO20OJkQ5gE4f-lH5ZbvPYXpHPIVNhgNKG5nRZq2f5nLjJ6-w3fjal98IrHCrZaM2bdHl5O9MYE8KprquxlcAVITC-pM-pxlXcT1q-44NzlJtb49cCZGWbALw2QL8Lp8fSQR8j1NPaWl8ZSZn7',
-      discount: '-45%',
-      title: 'Đồng hồ thông minh AI Vision Series 4',
-      price: '1.250.000₫',
-      originalPrice: '2.400.000₫',
-      progress: 75,
-      progressLabel: 'ĐÃ BÁN 75',
-    },
-    {
-      imageSrc:
-        'https://lh3.googleusercontent.com/aida-public/AB6AXuCim-qM0dobpwi3qlwZV2n3NnW6kzPuexZgCDF5VZENfxd-SGVbxTO8vEh-wzBxKsWHR7iFLTcjVtinQhRBpDwWEFAMojmx8k4L4BdyuvTx6QWmsM4RBHVPnVZW1KsngfSFM5iaVg1LxXx8jlKpKLPR4tvvANl6GdWoJJt54OnMf5EWWT5Qi2FfdFG8hy3uJo8fbKFrduwGQJU62GmRdK0IUr-8hv1cpWYCMOav0dFNEaqmYR9aBofD1M1gd35xPx-tU1aDTRXBDCLg',
-      discount: '-30%',
-      title: 'Tai nghe chống ồn AI Acoustics Pro',
-      price: '3.490.000₫',
-      originalPrice: '4.990.000₫',
-      progress: 40,
-      progressLabel: 'ĐÃ BÁN 12',
-    },
-    {
-      imageSrc:
-        'https://lh3.googleusercontent.com/aida-public/AB6AXuANsz8PjIfNZvm5GstP8LV-RMsgymOMxZYqsG4dky2nAkL89LgxyXPaCsH3TXUNjc042QKvTEQXQOVq7cZR28oUcpxAzZN_ey9Hg8itKKBu3hP0CNIK4DdTpEpfUmb5c4mlLvpQspgeIR5Au7jDId1jWuwAPHU2UusDYRTQRW5adnjIJsutYL08wDZCAvxgtE3ieS7uMfo324CP-K5WklCDIHBo5sfK2EG7o5UxPV8rPcWDmkY70qhPYDm9n-rdCF-QoXwH6tdOnMMU',
-      discount: '-20%',
-      title: 'Giày chạy bộ AI Dynamic Runner X1',
-      price: '890.000₫',
-      originalPrice: '1.100.000₫',
-      progress: 90,
-      progressLabel: 'SẮP HẾT HÀNG',
-    },
-    {
-      imageSrc:
-        'https://lh3.googleusercontent.com/aida-public/AB6AXuCR-O7z0_qwR-2KRC-cFtXC1uS6z4F9c4XYhmwptUSZAxGCIxjFjVTd27E1TjU9TNbbjEUtzyInpzSGO3k4wgDI-H4z53JhMfJgOQRtlleLfOMbyS_vSKKTmR5aElg-DiihAegzK8MHsdx7EifvCeZCQyU-W9fvM0gKV68wiWwmMq1Ztap0-VQfoXHawtyqqDI80QmzgZXsQZC6RFu9bvztKau6Tb01Qo3Ex7Q6CT9kVdND9zbpauEYTJvII1xdNWiVoGJ7EYot_QSa',
-      discount: '-15%',
-      title: 'Máy ảnh Mirrorless AI Capture Z',
-      price: '15.900.000₫',
-      originalPrice: '18.500.000₫',
-      progress: 25,
-      progressLabel: 'ĐÃ BÁN 5',
-    },
-    {
-      imageSrc:
-        'https://lh3.googleusercontent.com/aida-public/AB6AXuCBrsNqCaSXt3nFKig8VEfOC9RICn4C5ivyVbN-LWAw1YjlstQtPFZT7lC6HRjZeIDQ8bEhId1HhypqhZriFf2RSLFKnclTlTsZzFgw-sxSX0zp3ALyRxBvVukZqQUbUFI9o88i2pvhkgXF1mWecHobrMvUsYXuNKmKreH1jjKwIQTc1FwMAGlIxRJ3alN_-RA1kzUEkTUARF-h3j-sqh8rfAIyEOv-eBteYn4ai9UKpk88PM8SD-ATPSzdfpz5m2qpC77m1REXAwID',
-      discount: '-50%',
-      title: 'Loa thông minh AI Home Assistant',
-      price: '645.000₫',
-      originalPrice: '1.290.000₫',
-      progress: 55,
-      progressLabel: 'ĐÃ BÁN 42',
-    },
-  ]
+  const [products, setProducts] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let ignore = false
+
+    async function loadFlashSale() {
+      try {
+        const data = await apiGet('/api/products?flashSale=true&limit=12')
+        if (!ignore) setProducts(data.data || [])
+      } catch (err) {
+        if (!ignore) setError(err.message || 'Khong tai duoc flash sale')
+      } finally {
+        if (!ignore) setLoading(false)
+      }
+    }
+
+    loadFlashSale()
+
+    return () => {
+      ignore = true
+    }
+  }, [])
+
+  if (!loading && !products.length && !error) return null
 
   return (
     <section className="max-w-container-max mx-auto px-margin-desktop mb-12">
@@ -149,30 +140,31 @@ export default function FlashSaleSection() {
                 Flash Sale
               </h2>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-body-md opacity-80">Kết thúc sau:</span>
-              <Countdown />
+            <div className="hidden sm:flex items-center gap-2">
+              <span className="text-body-md opacity-80">Ket thuc sau:</span>
+              <Countdown products={products} />
             </div>
           </div>
-          <a className="text-white hover:underline font-label-md text-label-md" href="#">
-            Xem tất cả
+          <a className="text-white hover:underline font-label-md text-label-md" href="#flash-sale">
+            Xem tat ca
           </a>
         </div>
 
-        <div className="p-6 overflow-x-auto custom-scrollbar">
+        {error ? (
+          <div className="m-6 rounded-lg border border-error/30 bg-error-container/40 px-4 py-3 text-body-sm text-on-error-container">
+            {error}
+          </div>
+        ) : null}
+
+        <div id="flash-sale" className="p-6 overflow-x-auto custom-scrollbar">
           <div className="flex gap-gutter min-w-max">
-            {products.map((p) => (
-              <FlashSaleProductCard
-                key={p.title}
-                imageSrc={p.imageSrc}
-                discount={p.discount}
-                title={p.title}
-                price={p.price}
-                originalPrice={p.originalPrice}
-                progress={p.progress}
-                progressLabel={p.progressLabel}
-              />
-            ))}
+            {loading
+              ? Array.from({ length: 5 }).map((_, index) => (
+                  <div key={index} className="w-48 h-[288px] rounded-lg bg-surface-container animate-pulse" />
+                ))
+              : products.map((product) => (
+                  <FlashSaleProductCard key={product.id || product.slug} product={product} />
+                ))}
           </div>
         </div>
       </div>

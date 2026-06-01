@@ -1,35 +1,72 @@
-# Backend (Express + MongoDB)
+# Backend (Express + MySQL)
 
-## Setup
+Backend nay phuc vu frontend ShopBee hien tai. Cac endpoint auth giu dung duong dan frontend dang goi:
 
-1) Tạo file `.env` (copy từ `.env.example`)
+- `POST /api/auth/register`
+- `POST /api/auth/verify-email`
+- `POST /api/auth/login`
+- `POST /api/auth/google`
 
-2) Cài dependencies
+Ngoai ra co cac API co ban:
+
+- `GET /api/health`
+- `GET /api/categories`
+- `GET /api/products`
+- `GET /api/products/:idOrSlug`
+- `GET /api/cart`
+- `POST /api/cart/items`
+- `PATCH /api/cart/items/:itemId`
+- `DELETE /api/cart/items/:itemId`
+
+## Cai dat
 
 ```bash
 npm install
+copy .env.example .env
 ```
 
-3) Chạy dev
+Sua `.env` theo MySQL local cua ban.
+
+## Tao database
+
+Tu thu muc `backend`:
+
+```bash
+npm run db:schema
+npm run db:seed
+```
+
+Hoac chay truc tiep:
+
+```bash
+mysql -u root -p < database/schema.sql
+mysql -u root -p thuongmaidientu < database/seed.sql
+```
+
+## Chay server
 
 ```bash
 npm run dev
 ```
 
-## Health check
+Server mac dinh chay o `http://localhost:5000`.
 
-- `GET http://localhost:5000/api/health` -> `{ ok: true }`
+## Email OTP local
 
-## Database design (MongoDB)
+Mac dinh `.env.example` dung:
 
-Collections chính:
+```env
+EMAIL_DELIVERY=console
+```
 
-- `users`: tài khoản khách/seller/admin + địa chỉ
-- `shops`: gian hàng (owner là user)
-- `categories`: danh mục (có parentId để làm cây)
-- `products`: sản phẩm thuộc shop + category, có ảnh, tồn kho, flash sale, variants
-- `reviews`: đánh giá theo product + user
-- `carts`: giỏ hàng 1-1 theo user
-- `orders`: đơn hàng (items snapshot để tránh thay đổi giá/tên sau này)
+Khi dang ky, ma OTP se duoc in trong terminal backend. Neu muon gui email that, doi sang:
 
-Các model nằm trong `src/models/*`.
+```env
+EMAIL_DELIVERY=smtp
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=your_email@gmail.com
+SMTP_PASS=your_app_password
+SMTP_FROM="ShopBee <your_email@gmail.com>"
+```

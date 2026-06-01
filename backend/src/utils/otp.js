@@ -1,8 +1,7 @@
 const crypto = require('crypto')
 
 function generateOtpCode() {
-  // 6 digits
-  return String(Math.floor(100000 + Math.random() * 900000))
+  return String(crypto.randomInt(100000, 1000000))
 }
 
 function hashOtp(code, otpSecret) {
@@ -10,4 +9,13 @@ function hashOtp(code, otpSecret) {
   return crypto.createHash('sha256').update(`${code}:${otpSecret}`).digest('hex')
 }
 
-module.exports = { generateOtpCode, hashOtp }
+function getOtpExpiresAt() {
+  const minutes = Number(process.env.OTP_EXPIRES_MINUTES || 10)
+  return new Date(Date.now() + minutes * 60 * 1000)
+}
+
+module.exports = {
+  generateOtpCode,
+  getOtpExpiresAt,
+  hashOtp,
+}

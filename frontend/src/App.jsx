@@ -1,9 +1,26 @@
-import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+
+import AuthModal from './components/Auth/AuthModal'
 import HomePage from './pages/Home/HomePage'
 import ProductDetailPage from './pages/ProductDetail/ProductDetailPage'
-import LoginPage from './pages/Auth/LoginPage'
-import RegisterPage from './pages/Auth/RegisterPage'
-import VerifyEmailPage from './pages/Auth/VerifyEmailPage'
+
+function AuthModalRoute({ mode }) {
+	const navigate = useNavigate()
+	const location = useLocation()
+	const params = new URLSearchParams(location.search)
+
+	return (
+		<>
+			<HomePage />
+			<AuthModal
+				open
+				initialMode={mode}
+				initialEmail={params.get('email') || ''}
+				onClose={() => navigate('/')}
+			/>
+		</>
+	)
+}
 
 export default function App() {
 	return (
@@ -11,9 +28,10 @@ export default function App() {
 			<Routes>
 				<Route path="/" element={<HomePage />} />
 				<Route path="/product" element={<ProductDetailPage />} />
-				<Route path="/login" element={<LoginPage />} />
-				<Route path="/register" element={<RegisterPage />} />
-				<Route path="/verify-email" element={<VerifyEmailPage />} />
+				<Route path="/product/:slug" element={<ProductDetailPage />} />
+				<Route path="/login" element={<AuthModalRoute mode="login" />} />
+				<Route path="/register" element={<AuthModalRoute mode="register" />} />
+				<Route path="/verify-email" element={<AuthModalRoute mode="verify" />} />
 			</Routes>
 		</BrowserRouter>
 	)

@@ -1,26 +1,26 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "description": "",
+  "description": "ShopBee backend API using Express and MySQL",
   "main": "index.js",
+  "type": "commonjs",
   "scripts": {
     "dev": "nodemon index.js",
     "start": "node index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "db:schema": "mysql -u root -p < database/schema.sql",
+    "db:seed": "mysql -u root -p thuongmaidientu < database/seed.sql"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
   "dependencies": {
-    "cors": "^2.8.6",
+    "bcryptjs": "^3.0.2",
+    "cors": "^2.8.5",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
-    "bcryptjs": "^3.0.2",
     "google-auth-library": "^10.3.0",
     "jsonwebtoken": "^9.0.2",
-    "mongoose": "^9.6.3"
-    ,
+    "mysql2": "^3.11.5",
     "nodemailer": "^7.0.5"
   },
   "devDependencies": {

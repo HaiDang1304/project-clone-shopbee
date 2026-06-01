@@ -1,31 +1,15 @@
-const express = require('express')
-const cors = require('cors')
 const dotenv = require('dotenv')
 
 dotenv.config()
 
-const { connectDB } = require('./src/config/db')
-const authRoutes = require('./src/routes/auth')
-
-const app = express()
-
-app.use(
-  cors({
-    origin: process.env.CORS_ORIGIN || '*',
-  }),
-)
-app.use(express.json())
-
-app.get('/api/health', (req, res) => {
-  res.json({ ok: true })
-})
-
-app.use('/api/auth', authRoutes)
+const { createApp } = require('./src/app')
+const { testConnection } = require('./src/config/db')
 
 const port = Number(process.env.PORT || 5000)
+const app = createApp()
 
 async function start() {
-  await connectDB(process.env.MONGODB_URI)
+  await testConnection()
 
   app.listen(port, () => {
     // eslint-disable-next-line no-console
