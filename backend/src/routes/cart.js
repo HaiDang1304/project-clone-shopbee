@@ -68,12 +68,12 @@ router.post(
     const variantId = req.body?.variantId == null ? null : Number(req.body.variantId)
     const quantity = Math.max(1, Number.parseInt(req.body?.quantity || 1, 10))
 
-    if (!productId) return res.status(400).json({ ok: false, message: 'Thieu productId' })
+    if (!productId) return res.status(400).json({ ok: false, message: 'Thiếu productId' })
 
     await transaction(async (connection) => {
       const [products] = await connection.execute('SELECT id FROM products WHERE id = ? AND is_active = 1 LIMIT 1', [productId])
       if (!products[0]) {
-        const err = new Error('San pham khong ton tai')
+        const err = new Error('Sản phẩm không tồn tại')
         err.status = 404
         throw err
       }
@@ -84,7 +84,7 @@ router.post(
           [variantId, productId],
         )
         if (!variants[0]) {
-          const err = new Error('Phien ban san pham khong ton tai')
+          const err = new Error('Phiên bản sản phẩm không tồn tại')
           err.status = 404
           throw err
         }
@@ -123,9 +123,9 @@ router.patch(
     const itemId = Number(req.params.itemId)
     const quantity = Number.parseInt(req.body?.quantity, 10)
 
-    if (!itemId) return res.status(400).json({ ok: false, message: 'Thieu itemId' })
+    if (!itemId) return res.status(400).json({ ok: false, message: 'Thiếu itemId' })
     if (!Number.isFinite(quantity) || quantity < 1) {
-      return res.status(400).json({ ok: false, message: 'So luong khong hop le' })
+      return res.status(400).json({ ok: false, message: 'Số lượng không hợp lệ' })
     }
 
     await query(

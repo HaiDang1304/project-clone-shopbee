@@ -8,7 +8,10 @@
     "dev": "nodemon index.js",
     "start": "node index.js",
     "db:schema": "mysql -u root -p < database/schema.sql",
-    "db:seed": "mysql -u root -p thuongmaidientu < database/seed.sql"
+    "db:seed": "mysql -u root -p shopbee_clone < database/seed.sql",
+    "db:migrate:profile": "mysql -u root -p < database/migrations/20260602_add_user_profile_fields.sql",
+    "db:migrate:address-location": "mysql -u root -p < database/migrations/20260602_add_user_address_location_fields.sql",
+    "db:migrate:address-simplify": "mysql -u root -p < database/migrations/20260602_make_user_address_district_optional.sql"
   },
   "keywords": [],
   "author": "",

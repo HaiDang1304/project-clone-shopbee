@@ -10,6 +10,7 @@ function signUserToken(user) {
       role: user.role,
       email: user.email,
       name: user.name,
+      avatarUrl: user.avatarUrl || null,
     },
     secret,
     { expiresIn: process.env.JWT_EXPIRES_IN || '7d' },

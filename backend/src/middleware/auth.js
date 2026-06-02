@@ -5,7 +5,7 @@ function requireAuth(req, res, next) {
   const [scheme, token] = header.split(' ')
 
   if (scheme !== 'Bearer' || !token) {
-    return res.status(401).json({ ok: false, message: 'Can dang nhap' })
+    return res.status(401).json({ ok: false, message: 'Cần đăng nhập' })
   }
 
   try {
@@ -15,7 +15,7 @@ function requireAuth(req, res, next) {
     req.user = jwt.verify(token, secret)
     return next()
   } catch (err) {
-    return res.status(401).json({ ok: false, message: 'Token khong hop le hoac da het han' })
+    return res.status(401).json({ ok: false, message: 'Token không hợp lệ hoặc đã hết hạn' })
   }
 }
 

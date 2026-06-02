@@ -33,7 +33,7 @@ export default function ProductReviews({ product }) {
   return (
     <div className="bg-white p-6 rounded-xl shadow-[0px_4px_20px_rgba(0,0,0,0.05)]">
       <h2 className="font-title-lg text-title-lg mb-6 border-l-4 border-primary pl-4 uppercase tracking-wider">
-        Danh gia san pham
+        Đánh giá sản phẩm
       </h2>
       {reviews.length ? (
         <div className="space-y-8">
@@ -44,11 +44,11 @@ export default function ProductReviews({ product }) {
               </div>
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <span className="font-title-md font-bold">{review.userName || 'Khach hang'}</span>
+                  <span className="font-title-md font-bold">{review.userName || 'Khách hàng'}</span>
                   <ReviewStars value={review.rating} />
                 </div>
                 <p className="text-on-surface-variant font-body-md">
-                  {review.comment || 'Khach hang khong de lai binh luan.'}
+                  {review.comment || 'Khách hàng không để lại bình luận.'}
                 </p>
                 <p className="text-on-surface-variant/60 text-[12px]">
                   {formatDate(review.createdAt)}
@@ -61,12 +61,12 @@ export default function ProductReviews({ product }) {
             className="w-full py-3 text-primary font-title-md hover:bg-primary/5 rounded-lg transition-all"
             type="button"
           >
-            Xem tat ca {formatCompact(product.ratingCount)} danh gia
+            Xem tất cả {formatCompact(product.ratingCount)} đánh giá
           </button>
         </div>
       ) : (
         <div className="rounded-lg bg-surface-container-low px-4 py-4 text-on-surface-variant">
-          San pham chua co danh gia.
+          Sản phẩm chưa có đánh giá.
         </div>
       )}
     </div>

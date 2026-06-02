@@ -55,7 +55,7 @@ export default function ProductGallery({ product }) {
               }`}
               type="button"
               onClick={() => setActiveSrc(img.src)}
-              aria-label={`Anh san pham ${index + 1}`}
+              aria-label={`Ảnh sản phẩm ${index + 1}`}
             >
               <img alt={img.alt} className="w-full h-full object-cover" src={img.src} />
             </button>

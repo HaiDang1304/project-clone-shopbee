@@ -135,7 +135,7 @@ router.get(
       [isNumericId ? Number(idOrSlug) : idOrSlug],
     )
 
-    if (!rows[0]) return res.status(404).json({ ok: false, message: 'Khong tim thay san pham' })
+    if (!rows[0]) return res.status(404).json({ ok: false, message: 'Không tìm thấy sản phẩm' })
     const product = mapProduct(rows[0])
 
     const [images, variants, tags, reviews] = await Promise.all([

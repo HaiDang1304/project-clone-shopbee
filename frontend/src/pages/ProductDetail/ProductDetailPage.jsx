@@ -42,10 +42,10 @@ export default function ProductDetailPage() {
         const detailData = await apiGet(`/api/products/${encodeURIComponent(idOrSlug)}`)
         if (!ignore) {
           setProduct(detailData.data || null)
-          document.title = `${detailData.data?.name || 'Chi tiet san pham'} | ShopBee`
+          document.title = `${detailData.data?.name || 'Chi tiết sản phẩm'} | ShopBee`
         }
       } catch (err) {
-        if (!ignore) setError(err.message || 'Khong tai duoc san pham')
+        if (!ignore) setError(err.message || 'Không tải được sản phẩm')
       } finally {
         if (!ignore) setLoading(false)
       }
@@ -88,7 +88,7 @@ export default function ProductDetailPage() {
           </>
         ) : (
           <div className="rounded-xl border border-surface-container bg-surface-container-lowest px-6 py-5 text-on-surface-variant">
-            Chua co san pham trong co so du lieu.
+            Chưa có sản phẩm.
           </div>
         )}
       </main>

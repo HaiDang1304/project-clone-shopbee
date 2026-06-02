@@ -82,9 +82,9 @@ export default function ProductPurchaseCard({ product }) {
         variantId: selectedVariant?.id || null,
         quantity: qty,
       })
-      setMessage('Da them vao gio hang')
+      setMessage('Đã thêm vào giỏ hàng')
     } catch (err) {
-      setMessage(err.message || 'Khong them duoc vao gio hang')
+      setMessage(err.message || 'Không thêm được vào giỏ hàng')
     } finally {
       setSubmitting(false)
     }
@@ -103,11 +103,11 @@ export default function ProductPurchaseCard({ product }) {
         </div>
         <div className="h-4 w-px bg-outline-variant" />
         <span className="text-on-surface-variant font-label-md text-label-md">
-          {formatCompact(product.ratingCount)} danh gia
+          {formatCompact(product.ratingCount)} đánh giá
         </span>
         <div className="h-4 w-px bg-outline-variant" />
         <span className="text-on-surface-variant font-label-md text-label-md">
-          {formatCompact(product.soldCount)} da ban
+          {formatCompact(product.soldCount)} đã bán
         </span>
       </div>
 
@@ -122,7 +122,7 @@ export default function ProductPurchaseCard({ product }) {
                 {formatCurrency(originalPrice)}
               </span>
               <span className="bg-primary-container/20 text-primary px-2 py-0.5 rounded font-label-md text-label-md">
-                GIAM {discount}%
+                GIẢM {discount}%
               </span>
             </>
           ) : null}
@@ -132,14 +132,14 @@ export default function ProductPurchaseCard({ product }) {
       <div className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-[100px_1fr] items-center">
           <span className="text-on-surface-variant font-label-md text-label-md uppercase">
-            Van chuyen
+            Vận chuyển
           </span>
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-tertiary">
               local_shipping
             </span>
             <span className="text-body-md">
-              Mien phi van chuyen cho don hang tren 500k
+              Miễn phí vận chuyển cho đơn hàng trên 500k
             </span>
           </div>
         </div>
@@ -147,7 +147,7 @@ export default function ProductPurchaseCard({ product }) {
         {variants.length ? (
           <div className="grid grid-cols-1 md:grid-cols-[100px_1fr] items-start">
             <span className="text-on-surface-variant font-label-md text-label-md uppercase mt-2">
-              Phien ban
+              Phiên bản
             </span>
             <div className="flex flex-wrap gap-3">
               {variants.map((variant) => {
@@ -173,7 +173,7 @@ export default function ProductPurchaseCard({ product }) {
 
         <div className="grid grid-cols-1 md:grid-cols-[100px_1fr] items-center">
           <span className="text-on-surface-variant font-label-md text-label-md uppercase">
-            So luong
+            Số lượng
           </span>
           <div className="flex items-center gap-4">
             <div className="flex items-center border border-outline-variant rounded-lg overflow-hidden">
@@ -181,7 +181,7 @@ export default function ProductPurchaseCard({ product }) {
                 className="w-10 h-10 flex items-center justify-center hover:bg-surface-container transition-all"
                 type="button"
                 onClick={() => updateQty(-1)}
-                aria-label="Giam so luong"
+                aria-label="Giảm số lượng"
               >
                 <span className="material-symbols-outlined text-[18px]">
                   remove
@@ -192,19 +192,19 @@ export default function ProductPurchaseCard({ product }) {
                 type="text"
                 value={qty}
                 readOnly
-                aria-label="So luong"
+                aria-label="Số lượng"
               />
               <button
                 className="w-10 h-10 flex items-center justify-center hover:bg-surface-container transition-all"
                 type="button"
                 onClick={() => updateQty(1)}
-                aria-label="Tang so luong"
+                aria-label="Tăng số lượng"
               >
                 <span className="material-symbols-outlined text-[18px]">add</span>
               </button>
             </div>
             <span className="text-on-surface-variant font-label-md text-label-md">
-              {stock} san pham co san
+              {stock} sản phẩm có sẵn
             </span>
           </div>
         </div>
@@ -223,7 +223,7 @@ export default function ProductPurchaseCard({ product }) {
             disabled={submitting || !stock}
           >
             <span className="material-symbols-outlined">add_shopping_cart</span>
-            {submitting ? 'Dang them...' : 'Them vao gio hang'}
+            {submitting ? 'Đang thêm...' : 'Thêm vào giỏ hàng'}
           </button>
           <button
             className="flex-1 h-12 bg-primary-container text-white rounded-lg font-title-md flex items-center justify-center gap-2 hover:opacity-90 transition-all shadow-lg shadow-primary/20 disabled:opacity-60"

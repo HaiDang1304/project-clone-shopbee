@@ -52,7 +52,7 @@ function RecommendationCard({ product }) {
         </div>
         <div className="flex items-center justify-between">
           <Rating value={product.ratingAvg} />
-          <span className="text-secondary text-label-md">Da ban {formatCompact(product.soldCount)}</span>
+          <span className="text-secondary text-label-md">Đã bán {formatCompact(product.soldCount)}</span>
         </div>
         <div className="text-secondary text-label-md overflow-hidden text-ellipsis whitespace-nowrap">
           {product.shop?.name || product.category?.name || 'ShopBee'}
@@ -75,7 +75,7 @@ export default function RecommendationGrid() {
         const data = await apiGet('/api/products?limit=12')
         if (!ignore) setProducts(data.data || [])
       } catch (err) {
-        if (!ignore) setError(err.message || 'Khong tai duoc san pham')
+        if (!ignore) setError(err.message || 'Không tải được sản phẩm')
       } finally {
         if (!ignore) setLoading(false)
       }
@@ -98,20 +98,20 @@ export default function RecommendationGrid() {
           >
             auto_awesome
           </span>
-          <h2 className="font-headline-md text-headline-md">Goi y hom nay</h2>
+          <h2 className="font-headline-md text-headline-md">Gợi ý hôm nay</h2>
         </div>
         <div className="hidden sm:flex gap-2">
           <button
             className="bg-primary px-4 py-2 text-white rounded-lg font-title-md text-title-md"
             type="button"
           >
-            Cho ban
+            Cho bạn
           </button>
           <button
             className="bg-surface-container-high px-4 py-2 text-on-surface rounded-lg font-title-md text-title-md hover:bg-surface-container-highest transition-colors"
             type="button"
           >
-            Ban chay
+            Bán chạy
           </button>
         </div>
       </div>
@@ -137,7 +137,7 @@ export default function RecommendationGrid() {
 
       {!loading && !products.length ? (
         <div className="rounded-xl border border-surface-container bg-surface-container-lowest p-8 text-center text-on-surface-variant">
-          Chua co san pham trong co so du lieu.
+          Chưa có sản phẩm.
         </div>
       ) : null}
     </section>

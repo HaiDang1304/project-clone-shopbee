@@ -4,7 +4,7 @@ export default function Breadcrumbs({ product }) {
   return (
     <nav className="flex items-center gap-2 mb-6 text-on-surface-variant font-label-md text-label-md">
       <Link className="hover:text-primary" to="/">
-        Trang chu
+        Trang chủ
       </Link>
       <span className="material-symbols-outlined text-[16px]">chevron_right</span>
       {product?.category ? (
@@ -16,7 +16,7 @@ export default function Breadcrumbs({ product }) {
         </>
       ) : null}
       <span className="text-on-surface truncate max-w-[200px] md:max-w-none">
-        {product?.name || 'San pham'}
+        {product?.name || 'Sản phẩm'}
       </span>
     </nav>
   )

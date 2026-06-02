@@ -40,7 +40,7 @@ export default function CategoriesGrid() {
         const data = await apiGet('/api/categories')
         if (!ignore) setCategories(data.data || [])
       } catch (err) {
-        if (!ignore) setError(err.message || 'Khong tai duoc danh muc')
+        if (!ignore) setError(err.message || 'Không tải được danh mục')
       } finally {
         if (!ignore) setLoading(false)
       }
@@ -55,7 +55,7 @@ export default function CategoriesGrid() {
 
   return (
     <section className="max-w-container-max mx-auto px-margin-desktop mb-12">
-      <h2 className="font-headline-md text-headline-md mb-6">Danh muc noi bat</h2>
+      <h2 className="font-headline-md text-headline-md mb-6">Danh mục nổi bật</h2>
 
       {error ? (
         <div className="mb-4 rounded-lg border border-error/30 bg-error-container/40 px-4 py-3 text-body-sm text-on-error-container">

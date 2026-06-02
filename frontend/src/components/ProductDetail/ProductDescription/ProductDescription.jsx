@@ -4,7 +4,7 @@ export default function ProductDescription({ product }) {
   return (
     <div className="bg-white p-6 rounded-xl shadow-[0px_4px_20px_rgba(0,0,0,0.05)]">
       <h2 className="font-title-lg text-title-lg mb-6 border-l-4 border-primary pl-4 uppercase tracking-wider">
-        Mo ta san pham
+        Mô tả sản phẩm
       </h2>
       <div className="space-y-4 text-on-surface-variant font-body-md leading-relaxed">
         {product?.description ? (
@@ -12,7 +12,7 @@ export default function ProductDescription({ product }) {
             <p key={index}>{paragraph}</p>
           ))
         ) : (
-          <p>San pham chua co mo ta.</p>
+          <p>Sản phẩm chưa có mô tả.</p>
         )}
 
         {tags.length ? (

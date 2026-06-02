@@ -3,7 +3,7 @@ function asyncHandler(handler) {
 }
 
 function notFoundHandler(req, res) {
-  res.status(404).json({ ok: false, message: 'Khong tim thay API' })
+  res.status(404).json({ ok: false, message: 'Không tìm thấy API' })
 }
 
 function errorHandler(err, req, res, next) {

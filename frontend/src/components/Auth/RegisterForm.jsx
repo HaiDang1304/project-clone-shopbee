@@ -33,10 +33,10 @@ export default function RegisterForm({
       }
 
       onSwitchMode('login')
-      setMessage('Dang ky thanh cong. Vui long dang nhap.')
+      setMessage('Đăng ký thành công. Vui lòng đăng nhập.')
       setForm(initialRegister)
     } catch (err) {
-      setError(err.message || 'Dang ky that bai')
+      setError(err.message || 'Đăng ký thất bại')
     } finally {
       setLoading(false)
     }
@@ -45,12 +45,12 @@ export default function RegisterForm({
   return (
     <form className="space-y-4" onSubmit={handleRegister}>
       <div className="space-y-2">
-        <label className="text-label-md text-on-surface-variant">Ho ten</label>
+        <label className="text-label-md text-on-surface-variant">Họ tên</label>
         <input
           className="h-11 w-full rounded-lg border border-outline-variant bg-surface-container-low px-4 text-body-md focus:border-primary focus:ring-0"
           value={form.name}
           onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
-          placeholder="Nguyen Van A"
+          placeholder="Nguyễn Văn A"
           required
         />
       </div>
@@ -66,14 +66,14 @@ export default function RegisterForm({
         />
       </div>
       <div className="space-y-2">
-        <label className="text-label-md text-on-surface-variant">Mat khau</label>
+        <label className="text-label-md text-on-surface-variant">Mật khẩu</label>
         <input
           className="h-11 w-full rounded-lg border border-outline-variant bg-surface-container-low px-4 text-body-md focus:border-primary focus:ring-0"
           type="password"
           minLength={6}
           value={form.password}
           onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))}
-          placeholder="Toi thieu 6 ky tu"
+          placeholder="Tối thiểu 6 ký tự"
           required
         />
       </div>
@@ -82,7 +82,7 @@ export default function RegisterForm({
         type="submit"
         disabled={loading}
       >
-        {loading ? 'Dang xu ly...' : 'Dang ky'}
+        {loading ? 'Đang xử lý...' : 'Đăng ký'}
       </button>
     </form>
   )

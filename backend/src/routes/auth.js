@@ -59,16 +59,16 @@ router.post(
     const email = normalizeEmail(req.body?.email)
     const password = String(req.body?.password || '')
 
-    if (!name || name.length < 2) return res.status(400).json({ ok: false, message: 'Ten khong hop le' })
-    if (!isValidEmail(email)) return res.status(400).json({ ok: false, message: 'Email khong hop le' })
+    if (!name || name.length < 2) return res.status(400).json({ ok: false, message: 'Tên không hợp lệ' })
+    if (!isValidEmail(email)) return res.status(400).json({ ok: false, message: 'Email không hợp lệ' })
     if (!password || password.length < 6)
-      return res.status(400).json({ ok: false, message: 'Mat khau toi thieu 6 ky tu' })
+      return res.status(400).json({ ok: false, message: 'Mật khẩu tối thiểu 6 ký tự' })
 
     const rows = await query('SELECT * FROM users WHERE email = ? LIMIT 1', [email])
     const existing = toUser(rows[0])
 
     if (existing?.emailVerified) {
-      return res.status(409).json({ ok: false, message: 'Email da ton tai' })
+      return res.status(409).json({ ok: false, message: 'Email đã tồn tại' })
     }
 
     const passwordHash = await bcrypt.hash(password, 10)
@@ -102,12 +102,12 @@ router.post(
   '/resend-verification',
   asyncHandler(async (req, res) => {
     const email = normalizeEmail(req.body?.email)
-    if (!isValidEmail(email)) return res.status(400).json({ ok: false, message: 'Email khong hop le' })
+    if (!isValidEmail(email)) return res.status(400).json({ ok: false, message: 'Email không hợp lệ' })
 
     const rows = await query('SELECT * FROM users WHERE email = ? LIMIT 1', [email])
     const user = toUser(rows[0])
 
-    if (!user) return res.status(404).json({ ok: false, message: 'Khong tim thay tai khoan' })
+    if (!user) return res.status(404).json({ ok: false, message: 'Không tìm thấy tài khoản' })
     if (user.emailVerified) return res.json({ ok: true, alreadyVerified: true })
 
     const verification = await createVerificationCode()
@@ -129,30 +129,30 @@ router.post(
     const email = normalizeEmail(req.body?.email)
     const code = String(req.body?.code || '').trim()
 
-    if (!isValidEmail(email)) return res.status(400).json({ ok: false, message: 'Email khong hop le' })
-    if (!/^[0-9]{6}$/.test(code)) return res.status(400).json({ ok: false, message: 'Ma xac nhan khong hop le' })
+    if (!isValidEmail(email)) return res.status(400).json({ ok: false, message: 'Email không hợp lệ' })
+    if (!/^[0-9]{6}$/.test(code)) return res.status(400).json({ ok: false, message: 'Mã xác nhận không hợp lệ' })
 
     const rows = await query('SELECT * FROM users WHERE email = ? LIMIT 1', [email])
     const user = toUser(rows[0])
 
-    if (!user) return res.status(404).json({ ok: false, message: 'Khong tim thay tai khoan' })
-    if (!user.isActive) return res.status(403).json({ ok: false, message: 'Tai khoan da bi khoa' })
+    if (!user) return res.status(404).json({ ok: false, message: 'Không tìm thấy tài khoản' })
+    if (!user.isActive) return res.status(403).json({ ok: false, message: 'Tài khoản đã bị khóa' })
 
     if (user.emailVerified) {
       return res.json({ ok: true, token: signUserToken(user) })
     }
 
     if (!user.verificationCodeHash || !user.verificationExpiresAt) {
-      return res.status(400).json({ ok: false, message: 'Chua co ma xac nhan, vui long dang ky lai' })
+      return res.status(400).json({ ok: false, message: 'Chưa có mã xác nhận, vui lòng đăng ký lại' })
     }
 
     if (new Date(user.verificationExpiresAt).getTime() < Date.now()) {
-      return res.status(400).json({ ok: false, message: 'Ma da het han' })
+      return res.status(400).json({ ok: false, message: 'Mã đã hết hạn' })
     }
 
     const codeHash = hashOtp(code, process.env.OTP_SECRET)
     if (codeHash !== user.verificationCodeHash) {
-      return res.status(400).json({ ok: false, message: 'Ma xac nhan khong dung' })
+      return res.status(400).json({ ok: false, message: 'Mã xác nhận không đúng' })
     }
 
     await query(
@@ -172,22 +172,22 @@ router.post(
     const email = normalizeEmail(req.body?.email)
     const password = String(req.body?.password || '')
 
-    if (!isValidEmail(email)) return res.status(400).json({ ok: false, message: 'Email khong hop le' })
-    if (!password) return res.status(400).json({ ok: false, message: 'Thieu mat khau' })
+    if (!isValidEmail(email)) return res.status(400).json({ ok: false, message: 'Email không hợp lệ' })
+    if (!password) return res.status(400).json({ ok: false, message: 'Thiếu mật khẩu' })
 
     const rows = await query('SELECT * FROM users WHERE email = ? LIMIT 1', [email])
     const user = toUser(rows[0])
 
-    if (!user || !user.isActive) return res.status(401).json({ ok: false, message: 'Sai email hoac mat khau' })
+    if (!user || !user.isActive) return res.status(401).json({ ok: false, message: 'Sai email hoặc mật khẩu' })
     if (!user.passwordHash) {
-      return res.status(400).json({ ok: false, message: 'Tai khoan nay chi dang nhap bang Google' })
+      return res.status(400).json({ ok: false, message: 'Tài khoản này chỉ đăng nhập bằng Google' })
     }
 
     const passwordOk = await bcrypt.compare(password, user.passwordHash)
-    if (!passwordOk) return res.status(401).json({ ok: false, message: 'Sai email hoac mat khau' })
+    if (!passwordOk) return res.status(401).json({ ok: false, message: 'Sai email hoặc mật khẩu' })
 
     if (!user.emailVerified) {
-      return res.status(403).json({ ok: false, message: 'Vui long xac nhan email truoc khi dang nhap' })
+      return res.status(403).json({ ok: false, message: 'Vui lòng xác nhận email trước khi đăng nhập' })
     }
 
     return res.json({ ok: true, token: signUserToken(user) })
@@ -198,20 +198,30 @@ router.post(
   '/google',
   asyncHandler(async (req, res) => {
     const credential = String(req.body?.credential || '').trim()
-    if (!credential) return res.status(400).json({ ok: false, message: 'Thieu credential' })
+    if (!credential) return res.status(400).json({ ok: false, message: 'Thiếu credential' })
 
     const clientId = process.env.GOOGLE_CLIENT_ID
-    if (!clientId) return res.status(500).json({ ok: false, message: 'Server chua cau hinh GOOGLE_CLIENT_ID' })
+    if (!clientId) return res.status(500).json({ ok: false, message: 'Server chưa cấu hình GOOGLE_CLIENT_ID' })
 
     const client = new OAuth2Client(clientId)
-    const ticket = await client.verifyIdToken({
-      idToken: credential,
-      audience: clientId,
-    })
+    let ticket
+
+    try {
+      ticket = await client.verifyIdToken({
+        idToken: credential,
+        audience: clientId,
+      })
+    } catch {
+      return res.status(400).json({ ok: false, message: 'Google token không hợp lệ' })
+    }
 
     const payload = ticket.getPayload()
     if (!payload?.email || !payload?.sub) {
-      return res.status(400).json({ ok: false, message: 'Google token khong hop le' })
+      return res.status(400).json({ ok: false, message: 'Google token không hợp lệ' })
+    }
+
+    if (payload.email_verified === false) {
+      return res.status(400).json({ ok: false, message: 'Email Google chưa được xác minh' })
     }
 
     const email = normalizeEmail(payload.email)
@@ -219,6 +229,8 @@ router.post(
     let user = toUser(rows[0])
 
     if (user) {
+      if (!user.isActive) return res.status(403).json({ ok: false, message: 'Tài khoản đã bị khóa' })
+
       await query(
         `UPDATE users
          SET google_sub = COALESCE(google_sub, ?), avatar_url = COALESCE(avatar_url, ?),
@@ -242,6 +254,7 @@ router.post(
         id: result.insertId,
         name: payload.name || email,
         email,
+        avatarUrl: payload.picture || null,
         role: 'customer',
         emailVerified: true,
         isActive: true,

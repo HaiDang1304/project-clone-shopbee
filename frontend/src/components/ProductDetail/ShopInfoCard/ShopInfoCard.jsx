@@ -18,7 +18,7 @@ export default function ShopInfoCard({ shop }) {
         <div>
           <h3 className="font-title-md text-title-md">{shop.name}</h3>
           <p className="text-on-surface-variant font-label-md text-label-md flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full bg-tertiary" /> Dang hoat dong
+            <span className="w-2 h-2 rounded-full bg-tertiary" /> Đang hoạt động
           </p>
           <div className="flex gap-2 mt-2">
             <button
@@ -39,19 +39,19 @@ export default function ShopInfoCard({ shop }) {
 
       <div className="grid grid-cols-2 gap-x-8 gap-y-2 flex-1 border-l border-outline-variant pl-6">
         <div className="flex justify-between gap-4">
-          <span className="text-on-surface-variant font-label-md">Danh gia</span>
+          <span className="text-on-surface-variant font-label-md">Đánh giá</span>
           <span className="text-primary font-bold">{Number(shop.ratingAvg || 0).toFixed(1)}</span>
         </div>
         <div className="flex justify-between gap-4">
-          <span className="text-on-surface-variant font-label-md">Luot danh gia</span>
+          <span className="text-on-surface-variant font-label-md">Lượt đánh giá</span>
           <span className="text-primary font-bold">{formatCompact(shop.ratingCount)}</span>
         </div>
         <div className="flex justify-between gap-4">
-          <span className="text-on-surface-variant font-label-md">Theo doi</span>
+          <span className="text-on-surface-variant font-label-md">Theo dõi</span>
           <span className="text-primary font-bold">{formatCompact(shop.followerCount)}</span>
         </div>
         <div className="flex justify-between gap-4">
-          <span className="text-on-surface-variant font-label-md">Ma shop</span>
+          <span className="text-on-surface-variant font-label-md">Mã shop</span>
           <span className="text-primary font-bold">#{shop.id}</span>
         </div>
       </div>

@@ -147,5 +147,5 @@ export default function Footer() {
         <p>© 2026 ShopBee. Nền tảng thương mại điện tử hàng đầu.</p>
       </div>
     </footer>
-  );
+  )
 }

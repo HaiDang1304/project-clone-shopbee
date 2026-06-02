@@ -40,7 +40,7 @@ function Countdown({ products }) {
   }, [secondsLeft])
 
   return (
-    <div className="flex gap-1" aria-label="Dem nguoc flash sale">
+    <div className="flex gap-1" aria-label="Đếm ngược flash sale">
       <span className="bg-black/20 px-2 py-1 rounded font-bold">{pad2(h)}</span>
       <span>:</span>
       <span className="bg-black/20 px-2 py-1 rounded font-bold">{pad2(m)}</span>
@@ -89,7 +89,7 @@ function FlashSaleProductCard({ product }) {
           style={{ width: `${progress}%` }}
         />
         <span className="absolute inset-0 flex items-center justify-center text-[8px] font-bold text-on-primary">
-          Da ban {soldInEvent}
+          Đã bán {soldInEvent}
         </span>
       </div>
     </Link>
@@ -109,7 +109,7 @@ export default function FlashSaleSection() {
         const data = await apiGet('/api/products?flashSale=true&limit=12')
         if (!ignore) setProducts(data.data || [])
       } catch (err) {
-        if (!ignore) setError(err.message || 'Khong tai duoc flash sale')
+        if (!ignore) setError(err.message || 'Không tải được flash sale')
       } finally {
         if (!ignore) setLoading(false)
       }
@@ -141,12 +141,12 @@ export default function FlashSaleSection() {
               </h2>
             </div>
             <div className="hidden sm:flex items-center gap-2">
-              <span className="text-body-md opacity-80">Ket thuc sau:</span>
+              <span className="text-body-md opacity-80">Kết thúc sau:</span>
               <Countdown products={products} />
             </div>
           </div>
           <a className="text-white hover:underline font-label-md text-label-md" href="#flash-sale">
-            Xem tat ca
+            Xem tất cả
           </a>
         </div>
 

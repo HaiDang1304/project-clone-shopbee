@@ -6,15 +6,15 @@ import RegisterForm from './RegisterForm'
 import VerifyOtpForm from './VerifyOtpForm'
 
 function getTitle(mode) {
-  if (mode === 'register') return 'Dang ky'
-  if (mode === 'verify') return 'Nhap OTP'
-  return 'Dang nhap'
+  if (mode === 'register') return 'Đăng ký'
+  if (mode === 'verify') return 'Nhập OTP'
+  return 'Đăng nhập'
 }
 
 function getDescription(mode, verifyEmail) {
-  if (mode === 'register') return 'Tao tai khoan ShopBee moi'
-  if (mode === 'verify') return verifyEmail ? `Ma OTP da gui toi ${verifyEmail}` : 'Nhap ma OTP da gui toi Gmail'
-  return 'Dang nhap de tiep tuc mua sam'
+  if (mode === 'register') return 'Tạo tài khoản ShopBee mới'
+  if (mode === 'verify') return verifyEmail ? `Mã OTP đã gửi tới ${verifyEmail}` : 'Nhập mã OTP đã gửi tới Gmail'
+  return 'Đăng nhập để tiếp tục mua sắm'
 }
 
 export default function AuthModal({ open, initialMode = 'login', initialEmail = '', onClose }) {
@@ -65,7 +65,7 @@ export default function AuthModal({ open, initialMode = 'login', initialEmail = 
   function handleNeedsVerification({ email, devCode }) {
     setVerifyEmail(email)
     setMode('verify')
-    setMessage(devCode ? `Ma OTP dev: ${devCode}` : 'Da gui ma OTP toi Gmail cua ban.')
+    setMessage(devCode ? `Mã OTP dev: ${devCode}` : 'Đã gửi mã OTP tới Gmail của bạn.')
   }
 
   return (
@@ -73,7 +73,7 @@ export default function AuthModal({ open, initialMode = 'login', initialEmail = 
       <button
         className="absolute inset-0 bg-black/40"
         type="button"
-        aria-label="Dong modal"
+        aria-label="Đóng modal"
         onClick={onClose}
       />
 
@@ -90,7 +90,7 @@ export default function AuthModal({ open, initialMode = 'login', initialEmail = 
           <button
             className="rounded-full p-2 hover:bg-surface-container"
             type="button"
-            aria-label="Dong"
+            aria-label="Đóng"
             onClick={onClose}
           >
             <span className="material-symbols-outlined">close</span>
@@ -106,7 +106,7 @@ export default function AuthModal({ open, initialMode = 'login', initialEmail = 
               type="button"
               onClick={() => switchMode('login')}
             >
-              Dang nhap
+              Đăng nhập
             </button>
             <button
               className={`h-10 rounded-md text-label-lg font-label-lg ${
@@ -115,7 +115,7 @@ export default function AuthModal({ open, initialMode = 'login', initialEmail = 
               type="button"
               onClick={() => switchMode('register')}
             >
-              Dang ky
+              Đăng ký
             </button>
           </div>
         ) : null}

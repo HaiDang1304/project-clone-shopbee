@@ -18,7 +18,7 @@ export default function LoginForm({ loading, setError, setLoading, onAuthenticat
       onAuthenticated(data.token)
       setForm(initialLogin)
     } catch (err) {
-      setError(err.message || 'Dang nhap that bai')
+      setError(err.message || 'Đăng nhập thất bại')
     } finally {
       setLoading(false)
     }
@@ -35,7 +35,7 @@ export default function LoginForm({ loading, setError, setLoading, onAuthenticat
       onAuthenticated(data.token)
       setForm(initialLogin)
     } catch (err) {
-      setError(err.message || 'Dang nhap Google that bai')
+      setError(err.message || 'Đăng nhập Google thất bại')
     } finally {
       setLoading(false)
     }
@@ -46,13 +46,13 @@ export default function LoginForm({ loading, setError, setLoading, onAuthenticat
       <div className="mb-4">
         <GoogleLogin
           onSuccess={handleGoogleSuccess}
-          onError={() => setError('Khong the dang nhap Google')}
+          onError={() => setError('Không thể đăng nhập Google')}
         />
       </div>
 
       <div className="my-4 flex items-center gap-3">
         <div className="h-px flex-1 bg-surface-container" />
-        <span className="text-label-md text-on-surface-variant">hoac</span>
+        <span className="text-label-md text-on-surface-variant">hoặc</span>
         <div className="h-px flex-1 bg-surface-container" />
       </div>
 
@@ -68,7 +68,7 @@ export default function LoginForm({ loading, setError, setLoading, onAuthenticat
           />
         </div>
         <div className="space-y-2">
-          <label className="text-label-md text-on-surface-variant">Mat khau</label>
+          <label className="text-label-md text-on-surface-variant">Mật khẩu</label>
           <input
             className="h-11 w-full rounded-lg border border-outline-variant bg-surface-container-low px-4 text-body-md focus:border-primary focus:ring-0"
             type="password"
@@ -82,7 +82,7 @@ export default function LoginForm({ loading, setError, setLoading, onAuthenticat
           type="submit"
           disabled={loading}
         >
-          {loading ? 'Dang dang nhap...' : 'Dang nhap'}
+          {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
         </button>
       </form>
     </>
