@@ -12,6 +12,7 @@ const accountNavItems = [
   { to: '/account/bank-cards', icon: 'payments', label: 'Ngân hàng/Thẻ' },
   { to: '/account/addresses', icon: 'location_on', label: 'Địa chỉ' },
   { to: '/account/password', icon: 'lock', label: 'Đổi mật khẩu' },
+  { to: '/account/seller', icon: 'storefront', label: 'Kênh bán hàng' },
   { to: '/orders', icon: 'shopping_bag', label: 'Đơn mua', separated: true },
 ]
 
@@ -77,6 +78,10 @@ export default function AccountLayout({ children }) {
 
   if (!authUser) return null
 
+  const navItems = accountNavItems.map((item) =>
+    item.to === '/account/seller' && profile?.role === 'seller' ? { ...item, to: '/seller/dashboard' } : item,
+  )
+
   return (
     <>
       <Header />
@@ -104,7 +109,7 @@ export default function AccountLayout({ children }) {
             )}
 
             <nav className="rounded-lg bg-surface-container-lowest p-2 shadow-sm lg:bg-transparent lg:p-0 lg:shadow-none">
-              {accountNavItems.map((item) => (
+              {navItems.map((item) => (
                 <NavLink
                   key={item.to}
                   className={({ isActive }) =>

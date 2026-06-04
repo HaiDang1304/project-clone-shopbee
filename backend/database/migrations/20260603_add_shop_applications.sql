@@ -1,0 +1,31 @@
+USE shopbee_clone;
+
+CREATE TABLE IF NOT EXISTS shop_applications (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id BIGINT UNSIGNED NOT NULL,
+  shop_id BIGINT UNSIGNED NULL,
+  shop_name VARCHAR(160) NOT NULL,
+  shop_slug VARCHAR(180) NOT NULL,
+  contact_phone VARCHAR(30) NOT NULL,
+  contact_email VARCHAR(190) NULL,
+  description TEXT NULL,
+  address_line1 VARCHAR(255) NOT NULL,
+  ward VARCHAR(120) NULL,
+  district VARCHAR(120) NULL,
+  province VARCHAR(120) NOT NULL,
+  country VARCHAR(10) NOT NULL DEFAULT 'VN',
+  status ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending',
+  reject_reason TEXT NULL,
+  reviewed_by BIGINT UNSIGNED NULL,
+  reviewed_at DATETIME NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_shop_applications_user (user_id),
+  KEY idx_shop_applications_status (status, created_at),
+  KEY idx_shop_applications_shop (shop_id),
+  KEY idx_shop_applications_reviewer (reviewed_by),
+  CONSTRAINT fk_shop_applications_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT fk_shop_applications_shop FOREIGN KEY (shop_id) REFERENCES shops(id) ON DELETE SET NULL,
+  CONSTRAINT fk_shop_applications_reviewer FOREIGN KEY (reviewed_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

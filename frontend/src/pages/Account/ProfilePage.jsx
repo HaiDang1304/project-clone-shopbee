@@ -175,8 +175,8 @@ export default function ProfilePage() {
         ) : null}
 
         {!loading && missingFields.length ? (
-          <div className="mt-4 rounded-lg bg-surface-container px-4 py-3 text-body-sm text-on-surface-variant">
-            Cập nhật {missingFields.join(', ')} để hoàn thành hồ sơ.
+          <div className="mt-4 rounded-lg bg-surface-container px-4 py-3 text-body-sm text-red-500">
+            <p className="text-red-500">Cập nhật {missingFields.join(', ')} để hoàn thành hồ sơ.</p>
           </div>
         ) : null}
 

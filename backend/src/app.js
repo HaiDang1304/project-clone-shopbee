@@ -4,6 +4,7 @@ const path = require('path')
 
 const authRoutes = require('./routes/auth')
 const accountRoutes = require('./routes/account')
+const adminRoutes = require('./routes/admin')
 const cartRoutes = require('./routes/cart')
 const categoryRoutes = require('./routes/categories')
 const productRoutes = require('./routes/products')
@@ -34,6 +35,7 @@ function createApp() {
 
   app.use('/api/auth', authRoutes)
   app.use('/api/account', accountRoutes)
+  app.use('/api/admin', adminRoutes)
   app.use('/api/categories', categoryRoutes)
   app.use('/api/products', productRoutes)
   app.use('/api/cart', cartRoutes)

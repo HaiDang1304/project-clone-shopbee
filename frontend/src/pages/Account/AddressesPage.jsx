@@ -80,14 +80,23 @@ function toAddressForm(address) {
 
 function getProfileContactForm(profile) {
   return {
-    fullName: profile?.name || '',
-    phone: profile?.phone || '',
+    fullName: String(profile?.name || '').trim(),
+    phone: String(profile?.phone || '').trim(),
   }
+}
+
+function hasProfileContact(profile) {
+  const profileContact = getProfileContactForm(profile)
+  return Boolean(profileContact.fullName && profileContact.phone)
 }
 
 function addressUsesProfileContact(address, profile) {
   if (!address || !profile) return false
-  return address.fullName === (profile.name || '') && address.phone === (profile.phone || '')
+  const profileContact = getProfileContactForm(profile)
+  return (
+    String(address.fullName || '').trim() === profileContact.fullName &&
+    String(address.phone || '').trim() === profileContact.phone
+  )
 }
 
 export default function AddressesPage() {
@@ -101,7 +110,7 @@ export default function AddressesPage() {
   const [saving, setSaving] = useState(false)
   const [locating, setLocating] = useState(false)
   const [deletingId, setDeletingId] = useState(null)
-  const profileContactReady = Boolean(profile?.name && profile?.phone)
+  const profileContactReady = hasProfileContact(profile)
 
   useEffect(() => {
     let active = true
@@ -167,8 +176,6 @@ export default function AddressesPage() {
       setForm((current) => ({ ...current, ...profileContact }))
       return
     }
-
-    setForm((current) => ({ ...current, fullName: '', phone: '' }))
   }
 
   async function handleSubmit(event) {
@@ -354,42 +361,52 @@ export default function AddressesPage() {
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
               <div className="grid gap-3 sm:col-span-2">
                 <span className="text-body-sm text-on-surface-variant">Thông tin người nhận</span>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <label
-                    className={`flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border px-4 text-body-sm ${
+                <div className="grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="Thông tin người nhận">
+                  <button
+                    className={`flex min-h-11 items-center gap-3 rounded-lg border px-4 text-left text-body-sm transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
                       contactMode === 'profile'
                         ? 'border-primary bg-primary-fixed text-primary'
-                        : 'border-outline-variant text-on-surface'
+                        : 'border-outline-variant text-on-surface hover:border-primary hover:text-primary'
                     }`}
+                    type="button"
+                    role="radio"
+                    aria-checked={contactMode === 'profile'}
+                    onClick={() => handleContactModeChange('profile')}
+                    disabled={saving || !profileContactReady}
                   >
-                    <input
-                      className="text-primary focus:ring-primary"
-                      type="radio"
-                      name="addressContactMode"
-                      checked={contactMode === 'profile'}
-                      onChange={() => handleContactModeChange('profile')}
-                      disabled={saving || !profileContactReady}
-                    />
+                    <span
+                      className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
+                        contactMode === 'profile' ? 'border-primary' : 'border-outline'
+                      }`}
+                      aria-hidden="true"
+                    >
+                      {contactMode === 'profile' ? <span className="h-2 w-2 rounded-full bg-primary" /> : null}
+                    </span>
                     Dùng tên và SĐT trong hồ sơ
-                  </label>
+                  </button>
 
-                  <label
-                    className={`flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border px-4 text-body-sm ${
+                  <button
+                    className={`flex min-h-11 items-center gap-3 rounded-lg border px-4 text-left text-body-sm transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
                       contactMode === 'custom'
                         ? 'border-primary bg-primary-fixed text-primary'
-                        : 'border-outline-variant text-on-surface'
+                        : 'border-outline-variant text-on-surface hover:border-primary hover:text-primary'
                     }`}
+                    type="button"
+                    role="radio"
+                    aria-checked={contactMode === 'custom'}
+                    onClick={() => handleContactModeChange('custom')}
+                    disabled={saving}
                   >
-                    <input
-                      className="text-primary focus:ring-primary"
-                      type="radio"
-                      name="addressContactMode"
-                      checked={contactMode === 'custom'}
-                      onChange={() => handleContactModeChange('custom')}
-                      disabled={saving}
-                    />
+                    <span
+                      className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
+                        contactMode === 'custom' ? 'border-primary' : 'border-outline'
+                      }`}
+                      aria-hidden="true"
+                    >
+                      {contactMode === 'custom' ? <span className="h-2 w-2 rounded-full bg-primary" /> : null}
+                    </span>
                     Nhập tên và SĐT khác
-                  </label>
+                  </button>
                 </div>
               </div>
 

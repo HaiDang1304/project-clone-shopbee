@@ -11,7 +11,8 @@
     "db:seed": "mysql -u root -p shopbee_clone < database/seed.sql",
     "db:migrate:profile": "mysql -u root -p < database/migrations/20260602_add_user_profile_fields.sql",
     "db:migrate:address-location": "mysql -u root -p < database/migrations/20260602_add_user_address_location_fields.sql",
-    "db:migrate:address-simplify": "mysql -u root -p < database/migrations/20260602_make_user_address_district_optional.sql"
+    "db:migrate:address-simplify": "mysql -u root -p < database/migrations/20260602_make_user_address_district_optional.sql",
+    "db:migrate:shop-applications": "mysql -u root -p < database/migrations/20260603_add_shop_applications.sql"
   },
   "keywords": [],
   "author": "",
