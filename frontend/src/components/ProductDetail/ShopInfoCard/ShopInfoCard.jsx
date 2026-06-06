@@ -1,9 +1,11 @@
+import { apiAssetUrl } from '../../../lib/api'
 import { formatCompact } from '../../../lib/format'
 
 const fallbackAvatar = '/logo_shop.png'
 
 export default function ShopInfoCard({ shop }) {
   if (!shop) return null
+  const avatarSrc = apiAssetUrl(shop.avatarUrl) || fallbackAvatar
 
   return (
     <div className="bg-white p-6 rounded-xl shadow-[0px_4px_20px_rgba(0,0,0,0.05)] flex flex-wrap md:flex-nowrap items-center gap-6">
@@ -12,7 +14,7 @@ export default function ShopInfoCard({ shop }) {
           <img
             alt={shop.name}
             className="w-full h-full object-cover rounded-full"
-            src={shop.avatarUrl || fallbackAvatar}
+            src={avatarSrc}
           />
         </div>
         <div>

@@ -25,7 +25,11 @@ const emptyShopForm = {
   contactPhone: '',
   contactEmail: '',
   avatarUrl: '',
+  avatarDataUrl: '',
+  avatarFileName: '',
   coverUrl: '',
+  coverDataUrl: '',
+  coverFileName: '',
   description: '',
   addressLine1: '',
   ward: '',
@@ -34,15 +38,40 @@ const emptyShopForm = {
   country: 'VN',
 }
 
-const emptyProductForm = {
-  name: '',
-  categoryId: '',
-  description: '',
-  price: '',
-  originalPrice: '',
-  stock: '0',
-  thumbnailUrl: '',
-  isActive: true,
+const maxShopImageSize = 10 * 1024 * 1024
+const allowedShopImageTypes = new Set(['image/jpeg', 'image/png'])
+const emptySellerItems = []
+
+const maxProductImageSize = 10 * 1024 * 1024
+const allowedProductImageTypes = new Set(['image/jpeg', 'image/png'])
+
+function createEmptyProductForm() {
+  return {
+    name: '',
+    categoryId: '',
+    description: '',
+    price: '',
+    originalPrice: '',
+    stock: '0',
+    thumbnailUrl: '',
+    status: 'active',
+    isActive: true,
+    images: [],
+    productOptions: [],
+  }
+}
+
+const productStatusOptions = [
+  { value: 'draft', label: 'Nháp' },
+  { value: 'active', label: 'Đang bán' },
+  { value: 'hidden', label: 'Ẩn' },
+]
+
+const productStatusMeta = {
+  draft: { label: 'Nháp', className: 'bg-tertiary/10 text-tertiary' },
+  active: { label: 'Đang bán', className: 'bg-primary/10 text-primary' },
+  hidden: { label: 'Ẩn', className: 'bg-error-container text-on-error-container' },
+  outOfStock: { label: 'Hết hàng', className: 'bg-error-container text-on-error-container' },
 }
 
 const applicationStatuses = {
@@ -92,7 +121,11 @@ function toShopForm(profile, application, shop) {
     contactPhone: shop?.contactPhone || application?.contactPhone || profile?.phone || '',
     contactEmail: shop?.contactEmail || application?.contactEmail || profile?.email || '',
     avatarUrl: shop?.avatarUrl || '',
+    avatarDataUrl: '',
+    avatarFileName: '',
     coverUrl: shop?.coverUrl || '',
+    coverDataUrl: '',
+    coverFileName: '',
     description: shop?.description || application?.description || '',
     addressLine1: shop?.addressLine1 || application?.addressLine1 || '',
     ward: shop?.ward || application?.ward || '',
@@ -103,7 +136,21 @@ function toShopForm(profile, application, shop) {
 }
 
 function toProductForm(product) {
-  if (!product) return emptyProductForm
+  if (!product) return createEmptyProductForm()
+
+  const images = Array.isArray(product.images) && product.images.length
+    ? product.images.map((image, index) => {
+        const url = typeof image === 'string' ? image : image.url || image.imageUrl || ''
+        return {
+          id: `existing-${product.id}-${index}`,
+          name: `Ảnh ${index + 1}`,
+          url,
+          existing: true,
+        }
+      }).filter((image) => image.url)
+    : product.thumbnailUrl
+      ? [{ id: `existing-${product.id}-thumbnail`, name: 'Ảnh đại diện', url: product.thumbnailUrl, existing: true }]
+      : []
 
   return {
     name: product.name || '',
@@ -113,7 +160,16 @@ function toProductForm(product) {
     originalPrice: product.originalPrice === undefined || product.originalPrice === null ? '' : String(product.originalPrice),
     stock: product.stock === undefined ? '0' : String(product.stock),
     thumbnailUrl: product.thumbnailUrl || '',
+    status: product.status || (product.isActive ? 'active' : 'hidden'),
     isActive: Boolean(product.isActive),
+    images,
+    productOptions: Array.isArray(product.productOptions)
+      ? product.productOptions.map((option) => ({
+          name: option.name || '',
+          values: normalizeProductOptionValues(option.values),
+          draftValue: '',
+        }))
+      : [],
   }
 }
 
@@ -137,6 +193,30 @@ function formatCurrency(value) {
 
 function formatCount(value) {
   return new Intl.NumberFormat('vi-VN').format(Number(value || 0))
+}
+
+function getProductStatusMeta(product) {
+  if (Number(product.stock || 0) <= 0 && product.status === 'active') return productStatusMeta.outOfStock
+  return productStatusMeta[product.status || (product.isActive ? 'active' : 'hidden')] || productStatusMeta.hidden
+}
+
+function normalizeProductOptionValues(values) {
+  const source = Array.isArray(values) ? values : [values]
+  const seen = new Set()
+  const result = []
+
+  source
+    .flatMap((value) => String(value || '').split(/[,;\n]+/))
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .forEach((value) => {
+      const key = value.toLowerCase()
+      if (seen.has(key)) return
+      seen.add(key)
+      result.push(value)
+    })
+
+  return result
 }
 
 function StatusBadge({ status }) {
@@ -242,7 +322,9 @@ export default function SellerChannelPage({ standalone = false }) {
   const [sellerSaving, setSellerSaving] = useState(false)
   const [savingShopProfile, setSavingShopProfile] = useState(false)
   const [categories, setCategories] = useState([])
-  const [productForm, setProductForm] = useState(emptyProductForm)
+  const [productForm, setProductForm] = useState(() => createEmptyProductForm())
+  const [productErrors, setProductErrors] = useState({})
+  const [productModalOpen, setProductModalOpen] = useState(false)
   const [savingProduct, setSavingProduct] = useState(false)
   const [editingProductId, setEditingProductId] = useState(null)
   const [activeSellerTab, setActiveSellerTab] = useState('overview')
@@ -253,8 +335,8 @@ export default function SellerChannelPage({ standalone = false }) {
   const [adminReviewingId, setAdminReviewingId] = useState(null)
   const [rejectReasons, setRejectReasons] = useState({})
 
-  const products = sellerDashboard.products || []
-  const orders = sellerDashboard.orders || []
+  const products = sellerDashboard.products || emptySellerItems
+  const orders = sellerDashboard.orders || emptySellerItems
   const stats = sellerDashboard.stats || {}
   const shop = sellerDashboard.shop || sellerData.shop
   const application = sellerData.application
@@ -320,12 +402,214 @@ export default function SellerChannelPage({ standalone = false }) {
     }
   }, [standalone, loading, loadError, profile?.role, shop, navigate])
 
+  useEffect(() => {
+    if (!productModalOpen) return undefined
+
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [productModalOpen])
+
   function updateShopField(field, value) {
     setShopForm((current) => ({ ...current, [field]: value }))
   }
 
+  function handleShopImageChange(field, event) {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    if (!allowedShopImageTypes.has(file.type)) {
+      toast.error('Chỉ hỗ trợ ảnh JPEG hoặc PNG')
+      event.target.value = ''
+      return
+    }
+
+    if (file.size > maxShopImageSize) {
+      toast.error('Dung lượng ảnh tối đa 10MB')
+      event.target.value = ''
+      return
+    }
+
+    const fileNameField = field === 'avatarDataUrl' ? 'avatarFileName' : 'coverFileName'
+    const reader = new FileReader()
+    reader.onload = () => {
+      setShopForm((current) => ({
+        ...current,
+        [field]: String(reader.result || ''),
+        [fileNameField]: file.name,
+      }))
+    }
+    reader.onerror = () => toast.error('Không đọc được ảnh đã chọn')
+    reader.readAsDataURL(file)
+    event.target.value = ''
+  }
+
   function updateProductField(field, value) {
     setProductForm((current) => ({ ...current, [field]: value }))
+    setProductErrors((current) => {
+      if (!current[field]) return current
+      const next = { ...current }
+      delete next[field]
+      return next
+    })
+  }
+
+  function readImageFile(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(String(reader.result || ''))
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
+  }
+
+  async function handleProductImagesChange(event) {
+    const files = Array.from(event.target.files || [])
+    if (!files.length) return
+
+    const validFiles = []
+    for (const file of files) {
+      if (!allowedProductImageTypes.has(file.type)) {
+        toast.error(`Ảnh ${file.name} không đúng định dạng JPEG/PNG`)
+        continue
+      }
+
+      if (file.size > maxProductImageSize) {
+        toast.error(`Ảnh ${file.name} vượt quá 10MB`)
+        continue
+      }
+
+      validFiles.push(file)
+    }
+
+    try {
+      const nextImages = await Promise.all(
+        validFiles.map(async (file) => ({
+          id: `local-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+          name: file.name,
+          dataUrl: await readImageFile(file),
+          existing: false,
+        })),
+      )
+
+      if (nextImages.length) {
+        setProductForm((current) => ({
+          ...current,
+          images: [...current.images, ...nextImages],
+        }))
+      }
+    } catch {
+      toast.error('Không đọc được ảnh sản phẩm đã chọn')
+    } finally {
+      event.target.value = ''
+    }
+  }
+
+  function removeProductImage(imageId) {
+    setProductForm((current) => ({
+      ...current,
+      images: current.images.filter((image) => image.id !== imageId),
+    }))
+  }
+
+  function addProductOptionGroup() {
+    setProductForm((current) => ({
+      ...current,
+      productOptions: [...current.productOptions, { name: '', values: [], draftValue: '' }],
+    }))
+  }
+
+  function updateProductOptionGroup(index, field, value) {
+    setProductForm((current) => ({
+      ...current,
+      productOptions: current.productOptions.map((option, optionIndex) =>
+        optionIndex === index ? { ...option, [field]: value } : option,
+      ),
+    }))
+  }
+
+  function addProductOptionValue(index) {
+    setProductForm((current) => ({
+      ...current,
+      productOptions: current.productOptions.map((option, optionIndex) => {
+        if (optionIndex !== index) return option
+
+        const draftValue = String(option.draftValue || '').trim()
+        if (!draftValue) return option
+        return { ...option, values: normalizeProductOptionValues([...option.values, draftValue]), draftValue: '' }
+      }),
+    }))
+  }
+
+  function removeProductOptionValue(groupIndex, valueIndex) {
+    setProductForm((current) => ({
+      ...current,
+      productOptions: current.productOptions.map((option, optionIndex) =>
+        optionIndex === groupIndex
+          ? { ...option, values: option.values.filter((_, index) => index !== valueIndex) }
+          : option,
+      ),
+    }))
+  }
+
+  function removeProductOptionGroup(index) {
+    setProductForm((current) => ({
+      ...current,
+      productOptions: current.productOptions.filter((_, optionIndex) => optionIndex !== index),
+    }))
+  }
+
+  function normalizeProductOptions(options) {
+    return options
+      .map((option) => ({
+        name: String(option.name || '').trim(),
+        values: normalizeProductOptionValues(option.values),
+      }))
+      .filter((option) => option.name && option.values.length)
+  }
+
+  function validateProductForm(submitStatus) {
+    const errors = {}
+    const price = Number(productForm.price)
+    const stock = Number(productForm.stock)
+
+    if (!String(productForm.name || '').trim()) errors.name = 'Vui lòng nhập tên sản phẩm'
+    if (productForm.price === '' || !Number.isFinite(price) || price < 0) errors.price = 'Giá sản phẩm phải lớn hơn hoặc bằng 0'
+    if (productForm.stock === '' || !Number.isFinite(stock) || stock < 0) errors.stock = 'Số lượng tồn kho phải lớn hơn hoặc bằng 0'
+    if (submitStatus === 'active' && !productForm.categoryId) errors.categoryId = 'Vui lòng chọn danh mục khi đăng sản phẩm'
+
+    return errors
+  }
+
+  function buildProductPayload(submitStatus) {
+    const images = productForm.images || []
+    const existingImages = images.filter((image) => image.existing && image.url).map((image) => image.url)
+    const imageDataUrls = images.filter((image) => !image.existing && image.dataUrl).map((image) => image.dataUrl)
+    const thumbnailUrl = existingImages[0] || productForm.thumbnailUrl || ''
+
+    return {
+      name: productForm.name,
+      categoryId: productForm.categoryId,
+      description: productForm.description,
+      price: productForm.price,
+      originalPrice: productForm.originalPrice,
+      stock: productForm.stock,
+      thumbnailUrl,
+      status: submitStatus,
+      isActive: submitStatus === 'active',
+      images: existingImages,
+      imageDataUrls,
+      productOptions: normalizeProductOptions(productForm.productOptions),
+    }
+  }
+
+  function openCreateProductModal() {
+    setEditingProductId(null)
+    setProductForm(createEmptyProductForm())
+    setProductErrors({})
+    setProductModalOpen(true)
   }
 
   function applySellerDashboard(data) {
@@ -340,7 +624,9 @@ export default function SellerChannelPage({ standalone = false }) {
 
   function resetProductForm() {
     setEditingProductId(null)
-    setProductForm(emptyProductForm)
+    setProductForm(createEmptyProductForm())
+    setProductErrors({})
+    setProductModalOpen(false)
   }
 
   async function handleShopSubmit(event) {
@@ -366,7 +652,19 @@ export default function SellerChannelPage({ standalone = false }) {
     setSavingShopProfile(true)
 
     try {
-      const data = await updateSellerShop(shopForm)
+      const avatarDataUrl = shopForm.avatarDataUrl
+      const coverDataUrl = shopForm.coverDataUrl
+      const shopPayload = { ...shopForm }
+      delete shopPayload.avatarDataUrl
+      delete shopPayload.avatarFileName
+      delete shopPayload.coverDataUrl
+      delete shopPayload.coverFileName
+
+      const data = await updateSellerShop({
+        ...shopPayload,
+        ...(avatarDataUrl ? { avatarDataUrl } : {}),
+        ...(coverDataUrl ? { coverDataUrl } : {}),
+      })
       applySellerDashboard(data)
       setShopForm(toShopForm(profile, application, data.shop))
       toast.success('Đã cập nhật hồ sơ cửa hàng.')
@@ -377,19 +675,24 @@ export default function SellerChannelPage({ standalone = false }) {
     }
   }
 
-  async function handleProductSubmit(event) {
+  async function handleProductSubmit(event, submitStatus = productForm.status) {
     event.preventDefault()
+    const errors = validateProductForm(submitStatus)
+    setProductErrors(errors)
+    if (Object.keys(errors).length) return
+
     setSavingProduct(true)
 
     try {
+      const payload = buildProductPayload(submitStatus)
       if (editingProductId) {
-        const data = await updateSellerProduct(editingProductId, productForm)
+        const data = await updateSellerProduct(editingProductId, payload)
         applySellerDashboard(data)
         toast.success('Đã cập nhật sản phẩm.')
       } else {
-        await createSellerProduct(productForm)
+        await createSellerProduct(payload)
         await refreshSellerDashboard()
-        toast.success('Đã đăng sản phẩm mới.')
+        toast.success(submitStatus === 'draft' ? 'Đã lưu nháp sản phẩm.' : 'Đã đăng sản phẩm mới.')
       }
 
       resetProductForm()
@@ -404,6 +707,8 @@ export default function SellerChannelPage({ standalone = false }) {
   function handleEditProduct(product) {
     setEditingProductId(product.id)
     setProductForm(toProductForm(product))
+    setProductErrors({})
+    setProductModalOpen(true)
     setActiveSellerTab('products')
   }
 
@@ -547,6 +852,7 @@ export default function SellerChannelPage({ standalone = false }) {
                 shopForm={shopForm}
                 savingShopProfile={savingShopProfile}
                 updateShopField={updateShopField}
+                handleShopImageChange={handleShopImageChange}
                 handleShopProfileSubmit={handleShopProfileSubmit}
               />
             ) : null}
@@ -555,11 +861,21 @@ export default function SellerChannelPage({ standalone = false }) {
               <SellerProductsPanel
                 categories={categories}
                 productForm={productForm}
+                productErrors={productErrors}
+                productModalOpen={productModalOpen}
                 products={products}
                 savingProduct={savingProduct}
                 editingProductId={editingProductId}
                 workingProductId={workingProductId}
                 updateProductField={updateProductField}
+                openCreateProductModal={openCreateProductModal}
+                handleProductImagesChange={handleProductImagesChange}
+                removeProductImage={removeProductImage}
+                addProductOptionGroup={addProductOptionGroup}
+                updateProductOptionGroup={updateProductOptionGroup}
+                addProductOptionValue={addProductOptionValue}
+                removeProductOptionValue={removeProductOptionValue}
+                removeProductOptionGroup={removeProductOptionGroup}
                 handleProductSubmit={handleProductSubmit}
                 handleEditProduct={handleEditProduct}
                 handleToggleProduct={handleToggleProduct}
@@ -604,9 +920,9 @@ export default function SellerChannelPage({ standalone = false }) {
 
 function SellerCenterShell({ profile, shop, activeTab, onTabChange, children }) {
   return (
-    <main className="min-h-screen bg-surface-container-low font-['Be_Vietnam_Pro'] text-on-surface lg:h-screen lg:overflow-hidden">
-      <div className="grid min-h-screen grid-cols-1 lg:h-full lg:min-h-0 lg:grid-cols-[230px_minmax(0,1fr)]">
-        <aside className="hidden border-r border-outline-variant bg-surface-container-lowest lg:flex lg:h-screen lg:flex-col lg:overflow-hidden">
+    <main className="min-h-screen bg-surface-container-low font-['Be_Vietnam_Pro'] text-on-surface">
+      <div className="grid min-h-screen grid-cols-1 lg:grid-cols-[230px_minmax(0,1fr)]">
+        <aside className="hidden border-r border-outline-variant bg-surface-container-lowest lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col lg:overflow-hidden">
           <div className="flex h-16 items-center gap-2 border-b border-outline-variant px-4">
             <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-on-primary">
               <span className="material-symbols-outlined text-[21px]">storefront</span>
@@ -641,8 +957,8 @@ function SellerCenterShell({ profile, shop, activeTab, onTabChange, children }) 
           </div>
         </aside>
 
-        <section className="min-w-0 lg:flex lg:h-screen lg:min-h-0 lg:flex-col lg:overflow-hidden">
-          <header className="flex min-h-14 shrink-0 items-center justify-between gap-3 border-b border-outline-variant bg-surface-container-lowest px-4 md:px-6">
+        <section className="min-w-0 lg:flex lg:min-h-screen lg:flex-col">
+          <header className="sticky top-0 z-10 flex min-h-14 shrink-0 items-center justify-between gap-3 border-b border-outline-variant bg-surface-container-lowest px-4 md:px-6">
             <div>
               <p className="text-title-sm font-title-sm text-on-surface">Seller Center</p>
               <p className="text-body-sm text-on-surface-variant">{shop?.name || 'Quản lý kênh bán hàng'}</p>
@@ -670,7 +986,7 @@ function SellerCenterShell({ profile, shop, activeTab, onTabChange, children }) 
             ))}
           </nav>
 
-          <div id="top" className="min-h-0 flex-1 overflow-y-auto px-4 py-5 md:px-6">
+          <div id="top" className="px-4 py-5 md:px-6">
             <div className="mx-auto max-w-[1280px]">{children}</div>
           </div>
         </section>
@@ -819,9 +1135,9 @@ function SellerOverview({ stats, orders, products, revenueTrend }) {
   )
 }
 
-function SellerShopProfilePanel({ shopForm, savingShopProfile, updateShopField, handleShopProfileSubmit }) {
-  const avatarPreview = apiAssetUrl(shopForm.avatarUrl)
-  const coverPreview = apiAssetUrl(shopForm.coverUrl)
+function SellerShopProfilePanel({ shopForm, savingShopProfile, updateShopField, handleShopImageChange, handleShopProfileSubmit }) {
+  const avatarPreview = shopForm.avatarDataUrl || apiAssetUrl(shopForm.avatarUrl)
+  const coverPreview = shopForm.coverDataUrl || apiAssetUrl(shopForm.coverUrl)
 
   return (
     <form className="space-y-5 rounded-lg border border-outline-variant bg-surface-container-lowest px-4 py-4" onSubmit={handleShopProfileSubmit}>
@@ -937,25 +1253,41 @@ function SellerShopProfilePanel({ shopForm, savingShopProfile, updateShopField, 
           />
         </label>
 
-        <label className="grid gap-2">
-          <span className="text-body-sm text-on-surface-variant">Ảnh đại diện URL</span>
-          <input
-            className="h-10 rounded-lg border-outline-variant bg-surface-container-low text-body-sm focus:border-primary focus:ring-primary"
-            value={shopForm.avatarUrl}
-            onChange={(event) => updateShopField('avatarUrl', event.target.value)}
-            disabled={savingShopProfile}
-          />
-        </label>
+        <div className="grid gap-2">
+          <span className="text-body-sm text-on-surface-variant">Ảnh đại diện</span>
+          <label className="flex h-10 cursor-pointer items-center justify-center gap-2 rounded-lg border border-outline-variant bg-surface-container-low px-4 text-label-md font-label-md text-on-surface hover:border-primary hover:text-primary has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-60">
+            <span className="material-symbols-outlined text-[18px]">upload</span>
+            Chọn ảnh
+            <input
+              className="sr-only"
+              type="file"
+              accept="image/png,image/jpeg"
+              onChange={(event) => handleShopImageChange('avatarDataUrl', event)}
+              disabled={savingShopProfile}
+            />
+          </label>
+          <span className="truncate text-body-sm text-on-surface-variant">
+            {shopForm.avatarFileName || (shopForm.avatarUrl ? 'Đang dùng ảnh hiện tại' : 'Chưa chọn ảnh')}
+          </span>
+        </div>
 
-        <label className="grid gap-2">
-          <span className="text-body-sm text-on-surface-variant">Ảnh bìa URL</span>
-          <input
-            className="h-10 rounded-lg border-outline-variant bg-surface-container-low text-body-sm focus:border-primary focus:ring-primary"
-            value={shopForm.coverUrl}
-            onChange={(event) => updateShopField('coverUrl', event.target.value)}
-            disabled={savingShopProfile}
-          />
-        </label>
+        <div className="grid gap-2">
+          <span className="text-body-sm text-on-surface-variant">Ảnh bìa</span>
+          <label className="flex h-10 cursor-pointer items-center justify-center gap-2 rounded-lg border border-outline-variant bg-surface-container-low px-4 text-label-md font-label-md text-on-surface hover:border-primary hover:text-primary has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-60">
+            <span className="material-symbols-outlined text-[18px]">upload</span>
+            Chọn ảnh
+            <input
+              className="sr-only"
+              type="file"
+              accept="image/png,image/jpeg"
+              onChange={(event) => handleShopImageChange('coverDataUrl', event)}
+              disabled={savingShopProfile}
+            />
+          </label>
+          <span className="truncate text-body-sm text-on-surface-variant">
+            {shopForm.coverFileName || (shopForm.coverUrl ? 'Đang dùng ảnh hiện tại' : 'Chưa chọn ảnh')}
+          </span>
+        </div>
 
         <label className="grid gap-2 md:col-span-2">
           <span className="text-body-sm text-on-surface-variant">Mô tả cửa hàng</span>
@@ -974,11 +1306,21 @@ function SellerShopProfilePanel({ shopForm, savingShopProfile, updateShopField, 
 function SellerProductsPanel({
   categories,
   productForm,
+  productErrors,
+  productModalOpen,
   products,
   savingProduct,
   editingProductId,
   workingProductId,
   updateProductField,
+  openCreateProductModal,
+  handleProductImagesChange,
+  removeProductImage,
+  addProductOptionGroup,
+  updateProductOptionGroup,
+  addProductOptionValue,
+  removeProductOptionValue,
+  removeProductOptionGroup,
   handleProductSubmit,
   handleEditProduct,
   handleToggleProduct,
@@ -987,132 +1329,42 @@ function SellerProductsPanel({
 }) {
   return (
     <div className="space-y-5">
-      <form className="rounded-lg border border-outline-variant px-4 py-4" onSubmit={handleProductSubmit}>
+      <section className="rounded-lg border border-outline-variant bg-surface-container-lowest px-4 py-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-title-sm font-title-sm text-on-surface">
-            {editingProductId ? 'Chỉnh sửa sản phẩm' : 'Đăng sản phẩm mới'}
-          </h2>
-          {editingProductId ? (
-            <button className="text-label-md font-label-md text-on-surface-variant hover:text-primary" type="button" onClick={resetProductForm}>
-              Hủy chỉnh sửa
-            </button>
-          ) : null}
-        </div>
-
-        <div className="mt-4 grid gap-4 md:grid-cols-2">
-          <label className="grid gap-2">
-            <span className="text-body-sm text-on-surface-variant">Tên sản phẩm</span>
-            <input
-              className="h-10 rounded-lg border-outline-variant bg-surface-container-low text-body-sm focus:border-primary focus:ring-primary"
-              value={productForm.name}
-              onChange={(event) => updateProductField('name', event.target.value)}
-              disabled={savingProduct}
-              required
-            />
-          </label>
-
-          <label className="grid gap-2">
-            <span className="text-body-sm text-on-surface-variant">Danh mục</span>
-            <select
-              className="h-10 rounded-lg border-outline-variant bg-surface-container-low text-body-sm focus:border-primary focus:ring-primary"
-              value={productForm.categoryId}
-              onChange={(event) => updateProductField('categoryId', event.target.value)}
-              disabled={savingProduct}
-            >
-              <option value="">Chưa chọn</option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="grid gap-2">
-            <span className="text-body-sm text-on-surface-variant">Giá bán</span>
-            <input
-              className="h-10 rounded-lg border-outline-variant bg-surface-container-low text-body-sm focus:border-primary focus:ring-primary"
-              type="number"
-              min="0"
-              step="1000"
-              value={productForm.price}
-              onChange={(event) => updateProductField('price', event.target.value)}
-              disabled={savingProduct}
-              required
-            />
-          </label>
-
-          <label className="grid gap-2">
-            <span className="text-body-sm text-on-surface-variant">Giá gốc</span>
-            <input
-              className="h-10 rounded-lg border-outline-variant bg-surface-container-low text-body-sm focus:border-primary focus:ring-primary"
-              type="number"
-              min="0"
-              step="1000"
-              value={productForm.originalPrice}
-              onChange={(event) => updateProductField('originalPrice', event.target.value)}
-              disabled={savingProduct}
-            />
-          </label>
-
-          <label className="grid gap-2">
-            <span className="text-body-sm text-on-surface-variant">Tồn kho</span>
-            <input
-              className="h-10 rounded-lg border-outline-variant bg-surface-container-low text-body-sm focus:border-primary focus:ring-primary"
-              type="number"
-              min="0"
-              step="1"
-              value={productForm.stock}
-              onChange={(event) => updateProductField('stock', event.target.value)}
-              disabled={savingProduct}
-              required
-            />
-          </label>
-
-          <label className="grid gap-2">
-            <span className="text-body-sm text-on-surface-variant">Trạng thái</span>
-            <select
-              className="h-10 rounded-lg border-outline-variant bg-surface-container-low text-body-sm focus:border-primary focus:ring-primary"
-              value={productForm.isActive ? '1' : '0'}
-              onChange={(event) => updateProductField('isActive', event.target.value === '1')}
-              disabled={savingProduct}
-            >
-              <option value="1">Đang bán</option>
-              <option value="0">Đóng bán</option>
-            </select>
-          </label>
-
-          <label className="grid gap-2 md:col-span-2">
-            <span className="text-body-sm text-on-surface-variant">Ảnh đại diện URL</span>
-            <input
-              className="h-10 rounded-lg border-outline-variant bg-surface-container-low text-body-sm focus:border-primary focus:ring-primary"
-              value={productForm.thumbnailUrl}
-              onChange={(event) => updateProductField('thumbnailUrl', event.target.value)}
-              disabled={savingProduct}
-            />
-          </label>
-
-          <label className="grid gap-2 md:col-span-2">
-            <span className="text-body-sm text-on-surface-variant">Mô tả</span>
-            <textarea
-              className="min-h-24 rounded-lg border-outline-variant bg-surface-container-low text-body-sm focus:border-primary focus:ring-primary"
-              value={productForm.description}
-              onChange={(event) => updateProductField('description', event.target.value)}
-              disabled={savingProduct}
-            />
-          </label>
-        </div>
-
-        <div className="mt-4 flex justify-end">
+          <div>
+            <h2 className="text-title-sm font-title-sm text-on-surface">Quản lý sản phẩm</h2>
+            <p className="mt-1 text-body-sm text-on-surface-variant">Thêm sản phẩm bằng modal, danh sách bên dưới vẫn giữ nguyên thao tác hiện có.</p>
+          </div>
           <button
-            className="h-10 rounded-lg bg-primary px-5 text-label-md font-label-md text-on-primary hover:bg-primary/90 disabled:opacity-60"
-            type="submit"
-            disabled={savingProduct}
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-primary px-5 text-label-md font-label-md text-on-primary shadow-sm hover:bg-primary/90"
+            type="button"
+            onClick={openCreateProductModal}
           >
-            {savingProduct ? 'Đang lưu...' : editingProductId ? 'Lưu thay đổi' : 'Đăng sản phẩm'}
+            <span className="material-symbols-outlined text-[20px]">add</span>
+            + Đăng sản phẩm mới
           </button>
         </div>
-      </form>
+      </section>
+
+      {productModalOpen ? (
+        <ProductEditorModal
+          categories={categories}
+          editingProductId={editingProductId}
+          productErrors={productErrors}
+          productForm={productForm}
+          savingProduct={savingProduct}
+          updateProductField={updateProductField}
+          handleProductImagesChange={handleProductImagesChange}
+          removeProductImage={removeProductImage}
+          addProductOptionGroup={addProductOptionGroup}
+          updateProductOptionGroup={updateProductOptionGroup}
+          addProductOptionValue={addProductOptionValue}
+          removeProductOptionValue={removeProductOptionValue}
+          removeProductOptionGroup={removeProductOptionGroup}
+          handleProductSubmit={handleProductSubmit}
+          resetProductForm={resetProductForm}
+        />
+      ) : null}
 
       <div className="rounded-lg border border-outline-variant px-4 py-4">
         <h2 className="text-title-sm font-title-sm text-on-surface">Sản phẩm của cửa hàng</h2>
@@ -1132,6 +1384,7 @@ function SellerProductsPanel({
               {products.map((product) => {
                 const working = workingProductId === product.id
                 const outOfStock = Number(product.stock || 0) <= 0
+                const statusMeta = getProductStatusMeta(product)
 
                 return (
                   <tr key={product.id} className="border-t border-outline-variant text-body-sm">
@@ -1159,8 +1412,8 @@ function SellerProductsPanel({
                     <td className="px-3 py-3">{formatCount(product.stock)}</td>
                     <td className="px-3 py-3">{formatCount(product.soldCount)}</td>
                     <td className="px-3 py-3">
-                      <span className={`inline-flex rounded-md px-2 py-1 text-label-sm font-label-sm ${product.isActive ? 'bg-primary/10 text-primary' : 'bg-error-container text-on-error-container'}`}>
-                        {product.isActive ? 'Đang bán' : outOfStock ? 'Hết hàng' : 'Đóng bán'}
+                      <span className={`inline-flex rounded-md px-2 py-1 text-label-sm font-label-sm ${statusMeta.className}`}>
+                        {statusMeta.label}
                       </span>
                     </td>
                     <td className="px-3 py-3">
@@ -1199,6 +1452,294 @@ function SellerProductsPanel({
           </div>
         ) : null}
       </div>
+    </div>
+  )
+}
+
+function ProductEditorModal({
+  categories,
+  editingProductId,
+  productErrors,
+  productForm,
+  savingProduct,
+  updateProductField,
+  handleProductImagesChange,
+  removeProductImage,
+  addProductOptionGroup,
+  updateProductOptionGroup,
+  addProductOptionValue,
+  removeProductOptionValue,
+  removeProductOptionGroup,
+  handleProductSubmit,
+  resetProductForm,
+}) {
+  const primaryStatus = productForm.status === 'hidden' ? 'hidden' : 'active'
+  const primaryLabel = productForm.status === 'hidden' ? 'Lưu sản phẩm ẩn' : 'Đăng sản phẩm'
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-3 py-4">
+      <form
+        className="flex max-h-[calc(100vh-32px)] w-full max-w-5xl flex-col overflow-hidden rounded-lg bg-surface-container-lowest shadow-2xl"
+        onSubmit={(event) => handleProductSubmit(event, primaryStatus)}
+      >
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-outline-variant px-4 py-3 md:px-5">
+          <h2 className="text-title-sm font-title-sm text-on-surface">
+            {editingProductId ? 'Chỉnh sửa sản phẩm' : 'Đăng sản phẩm mới'}
+          </h2>
+          <button
+            className="flex h-9 w-9 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container hover:text-on-surface"
+            type="button"
+            onClick={resetProductForm}
+            aria-label="Đóng"
+          >
+            <span className="material-symbols-outlined text-[21px]">close</span>
+          </button>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 md:px-5">
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="grid gap-2">
+              <span className="text-body-sm text-on-surface-variant">Tên sản phẩm</span>
+              <input
+                className={`h-10 rounded-lg bg-surface-container-low text-body-sm focus:border-primary focus:ring-primary ${productErrors.name ? 'border-error' : 'border-outline-variant'}`}
+                value={productForm.name}
+                onChange={(event) => updateProductField('name', event.target.value)}
+                disabled={savingProduct}
+              />
+              {productErrors.name ? <span className="text-body-sm text-error">{productErrors.name}</span> : null}
+            </label>
+
+            <label className="grid gap-2">
+              <span className="text-body-sm text-on-surface-variant">Danh mục sản phẩm</span>
+              <select
+                className={`h-10 rounded-lg bg-surface-container-low text-body-sm focus:border-primary focus:ring-primary ${productErrors.categoryId ? 'border-error' : 'border-outline-variant'}`}
+                value={productForm.categoryId}
+                onChange={(event) => updateProductField('categoryId', event.target.value)}
+                disabled={savingProduct}
+              >
+                <option value="">Chưa chọn</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+              {productErrors.categoryId ? <span className="text-body-sm text-error">{productErrors.categoryId}</span> : null}
+            </label>
+
+            <label className="grid gap-2">
+              <span className="text-body-sm text-on-surface-variant">Giá sản phẩm</span>
+              <input
+                className={`h-10 rounded-lg bg-surface-container-low text-body-sm focus:border-primary focus:ring-primary ${productErrors.price ? 'border-error' : 'border-outline-variant'}`}
+                type="number"
+                min="0"
+                step="1000"
+                value={productForm.price}
+                onChange={(event) => updateProductField('price', event.target.value)}
+                disabled={savingProduct}
+              />
+              {productErrors.price ? <span className="text-body-sm text-error">{productErrors.price}</span> : null}
+            </label>
+
+            <label className="grid gap-2">
+              <span className="text-body-sm text-on-surface-variant">Số lượng tồn kho</span>
+              <input
+                className={`h-10 rounded-lg bg-surface-container-low text-body-sm focus:border-primary focus:ring-primary ${productErrors.stock ? 'border-error' : 'border-outline-variant'}`}
+                type="number"
+                min="0"
+                step="1"
+                value={productForm.stock}
+                onChange={(event) => updateProductField('stock', event.target.value)}
+                disabled={savingProduct}
+              />
+              {productErrors.stock ? <span className="text-body-sm text-error">{productErrors.stock}</span> : null}
+            </label>
+
+            <label className="grid gap-2 md:col-span-2">
+              <span className="text-body-sm text-on-surface-variant">Trạng thái sản phẩm</span>
+              <select
+                className="h-10 rounded-lg border-outline-variant bg-surface-container-low text-body-sm focus:border-primary focus:ring-primary"
+                value={productForm.status}
+                onChange={(event) => updateProductField('status', event.target.value)}
+                disabled={savingProduct}
+              >
+                {productStatusOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="grid gap-2 md:col-span-2">
+              <span className="text-body-sm text-on-surface-variant">Ảnh sản phẩm</span>
+              <input
+                className="block w-full rounded-lg border border-outline-variant bg-surface-container-low text-body-sm text-on-surface file:mr-4 file:h-10 file:border-0 file:bg-primary file:px-4 file:text-label-md file:font-label-md file:text-on-primary hover:file:bg-primary/90"
+                type="file"
+                accept="image/png,image/jpeg"
+                multiple
+                onChange={handleProductImagesChange}
+                disabled={savingProduct}
+              />
+            </label>
+
+            {productForm.images.length ? (
+              <div className="grid gap-3 sm:grid-cols-3 md:col-span-2 lg:grid-cols-4">
+                {productForm.images.map((image) => {
+                  const previewUrl = image.dataUrl || apiAssetUrl(image.url)
+                  return (
+                    <div key={image.id} className="relative overflow-hidden rounded-lg border border-outline-variant bg-surface-container-low">
+                      <img className="aspect-square w-full object-cover" src={previewUrl} alt={image.name || 'Ảnh sản phẩm'} />
+                      <button
+                        className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-surface-container-lowest/90 text-error shadow-sm hover:bg-error hover:text-on-error"
+                        type="button"
+                        onClick={() => removeProductImage(image.id)}
+                        disabled={savingProduct}
+                        aria-label="Xóa ảnh"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">close</span>
+                      </button>
+                      <p className="truncate px-2 py-2 text-body-sm text-on-surface-variant">{image.name}</p>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : null}
+
+            <label className="grid gap-2 md:col-span-2">
+              <span className="text-body-sm text-on-surface-variant">Mô tả sản phẩm</span>
+              <textarea
+                className="min-h-28 rounded-lg border-outline-variant bg-surface-container-low text-body-sm focus:border-primary focus:ring-primary"
+                value={productForm.description}
+                onChange={(event) => updateProductField('description', event.target.value)}
+                disabled={savingProduct}
+              />
+            </label>
+          </div>
+
+          <section className="mt-5 rounded-lg border border-outline-variant bg-surface-container-low px-4 py-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h3 className="text-title-sm font-title-sm text-on-surface">Danh mục và phân loại sản phẩm</h3>
+              <button
+                className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-outline-variant px-3 text-label-md font-label-md text-on-surface hover:border-primary hover:text-primary"
+                type="button"
+                onClick={addProductOptionGroup}
+                disabled={savingProduct}
+              >
+                <span className="material-symbols-outlined text-[18px]">add</span>
+                Thêm nhóm
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              {productForm.productOptions.map((option, groupIndex) => (
+                <div key={`option-${groupIndex}`} className="rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-3">
+                  <div className="flex flex-wrap items-start gap-3">
+                    <label className="grid min-w-[180px] flex-1 gap-2">
+                      <span className="text-body-sm text-on-surface-variant">Tên nhóm</span>
+                      <input
+                        className="h-10 rounded-lg border-outline-variant bg-surface-container-low text-body-sm focus:border-primary focus:ring-primary"
+                        value={option.name}
+                        onChange={(event) => updateProductOptionGroup(groupIndex, 'name', event.target.value)}
+                        placeholder="Size, Màu sắc, Dung lượng"
+                        disabled={savingProduct}
+                      />
+                    </label>
+
+                    <label className="grid min-w-[220px] flex-1 gap-2">
+                      <span className="text-body-sm text-on-surface-variant">Giá trị</span>
+                      <div className="flex gap-2">
+                        <input
+                          className="h-10 min-w-0 flex-1 rounded-lg border-outline-variant bg-surface-container-low text-body-sm focus:border-primary focus:ring-primary"
+                          value={option.draftValue || ''}
+                          onChange={(event) => updateProductOptionGroup(groupIndex, 'draftValue', event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter') {
+                              event.preventDefault()
+                              addProductOptionValue(groupIndex)
+                            }
+                          }}
+                          placeholder="S, M, L..."
+                          disabled={savingProduct}
+                        />
+                        <button
+                          className="h-10 rounded-lg bg-primary px-3 text-label-md font-label-md text-on-primary hover:bg-primary/90 disabled:opacity-60"
+                          type="button"
+                          onClick={() => addProductOptionValue(groupIndex)}
+                          disabled={savingProduct}
+                        >
+                          Thêm
+                        </button>
+                      </div>
+                    </label>
+
+                    <button
+                      className="mt-7 flex h-10 w-10 items-center justify-center rounded-lg border border-outline-variant text-error hover:border-error"
+                      type="button"
+                      onClick={() => removeProductOptionGroup(groupIndex)}
+                      disabled={savingProduct}
+                      aria-label="Xóa nhóm phân loại"
+                    >
+                      <span className="material-symbols-outlined text-[19px]">delete</span>
+                    </button>
+                  </div>
+
+                  {option.values.length ? (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {option.values.map((value, valueIndex) => (
+                        <span key={`${value}-${valueIndex}`} className="inline-flex min-h-8 items-center gap-1 rounded-full bg-primary/10 px-3 text-label-md font-label-md text-primary">
+                          {value}
+                          <button
+                            className="flex h-5 w-5 items-center justify-center rounded-full hover:bg-primary/10"
+                            type="button"
+                            onClick={() => removeProductOptionValue(groupIndex, valueIndex)}
+                            disabled={savingProduct}
+                            aria-label="Xóa giá trị"
+                          >
+                            <span className="material-symbols-outlined text-[15px]">close</span>
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              ))}
+
+              {!productForm.productOptions.length ? (
+                <div className="rounded-lg border border-dashed border-outline-variant px-4 py-5 text-center text-body-sm text-on-surface-variant">
+                  Chưa có phân loại sản phẩm.
+                </div>
+              ) : null}
+            </div>
+          </section>
+        </div>
+
+        <div className="flex shrink-0 flex-wrap justify-end gap-2 border-t border-outline-variant px-4 py-3 md:px-5">
+          <button
+            className="h-10 rounded-lg border border-outline-variant px-4 text-label-md font-label-md text-on-surface hover:border-primary hover:text-primary"
+            type="button"
+            onClick={resetProductForm}
+            disabled={savingProduct}
+          >
+            Hủy
+          </button>
+          <button
+            className="h-10 rounded-lg border border-outline-variant px-4 text-label-md font-label-md text-on-surface hover:border-primary hover:text-primary disabled:opacity-60"
+            type="button"
+            onClick={(event) => handleProductSubmit(event, 'draft')}
+            disabled={savingProduct}
+          >
+            {savingProduct ? 'Đang lưu...' : 'Lưu nháp'}
+          </button>
+          <button
+            className="h-10 rounded-lg bg-primary px-5 text-label-md font-label-md text-on-primary hover:bg-primary/90 disabled:opacity-60"
+            type="submit"
+            disabled={savingProduct}
+          >
+            {savingProduct ? 'Đang lưu...' : primaryLabel}
+          </button>
+        </div>
+      </form>
     </div>
   )
 }

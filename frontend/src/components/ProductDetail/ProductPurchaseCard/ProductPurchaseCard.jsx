@@ -1,7 +1,12 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { toast } from 'react-toastify'
 
-import { apiPost } from '../../../lib/api'
+import { useCart } from '../../../context/useCart'
+import { getAuthUser } from '../../../lib/auth'
 import { formatCompact, formatCurrency } from '../../../lib/format'
+
+const CHECKOUT_STORAGE_KEY = 'shopbee_checkout'
 
 function Stars({ value = 0 }) {
   const rating = Number(value || 0)
@@ -43,51 +48,231 @@ function variantLabel(variant) {
   return variant.name || values.join(' / ') || variant.sku || `Variant ${variant.id}`
 }
 
+function normalizeOptionValues(values) {
+  const source = Array.isArray(values) ? values : [values]
+  const seen = new Set()
+  const result = []
+
+  source
+    .flatMap((value) => String(value || '').split(/[,;\n]+/))
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .forEach((value) => {
+      const key = value.toLowerCase()
+      if (seen.has(key)) return
+      seen.add(key)
+      result.push(value)
+    })
+
+  return result
+}
+
+function normalizeProductOptions(options) {
+  if (!Array.isArray(options)) return []
+
+  return options
+    .map((option) => ({
+      name: String(option?.name || '').trim(),
+      values: normalizeOptionValues(option?.values),
+    }))
+    .filter((option) => option.name && option.values.length)
+}
+
+function normalizeSelectedOptions(options) {
+  if (!options || typeof options !== 'object') return {}
+
+  return Object.entries(options)
+    .map(([name, value]) => [String(name || '').trim(), String(value || '').trim()])
+    .filter(([name, value]) => name && value)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .reduce((result, [name, value]) => {
+      result[name] = value
+      return result
+    }, {})
+}
+
+function valuesMatch(left, right) {
+  return String(left || '').trim().toLowerCase() === String(right || '').trim().toLowerCase()
+}
+
+function findVariantByOptions(variants, selectedOptions) {
+  const selectedValues = Object.values(normalizeSelectedOptions(selectedOptions))
+  if (!selectedValues.length) return null
+
+  return variants.find((variant) => {
+    const attrs = Object.values(parseAttributes(variant.attributes)).map((value) => String(value || '').trim())
+    return selectedValues.every((selectedValue) => attrs.some((attrValue) => valuesMatch(attrValue, selectedValue)))
+  }) || null
+}
+
+function firstProductImage(product, selectedVariant) {
+  return (
+    selectedVariant?.imageUrl ||
+    product?.images?.[0]?.imageUrl ||
+    product?.thumbnailUrl ||
+    product?.imageUrl ||
+    ''
+  )
+}
+
 export default function ProductPurchaseCard({ product }) {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { addToCart } = useCart()
   const variants = useMemo(() => product?.variants || [], [product])
-  const [selectedVariantId, setSelectedVariantId] = useState(variants[0]?.id || null)
+  const productOptions = useMemo(() => normalizeProductOptions(product?.productOptions), [product])
+  const [selectedVariantId, setSelectedVariantId] = useState(null)
+  const [selectedOptions, setSelectedOptions] = useState({})
   const [qty, setQty] = useState(1)
   const [message, setMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [buyingNow, setBuyingNow] = useState(false)
 
-  useEffect(() => {
-    setSelectedVariantId(variants[0]?.id || null)
-    setQty(1)
-    setMessage('')
-  }, [variants])
-
-  const selectedVariant = variants.find((variant) => variant.id === selectedVariantId)
+  const explicitVariant = variants.find((variant) => variant.id === selectedVariantId) || null
+  const optionMatchedVariant = productOptions.length ? findVariantByOptions(variants, selectedOptions) : null
+  const selectedVariant = explicitVariant || optionMatchedVariant
   const price = selectedVariant?.price ?? product?.price
   const originalPrice = selectedVariant?.originalPrice ?? product?.originalPrice
-  const stock = selectedVariant?.stock ?? product?.stock ?? 0
+  const stock = Number(selectedVariant?.stock ?? product?.stock ?? 0)
   const hasDiscount = originalPrice && Number(originalPrice) > Number(price)
   const discount = hasDiscount ? Math.round(((Number(originalPrice) - Number(price)) / Number(originalPrice)) * 100) : 0
 
   const updateQty = (delta) => {
+    setMessage('')
     setQty((prev) => {
-      const next = prev + delta
+      const next = Number(prev || 1) + delta
       if (next < 1) return 1
-      if (stock && next > stock) return stock
+      if (stock && next > stock) {
+        setMessage('Số lượng vượt quá tồn kho')
+        return stock
+      }
       return next
     })
   }
 
-  async function addToCart() {
+  function handleQtyChange(value) {
     setMessage('')
+    const next = Number.parseInt(value, 10)
+    if (!Number.isSafeInteger(next) || next < 1) {
+      setQty(1)
+      return
+    }
+
+    if (stock && next > stock) {
+      setQty(stock)
+      setMessage('Số lượng vượt quá tồn kho')
+      return
+    }
+
+    setQty(next)
+  }
+
+  function selectOption(groupName, value) {
+    setMessage('')
+    setSelectedOptions((current) => ({ ...current, [groupName]: value }))
+  }
+
+  function requireLogin() {
+    if (getAuthUser()) return false
+
+    toast.info('Vui lòng đăng nhập để tiếp tục')
+    const redirect = encodeURIComponent(`${location.pathname}${location.search}`)
+    navigate(`/login?redirect=${redirect}`)
+    return true
+  }
+
+  function validatePurchase() {
+    if (!product?.id) return 'Sản phẩm không tồn tại'
+
+    const missingProductOptions = productOptions.some((option) => !selectedOptions[option.name])
+    const missingVariant = variants.length > 0 && productOptions.length === 0 && !selectedVariant
+    if (missingProductOptions || missingVariant) return 'Vui lòng chọn đầy đủ phân loại sản phẩm'
+
+    if (variants.length > 0 && productOptions.length > 0 && !selectedVariant) {
+      return 'Phân loại đã chọn hiện chưa có hàng'
+    }
+
+    if (!Number.isSafeInteger(Number(qty)) || Number(qty) < 1) return 'Số lượng không hợp lệ'
+    if (Number(qty) > stock) return 'Số lượng vượt quá tồn kho'
+    if (stock <= 0) return 'Sản phẩm đã hết hàng'
+
+    return ''
+  }
+
+  function selectedOptionsPayload() {
+    if (productOptions.length) return normalizeSelectedOptions(selectedOptions)
+    if (selectedVariant) return normalizeSelectedOptions(parseAttributes(selectedVariant.attributes))
+    return {}
+  }
+
+  function makeCheckoutItem() {
+    return {
+      productId: product.id,
+      variantId: selectedVariant?.id || null,
+      name: product.name,
+      slug: product.slug,
+      imageUrl: firstProductImage(product, selectedVariant),
+      unitPrice: Number(price || 0),
+      quantity: Number(qty),
+      selectedOptions: selectedOptionsPayload(),
+      stock,
+      shop: product.shop || null,
+      category: product.category || null,
+    }
+  }
+
+  async function handleAddToCart() {
+    setMessage('')
+    if (requireLogin()) return
+
+    const validationMessage = validatePurchase()
+    if (validationMessage) {
+      setMessage(validationMessage)
+      toast.error(validationMessage)
+      return
+    }
+
     setSubmitting(true)
 
     try {
-      await apiPost('/api/cart/items', {
+      await addToCart({
         productId: product.id,
         variantId: selectedVariant?.id || null,
-        quantity: qty,
+        quantity: Number(qty),
+        selectedOptions: selectedOptionsPayload(),
       })
-      setMessage('Đã thêm vào giỏ hàng')
+      setMessage('Đã thêm sản phẩm vào giỏ hàng')
+      toast.success('Đã thêm sản phẩm vào giỏ hàng')
     } catch (err) {
-      setMessage(err.message || 'Không thêm được vào giỏ hàng')
+      const errorMessage = err.message || 'Không thêm được vào giỏ hàng'
+      setMessage(errorMessage)
+      toast.error(errorMessage)
     } finally {
       setSubmitting(false)
     }
+  }
+
+  function handleBuyNow() {
+    setMessage('')
+    if (requireLogin()) return
+
+    const validationMessage = validatePurchase()
+    if (validationMessage) {
+      setMessage(validationMessage)
+      toast.error(validationMessage)
+      return
+    }
+
+    setBuyingNow(true)
+    sessionStorage.setItem(
+      CHECKOUT_STORAGE_KEY,
+      JSON.stringify({
+        source: 'buyNow',
+        items: [makeCheckoutItem()],
+        createdAt: Date.now(),
+      }),
+    )
+    navigate('/checkout')
   }
 
   return (
@@ -144,7 +329,51 @@ export default function ProductPurchaseCard({ product }) {
           </div>
         </div>
 
-        {variants.length ? (
+        {product.category ? (
+          <div className="grid grid-cols-1 md:grid-cols-[100px_1fr] items-center">
+            <span className="text-on-surface-variant font-label-md text-label-md uppercase">
+              Danh mục
+            </span>
+            <div className="flex flex-wrap gap-2">
+              <span className="rounded-lg bg-surface-container-low px-3 py-2 text-body-md text-on-surface">
+                {product.category.name}
+              </span>
+            </div>
+          </div>
+        ) : null}
+
+        {productOptions.length ? (
+          <div className="space-y-4">
+            {productOptions.map((option) => (
+              <div key={option.name} className="grid grid-cols-1 md:grid-cols-[100px_1fr] items-start">
+                <span className="mt-2 text-on-surface-variant font-label-md text-label-md uppercase">
+                  {option.name}
+                </span>
+                <div className="flex flex-wrap gap-3">
+                  {option.values.map((value) => {
+                    const selected = selectedOptions[option.name] === value
+                    return (
+                      <button
+                        key={`${option.name}-${value}`}
+                        className={
+                          selected
+                            ? 'px-4 py-2 border-2 border-primary rounded-lg font-body-md bg-primary/5'
+                            : 'px-4 py-2 border border-outline-variant rounded-lg font-body-md hover:border-primary transition-all'
+                        }
+                        type="button"
+                        onClick={() => selectOption(option.name, value)}
+                      >
+                        {value}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        {variants.length && !productOptions.length ? (
           <div className="grid grid-cols-1 md:grid-cols-[100px_1fr] items-start">
             <span className="text-on-surface-variant font-label-md text-label-md uppercase mt-2">
               Phiên bản
@@ -161,7 +390,10 @@ export default function ProductPurchaseCard({ product }) {
                         : 'px-4 py-2 border border-outline-variant rounded-lg font-body-md hover:border-primary transition-all'
                     }
                     type="button"
-                    onClick={() => setSelectedVariantId(variant.id)}
+                    onClick={() => {
+                      setMessage('')
+                      setSelectedVariantId(variant.id)
+                    }}
                   >
                     {variantLabel(variant)}
                   </button>
@@ -175,12 +407,13 @@ export default function ProductPurchaseCard({ product }) {
           <span className="text-on-surface-variant font-label-md text-label-md uppercase">
             Số lượng
           </span>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-4">
             <div className="flex items-center border border-outline-variant rounded-lg overflow-hidden">
               <button
-                className="w-10 h-10 flex items-center justify-center hover:bg-surface-container transition-all"
+                className="w-10 h-10 flex items-center justify-center hover:bg-surface-container transition-all disabled:opacity-50"
                 type="button"
                 onClick={() => updateQty(-1)}
+                disabled={qty <= 1 || submitting || buyingNow}
                 aria-label="Giảm số lượng"
               >
                 <span className="material-symbols-outlined text-[18px]">
@@ -188,16 +421,19 @@ export default function ProductPurchaseCard({ product }) {
                 </span>
               </button>
               <input
-                className="w-12 h-10 border-none text-center font-body-md focus:ring-0"
-                type="text"
+                className="w-14 h-10 border-none text-center font-body-md focus:ring-0"
+                type="number"
+                min="1"
+                max={stock || undefined}
                 value={qty}
-                readOnly
+                onChange={(event) => handleQtyChange(event.target.value)}
                 aria-label="Số lượng"
               />
               <button
-                className="w-10 h-10 flex items-center justify-center hover:bg-surface-container transition-all"
+                className="w-10 h-10 flex items-center justify-center hover:bg-surface-container transition-all disabled:opacity-50"
                 type="button"
                 onClick={() => updateQty(1)}
+                disabled={stock <= 0 || qty >= stock || submitting || buyingNow}
                 aria-label="Tăng số lượng"
               >
                 <span className="material-symbols-outlined text-[18px]">add</span>
@@ -219,8 +455,8 @@ export default function ProductPurchaseCard({ product }) {
           <button
             className="flex-1 h-12 border-2 border-primary-container text-primary-container rounded-lg font-title-md flex items-center justify-center gap-2 hover:bg-primary-container/5 transition-all disabled:opacity-60"
             type="button"
-            onClick={addToCart}
-            disabled={submitting || !stock}
+            onClick={handleAddToCart}
+            disabled={submitting || buyingNow || !stock}
           >
             <span className="material-symbols-outlined">add_shopping_cart</span>
             {submitting ? 'Đang thêm...' : 'Thêm vào giỏ hàng'}
@@ -228,9 +464,10 @@ export default function ProductPurchaseCard({ product }) {
           <button
             className="flex-1 h-12 bg-primary-container text-white rounded-lg font-title-md flex items-center justify-center gap-2 hover:opacity-90 transition-all shadow-lg shadow-primary/20 disabled:opacity-60"
             type="button"
-            disabled={!stock}
+            onClick={handleBuyNow}
+            disabled={submitting || buyingNow || !stock}
           >
-            Mua ngay
+            {buyingNow ? 'Đang xử lý...' : 'Mua ngay'}
           </button>
         </div>
       </div>

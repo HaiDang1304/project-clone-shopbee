@@ -5,6 +5,48 @@ const { asyncHandler } = require('../middleware/error')
 
 const router = express.Router()
 
+function safeParseJson(value, fallback) {
+  if (!value) return fallback
+  if (typeof value !== 'string') return value
+
+  try {
+    return JSON.parse(value)
+  } catch {
+    return fallback
+  }
+}
+
+function normalizeProductOptionValues(values) {
+  const source = Array.isArray(values) ? values : [values]
+  const seen = new Set()
+  const result = []
+
+  source
+    .flatMap((value) => String(value || '').split(/[,;\n]+/))
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .forEach((value) => {
+      const key = value.toLowerCase()
+      if (seen.has(key)) return
+      seen.add(key)
+      result.push(value)
+    })
+
+  return result
+}
+
+function normalizeProductOptions(value) {
+  const options = Array.isArray(value) ? value : safeParseJson(value, [])
+  if (!Array.isArray(options)) return []
+
+  return options
+    .map((option) => ({
+      name: String(option?.name || '').trim(),
+      values: normalizeProductOptionValues(option?.values),
+    }))
+    .filter((option) => option.name && option.values.length)
+}
+
 function mapProduct(row) {
   return {
     id: row.id,
@@ -16,6 +58,8 @@ function mapProduct(row) {
     stock: row.stock,
     thumbnailUrl: row.thumbnail_url || row.image_url || null,
     imageUrl: row.image_url || row.thumbnail_url || null,
+    status: row.status || (Number(row.is_active) === 1 ? 'active' : 'hidden'),
+    productOptions: normalizeProductOptions(row.product_options),
     ratingAvg: Number(row.rating_avg || 0),
     ratingCount: row.rating_count,
     soldCount: row.sold_count,

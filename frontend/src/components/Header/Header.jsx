@@ -1,8 +1,12 @@
 import { Link } from 'react-router-dom'
 
 import AccountButton from '../Auth/AccountButton'
+import { useCart } from '../../context/useCart'
 
 export default function Header() {
+  const { cartCount } = useCart()
+  const displayCount = cartCount > 99 ? '99+' : cartCount
+
   return (
     <header className="fixed top-0 left-0 w-full z-50 bg-surface shadow-[0px_4px_20px_rgba(0,0,0,0.05)] h-16 flex items-center">
       <div className="flex justify-between items-center w-full px-margin-desktop max-w-container-max mx-auto h-16">
@@ -56,16 +60,18 @@ export default function Header() {
             <span className="material-symbols-outlined">notifications</span>
             <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full" />
           </button>
-          <button
+          <Link
+            to="/cart"
             className="p-2 hover:bg-surface-container rounded-full relative"
-            type="button"
             aria-label="Giỏ hàng"
           >
             <span className="material-symbols-outlined">shopping_cart</span>
-            <span className="absolute -top-1 -right-1 bg-primary text-white text-[10px] w-4 h-4 flex items-center justify-center rounded-full">
-              3
-            </span>
-          </button>
+            {cartCount > 0 ? (
+              <span className="absolute -top-1 -right-1 flex min-w-4 h-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] text-white">
+                {displayCount}
+              </span>
+            ) : null}
+          </Link>
           <AccountButton buttonClassName="hover:bg-surface-container rounded-full" showName />
         </div>
       </div>

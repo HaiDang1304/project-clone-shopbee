@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 
 import AccountLayout from './AccountLayout'
 import { getAccountOrders } from '../../lib/account'
+import { apiAssetUrl } from '../../lib/api'
 import { formatCurrency } from '../../lib/format'
 
 const orderTabs = [
@@ -21,6 +22,12 @@ const statusLabels = {
   delivered: 'Hoàn thành',
   cancelled: 'Đã hủy',
   refunded: 'Đã hoàn tiền',
+}
+
+function optionText(options) {
+  const entries = Object.entries(options || {})
+  if (!entries.length) return ''
+  return entries.map(([name, value]) => `${name}: ${value}`).join(' / ')
 }
 
 export default function OrdersPage() {
@@ -119,7 +126,7 @@ export default function OrdersPage() {
               {order.items.map((item) => (
                 <div key={item.id} className="flex gap-4 border-b border-outline-variant px-4 py-4 last:border-b-0">
                   {item.imageUrl ? (
-                    <img className="h-20 w-20 shrink-0 rounded-lg object-cover" src={item.imageUrl} alt={item.name} />
+                    <img className="h-20 w-20 shrink-0 rounded-lg object-cover" src={apiAssetUrl(item.imageUrl)} alt={item.name} />
                   ) : (
                     <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg bg-surface-container text-primary">
                       <span className="material-symbols-outlined text-[32px]">inventory_2</span>
@@ -132,6 +139,9 @@ export default function OrdersPage() {
                     ) : null}
                     {item.variantSku ? (
                       <p className="mt-1 text-body-sm text-on-surface-variant">SKU: {item.variantSku}</p>
+                    ) : null}
+                    {optionText(item.selectedOptions) ? (
+                      <p className="mt-1 text-body-sm text-on-surface-variant">Phân loại: {optionText(item.selectedOptions)}</p>
                     ) : null}
                     <p className="mt-1 text-body-sm text-on-surface-variant">x{item.quantity}</p>
                   </div>

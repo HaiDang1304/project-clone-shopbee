@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 
-import { apiGet } from '../../lib/api'
+import { apiAssetUrl, apiGet } from '../../lib/api'
 import { formatCompact, formatCurrency, productPath } from '../../lib/format'
 
 const fallbackImage = '/logo_shop.png'
@@ -21,7 +21,7 @@ function Rating({ value }) {
 }
 
 function RecommendationCard({ product }) {
-  const imageSrc = product.thumbnailUrl || product.imageUrl || fallbackImage
+  const imageSrc = apiAssetUrl(product.thumbnailUrl || product.imageUrl) || fallbackImage
   const hasDiscount = product.originalPrice && Number(product.originalPrice) > Number(product.price)
   const discount = hasDiscount
     ? Math.round(((Number(product.originalPrice) - Number(product.price)) / Number(product.originalPrice)) * 100)

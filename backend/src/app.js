@@ -7,6 +7,7 @@ const accountRoutes = require('./routes/account')
 const adminRoutes = require('./routes/admin')
 const cartRoutes = require('./routes/cart')
 const categoryRoutes = require('./routes/categories')
+const orderRoutes = require('./routes/orders')
 const productRoutes = require('./routes/products')
 const { errorHandler, notFoundHandler } = require('./middleware/error')
 
@@ -26,7 +27,7 @@ function createApp() {
       credentials: corsOrigin !== '*',
     }),
   )
-  app.use(express.json({ limit: '16mb' }))
+  app.use(express.json({ limit: '64mb' }))
   app.use('/uploads', express.static(path.join(__dirname, '..', 'public', 'uploads')))
 
   app.get('/api/health', (req, res) => {
@@ -39,6 +40,7 @@ function createApp() {
   app.use('/api/categories', categoryRoutes)
   app.use('/api/products', productRoutes)
   app.use('/api/cart', cartRoutes)
+  app.use('/api/orders', orderRoutes)
 
   app.use(notFoundHandler)
   app.use(errorHandler)

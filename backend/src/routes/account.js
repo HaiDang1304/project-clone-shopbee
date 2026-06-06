@@ -12,8 +12,13 @@ const { signUserToken } = require('../utils/jwt')
 const router = express.Router()
 const avatarUploadDir = path.join(__dirname, '..', '..', 'public', 'uploads', 'avatars')
 const avatarPublicPath = '/uploads/avatars'
+const shopUploadDir = path.join(__dirname, '..', '..', 'public', 'uploads', 'shops')
+const shopPublicPath = '/uploads/shops'
+const productUploadDir = path.join(__dirname, '..', '..', 'public', 'uploads', 'products')
+const productPublicPath = '/uploads/products'
 const maxAvatarSize = 10 * 1024 * 1024
 const allowedGenders = new Set(['male', 'female', 'other'])
+const allowedProductStatuses = new Set(['draft', 'active', 'hidden'])
 
 function slugify(value) {
   const slug = String(value || '')
@@ -76,6 +81,113 @@ async function saveAvatarDataUrl(userId, dataUrl) {
   await fs.writeFile(filePath, buffer)
 
   return `${avatarPublicPath}/${fileName}`
+}
+
+async function saveShopImageDataUrl(shopId, type, dataUrl) {
+  const match = String(dataUrl || '').match(/^data:image\/(png|jpe?g);base64,([A-Za-z0-9+/=]+)$/)
+  if (!match) {
+    const err = new Error('Ảnh cửa hàng không hợp lệ')
+    err.status = 400
+    throw err
+  }
+
+  const ext = match[1] === 'png' ? 'png' : 'jpg'
+  const buffer = Buffer.from(match[2], 'base64')
+  if (!buffer.length || buffer.length > maxAvatarSize) {
+    const err = new Error('Ảnh cửa hàng tối đa 10MB')
+    err.status = 400
+    throw err
+  }
+
+  await fs.mkdir(shopUploadDir, { recursive: true })
+
+  const imageType = type === 'cover' ? 'cover' : 'avatar'
+  const fileName = `shop-${shopId}-${imageType}-${crypto.randomUUID()}.${ext}`
+  const filePath = path.join(shopUploadDir, fileName)
+  await fs.writeFile(filePath, buffer)
+
+  return `${shopPublicPath}/${fileName}`
+}
+
+async function saveProductImageDataUrl(productId, dataUrl) {
+  const match = String(dataUrl || '').match(/^data:image\/(png|jpe?g);base64,([A-Za-z0-9+/=]+)$/)
+  if (!match) {
+    const err = new Error('Ảnh sản phẩm không hợp lệ')
+    err.status = 400
+    throw err
+  }
+
+  const ext = match[1] === 'png' ? 'png' : 'jpg'
+  const buffer = Buffer.from(match[2], 'base64')
+  if (!buffer.length || buffer.length > maxAvatarSize) {
+    const err = new Error('Ảnh sản phẩm tối đa 10MB')
+    err.status = 400
+    throw err
+  }
+
+  await fs.mkdir(productUploadDir, { recursive: true })
+
+  const fileName = `product-${productId}-${crypto.randomUUID()}.${ext}`
+  const filePath = path.join(productUploadDir, fileName)
+  await fs.writeFile(filePath, buffer)
+
+  return `${productPublicPath}/${fileName}`
+}
+
+function safeParseJson(value, fallback) {
+  if (!value) return fallback
+  if (typeof value !== 'string') return value
+
+  try {
+    return JSON.parse(value)
+  } catch {
+    return fallback
+  }
+}
+
+function normalizeProductOptionValues(values) {
+  const source = Array.isArray(values) ? values : [values]
+  const seen = new Set()
+  const result = []
+
+  source
+    .flatMap((value) => String(value || '').split(/[,;\n]+/))
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .forEach((value) => {
+      const key = value.toLowerCase()
+      if (seen.has(key)) return
+      seen.add(key)
+      result.push(value)
+    })
+
+  return result
+}
+
+function normalizeProductOptions(value) {
+  const options = Array.isArray(value) ? value : safeParseJson(value, [])
+  if (!Array.isArray(options)) return []
+
+  return options
+    .map((option) => ({
+      name: String(option?.name || '').trim(),
+      values: normalizeProductOptionValues(option?.values),
+    }))
+    .filter((option) => option.name && option.values.length)
+}
+
+function normalizeSelectedOptions(value) {
+  const source = safeParseJson(value, {})
+  if (!source || typeof source !== 'object' || Array.isArray(source)) return {}
+
+  return Object.entries(source)
+    .map(([name, selectedValue]) => [String(name || '').trim(), String(selectedValue || '').trim()])
+    .filter(([name, selectedValue]) => name && selectedValue)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .reduce((result, [name, selectedValue]) => {
+      result[name] = selectedValue
+      return result
+    }, {})
 }
 
 function toProfile(row) {
@@ -220,6 +332,9 @@ function toSellerProduct(row) {
     originalPrice: row.original_price === null || row.original_price === undefined ? '' : Number(row.original_price),
     stock: Number(row.stock || 0),
     thumbnailUrl: row.thumbnail_url || '',
+    images: row.images || [],
+    status: row.status || (Number(row.is_active) === 1 ? 'active' : 'hidden'),
+    productOptions: normalizeProductOptions(row.product_options),
     isActive: Boolean(row.is_active),
     ratingAvg: Number(row.rating_avg || 0),
     ratingCount: Number(row.rating_count || 0),
@@ -413,14 +528,26 @@ function normalizeSellerProductPayload(body = {}) {
   const price = Number(body.price)
   const originalPrice = body.originalPrice === undefined || body.originalPrice === null || body.originalPrice === '' ? null : Number(body.originalPrice)
   const stock = Number.parseInt(body.stock, 10)
+  const status = allowedProductStatuses.has(String(body.status || '').trim())
+    ? String(body.status || '').trim()
+    : body.isActive === false
+      ? 'hidden'
+      : 'active'
+  const images = Array.isArray(body.images)
+    ? body.images.map((image) => String(image || '').trim()).filter(Boolean)
+    : []
+  const imageDataUrls = Array.isArray(body.imageDataUrls)
+    ? body.imageDataUrls.map((image) => String(image || '').trim()).filter(Boolean)
+    : []
+  const productOptions = normalizeProductOptions(body.productOptions)
 
-  if (!name || name.length < 3) {
+  if (!name) {
     const err = new Error('Tên sản phẩm tối thiểu 3 ký tự')
     err.status = 400
     throw err
   }
 
-  if (!Number.isFinite(price) || price <= 0) {
+  if (!Number.isFinite(price) || price < 0) {
     const err = new Error('Giá bán không hợp lệ')
     err.status = 400
     throw err
@@ -444,6 +571,18 @@ function normalizeSellerProductPayload(body = {}) {
     throw err
   }
 
+  if (status === 'active' && !categoryId) {
+    const err = new Error('Vui lòng chọn danh mục khi đăng sản phẩm')
+    err.status = 400
+    throw err
+  }
+
+  if (thumbnailUrl.length > 500 || images.some((image) => image.length > 500)) {
+    const err = new Error('URL ảnh sản phẩm quá dài')
+    err.status = 400
+    throw err
+  }
+
   return {
     name,
     slug: slugify(name),
@@ -453,6 +592,23 @@ function normalizeSellerProductPayload(body = {}) {
     price,
     originalPrice,
     stock,
+    status,
+    isActive: status === 'active',
+    images,
+    imageDataUrls,
+    productOptions,
+  }
+}
+
+async function replaceProductImages(connection, productId, images) {
+  await connection.execute('DELETE FROM product_images WHERE product_id = ?', [productId])
+
+  for (const [index, imageUrl] of images.entries()) {
+    await connection.execute(
+      `INSERT INTO product_images (product_id, image_url, sort_order)
+       VALUES (?, ?, ?)`,
+      [productId, imageUrl, index],
+    )
   }
 }
 
@@ -526,7 +682,7 @@ async function readSellerShop(userId) {
 async function readSellerProducts(userId) {
   const rows = await query(
     `SELECT p.id, p.slug, p.name, p.description, p.price, p.original_price, p.stock,
-            p.thumbnail_url, p.is_active, p.rating_avg, p.rating_count, p.sold_count,
+            p.thumbnail_url, p.status, p.product_options, p.is_active, p.rating_avg, p.rating_count, p.sold_count,
             p.created_at, p.updated_at,
             c.id AS category_id, c.name AS category_name, c.slug AS category_slug
      FROM products p
@@ -538,7 +694,29 @@ async function readSellerProducts(userId) {
     [userId],
   )
 
-  return rows.map(toSellerProduct)
+  const products = rows.map(toSellerProduct)
+  if (!products.length) return products
+
+  const productIds = products.map((product) => product.id)
+  const placeholders = productIds.map(() => '?').join(', ')
+  const imageRows = await query(
+    `SELECT product_id, image_url, sort_order
+     FROM product_images
+     WHERE product_id IN (${placeholders})
+     ORDER BY product_id ASC, sort_order ASC, id ASC`,
+    productIds,
+  )
+  const imagesByProduct = imageRows.reduce((result, row) => {
+    const current = result.get(row.product_id) || []
+    current.push(row.image_url)
+    result.set(row.product_id, current)
+    return result
+  }, new Map())
+
+  return products.map((product) => ({
+    ...product,
+    images: imagesByProduct.get(product.id) || (product.thumbnailUrl ? [product.thumbnailUrl] : []),
+  }))
 }
 
 async function readSellerOrders(shopId) {
@@ -876,6 +1054,12 @@ router.patch(
     }
 
     const payload = normalizeShopProfilePayload(req.body)
+    if (req.body?.avatarDataUrl) {
+      payload.avatarUrl = await saveShopImageDataUrl(shop.id, 'avatar', req.body.avatarDataUrl)
+    }
+    if (req.body?.coverDataUrl) {
+      payload.coverUrl = await saveShopImageDataUrl(shop.id, 'cover', req.body.coverDataUrl)
+    }
 
     await transaction(async (connection) => {
       await connection.execute(
@@ -961,22 +1145,40 @@ router.post(
     }
 
     const productSlug = await makeUniqueProductSlug(product.slug)
-    await query(
-      `INSERT INTO products
-         (shop_id, category_id, name, slug, description, price, original_price, stock, thumbnail_url, is_active)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
-      [
-        shop.id,
-        product.categoryId,
-        product.name,
-        productSlug,
-        product.description,
-        product.price,
-        product.originalPrice,
-        product.stock,
-        product.thumbnailUrl,
-      ],
-    )
+    await transaction(async (connection) => {
+      const [createdProduct] = await connection.execute(
+        `INSERT INTO products
+           (shop_id, category_id, name, slug, description, price, original_price, stock,
+            thumbnail_url, status, product_options, is_active)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          shop.id,
+          product.categoryId,
+          product.name,
+          productSlug,
+          product.description,
+          product.price,
+          product.originalPrice,
+          product.stock,
+          product.thumbnailUrl,
+          product.status,
+          JSON.stringify(product.productOptions),
+          product.isActive ? 1 : 0,
+        ],
+      )
+
+      const productId = createdProduct.insertId
+      const savedImages = []
+      for (const imageDataUrl of product.imageDataUrls) {
+        savedImages.push(await saveProductImageDataUrl(productId, imageDataUrl))
+      }
+
+      const productImages = [...product.images, ...savedImages]
+      if (productImages.length) {
+        await replaceProductImages(connection, productId, productImages)
+        await connection.execute('UPDATE products SET thumbnail_url = ? WHERE id = ?', [productImages[0], productId])
+      }
+    })
 
     const products = await readSellerProducts(userId)
     return res.status(201).json({
@@ -1026,29 +1228,45 @@ router.patch(
       }
     }
 
-    const requestedActive = Object.prototype.hasOwnProperty.call(req.body || {}, 'isActive')
-      ? Boolean(req.body.isActive)
-      : Boolean(existing.is_active)
-    const nextActive = product.stock > 0 && requestedActive ? 1 : 0
+    const shouldReplaceImages =
+      Object.prototype.hasOwnProperty.call(req.body || {}, 'images') ||
+      Object.prototype.hasOwnProperty.call(req.body || {}, 'imageDataUrls')
 
-    await query(
-      `UPDATE products
-       SET category_id = ?, name = ?, description = ?, price = ?, original_price = ?,
-           stock = ?, thumbnail_url = ?, is_active = ?, updated_at = NOW()
-       WHERE id = ? AND shop_id = ?`,
-      [
-        product.categoryId,
-        product.name,
-        product.description,
-        product.price,
-        product.originalPrice,
-        product.stock,
-        product.thumbnailUrl,
-        nextActive,
-        productId,
-        shop.id,
-      ],
-    )
+    await transaction(async (connection) => {
+      let nextThumbnailUrl = product.thumbnailUrl
+
+      if (shouldReplaceImages) {
+        const savedImages = []
+        for (const imageDataUrl of product.imageDataUrls) {
+          savedImages.push(await saveProductImageDataUrl(productId, imageDataUrl))
+        }
+
+        const productImages = [...product.images, ...savedImages]
+        await replaceProductImages(connection, productId, productImages)
+        nextThumbnailUrl = productImages[0] || null
+      }
+
+      await connection.execute(
+        `UPDATE products
+         SET category_id = ?, name = ?, description = ?, price = ?, original_price = ?,
+             stock = ?, thumbnail_url = ?, status = ?, product_options = ?, is_active = ?, updated_at = NOW()
+         WHERE id = ? AND shop_id = ?`,
+        [
+          product.categoryId,
+          product.name,
+          product.description,
+          product.price,
+          product.originalPrice,
+          product.stock,
+          nextThumbnailUrl,
+          product.status,
+          JSON.stringify(product.productOptions),
+          product.isActive ? 1 : 0,
+          productId,
+          shop.id,
+        ],
+      )
+    })
 
     const dashboard = await readSellerDashboard(userId)
     return res.json({ ok: true, data: dashboard, message: 'Đã cập nhật sản phẩm.' })
@@ -1085,7 +1303,8 @@ router.patch(
       return res.status(400).json({ ok: false, message: 'Sản phẩm hết hàng, không thể mở bán' })
     }
 
-    await query('UPDATE products SET is_active = ?, updated_at = NOW() WHERE id = ? AND shop_id = ?', [
+    await query('UPDATE products SET status = ?, is_active = ?, updated_at = NOW() WHERE id = ? AND shop_id = ?', [
+      isActive ? 'active' : 'hidden',
       isActive ? 1 : 0,
       productId,
       shop.id,
@@ -1120,7 +1339,7 @@ router.delete(
     const hasOrders = Number(itemRows[0]?.count || 0) > 0
 
     if (hasOrders) {
-      await query('UPDATE products SET is_active = 0, updated_at = NOW() WHERE id = ? AND shop_id = ?', [productId, shop.id])
+      await query('UPDATE products SET status = ?, is_active = 0, updated_at = NOW() WHERE id = ? AND shop_id = ?', ['hidden', productId, shop.id])
       const dashboard = await readSellerDashboard(userId)
       return res.json({
         ok: true,
@@ -1395,6 +1614,7 @@ router.get(
          oi.image_url AS imageUrl,
          oi.variant_id AS variantId,
          oi.variant_sku AS variantSku,
+         oi.selected_options AS selectedOptions,
          oi.unit_price AS unitPrice,
          oi.quantity,
          oi.line_total AS lineTotal
@@ -1417,6 +1637,7 @@ router.get(
         imageUrl: item.imageUrl || '',
         variantId: item.variantId,
         variantSku: item.variantSku || '',
+        selectedOptions: normalizeSelectedOptions(item.selectedOptions),
         unitPrice: Number(item.unitPrice || 0),
         quantity: Number(item.quantity || 0),
         lineTotal: Number(item.lineTotal || 0),

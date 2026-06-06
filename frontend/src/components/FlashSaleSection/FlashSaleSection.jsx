@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 
-import { apiGet } from '../../lib/api'
+import { apiAssetUrl, apiGet } from '../../lib/api'
 import { formatCurrency, productPath } from '../../lib/format'
 
 const fallbackImage = '/logo_shop.png'
@@ -11,6 +11,8 @@ function pad2(value) {
 }
 
 function Countdown({ products }) {
+  const [fallbackEndAt] = useState(() => Date.now() + 2 * 3600 * 1000)
+  const [now, setNow] = useState(() => Date.now())
   const endAt = useMemo(() => {
     const dates = products
       .map((product) => product.flashSale?.endAt)
@@ -18,19 +20,18 @@ function Countdown({ products }) {
       .map((value) => new Date(value).getTime())
       .filter(Number.isFinite)
 
-    return dates.length ? Math.min(...dates) : Date.now() + 2 * 3600 * 1000
-  }, [products])
-
-  const [secondsLeft, setSecondsLeft] = useState(() => Math.max(0, Math.floor((endAt - Date.now()) / 1000)))
+    return dates.length ? Math.min(...dates) : fallbackEndAt
+  }, [fallbackEndAt, products])
 
   useEffect(() => {
-    setSecondsLeft(Math.max(0, Math.floor((endAt - Date.now()) / 1000)))
     const timer = setInterval(() => {
-      setSecondsLeft(Math.max(0, Math.floor((endAt - Date.now()) / 1000)))
+      setNow(Date.now())
     }, 1000)
 
     return () => clearInterval(timer)
-  }, [endAt])
+  }, [])
+
+  const secondsLeft = useMemo(() => Math.max(0, Math.floor((endAt - now) / 1000)), [endAt, now])
 
   const { h, m, s } = useMemo(() => {
     const hVal = Math.floor(secondsLeft / 3600)
@@ -51,7 +52,7 @@ function Countdown({ products }) {
 }
 
 function FlashSaleProductCard({ product }) {
-  const imageSrc = product.thumbnailUrl || product.imageUrl || fallbackImage
+  const imageSrc = apiAssetUrl(product.thumbnailUrl || product.imageUrl) || fallbackImage
   const flashSale = product.flashSale || {}
   const discount = Number(flashSale.discountPercent || 0)
   const eventStock = Number(flashSale.eventStock || 0)

@@ -25,13 +25,24 @@ export default function AuthModal({ open, initialMode = 'login', initialEmail = 
   const [message, setMessage] = useState('')
 
   useEffect(() => {
-    if (!open) return
+    let active = true
 
-    setMode(initialMode)
-    if (initialEmail) setVerifyEmail(initialEmail)
-    setError('')
-    setMessage('')
-    setLoading(false)
+    async function resetModal() {
+      await Promise.resolve()
+      if (!active || !open) return
+
+      setMode(initialMode)
+      if (initialEmail) setVerifyEmail(initialEmail)
+      setError('')
+      setMessage('')
+      setLoading(false)
+    }
+
+    resetModal()
+
+    return () => {
+      active = false
+    }
   }, [initialEmail, initialMode, open])
 
   useEffect(() => {
