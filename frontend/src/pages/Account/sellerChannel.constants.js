@@ -10,6 +10,8 @@ export const emptyShopForm = {
   coverFileName: '',
   description: '',
   addressLine1: '',
+  provinceId: '',
+  wardId: '',
   ward: '',
   province: '',
   country: 'VN',

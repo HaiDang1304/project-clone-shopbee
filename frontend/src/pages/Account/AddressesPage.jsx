@@ -6,6 +6,7 @@ import {
   createAccountAddress,
   deleteAccountAddress,
   getAccountAddresses,
+  getAccountLocations,
   getAccountProfile,
   updateAccountAddress,
 } from "../../lib/account";
@@ -14,10 +15,10 @@ const emptyAddressForm = {
   fullName: "",
   phone: "",
   line1: "",
+  provinceId: "",
+  wardId: "",
   ward: "",
   province: "",
-  latitude: "",
-  longitude: "",
   isDefault: false,
 };
 
@@ -27,43 +28,6 @@ function formatAddress(address) {
     .join(", ");
 }
 
-function getMapUrl(latitude, longitude) {
-  if (
-    latitude === null ||
-    latitude === undefined ||
-    latitude === "" ||
-    longitude === null ||
-    longitude === undefined ||
-    longitude === ""
-  ) {
-    return "";
-  }
-
-  return `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
-}
-
-async function reverseGeocodeLocation(latitude, longitude) {
-  const url = new URL(
-    "https://api.bigdatacloud.net/data/reverse-geocode-client",
-  );
-  url.searchParams.set("latitude", String(latitude));
-  url.searchParams.set("longitude", String(longitude));
-  url.searchParams.set("localityLanguage", "vi");
-
-  const response = await fetch(url.toString());
-  if (!response.ok)
-    throw new Error("Không lấy được thông tin địa chỉ từ bản đồ");
-
-  const data = await response.json();
-  const province = String(data.principalSubdivision || data.city || "").trim();
-  const ward = String(data.locality || "").trim();
-
-  return {
-    ward,
-    province,
-  };
-}
-
 function toAddressForm(address) {
   if (!address) return emptyAddressForm;
 
@@ -71,10 +35,10 @@ function toAddressForm(address) {
     fullName: address.fullName || "",
     phone: address.phone || "",
     line1: address.line1 || "",
+    provinceId: address.provinceId ? String(address.provinceId) : "",
+    wardId: address.wardId ? String(address.wardId) : "",
     ward: address.ward || "",
     province: address.province || "",
-    latitude: address.latitude ?? "",
-    longitude: address.longitude ?? "",
     isDefault: Boolean(address.isDefault),
   };
 }
@@ -103,13 +67,13 @@ function addressUsesProfileContact(address, profile) {
 export default function AddressesPage() {
   const [addresses, setAddresses] = useState([]);
   const [profile, setProfile] = useState(null);
+  const [locations, setLocations] = useState([]);
   const [form, setForm] = useState(emptyAddressForm);
   const [contactMode, setContactMode] = useState("profile");
   const [editingAddress, setEditingAddress] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [locating, setLocating] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const profileContactReady = hasProfileContact(profile);
 
@@ -118,13 +82,15 @@ export default function AddressesPage() {
 
     async function loadAccountData() {
       try {
-        const [nextAddresses, nextProfile] = await Promise.all([
+        const [nextAddresses, nextProfile, nextLocations] = await Promise.all([
           getAccountAddresses(),
           getAccountProfile(),
+          getAccountLocations(),
         ]);
         if (active) {
           setAddresses(nextAddresses);
           setProfile(nextProfile);
+          setLocations(nextLocations);
         }
       } catch (err) {
         if (active)
@@ -143,6 +109,29 @@ export default function AddressesPage() {
 
   function updateField(field, value) {
     setForm((current) => ({ ...current, [field]: value }));
+  }
+
+  const selectedProvince = locations.find((item) => String(item.id) === String(form.provinceId));
+  const wardOptions = selectedProvince?.wards || [];
+
+  function updateProvince(value) {
+    const province = locations.find((item) => String(item.id) === String(value));
+    setForm((current) => ({
+      ...current,
+      provinceId: value,
+      wardId: "",
+      province: province?.name || "",
+      ward: "",
+    }));
+  }
+
+  function updateWard(value) {
+    const ward = wardOptions.find((item) => String(item.id) === String(value));
+    setForm((current) => ({
+      ...current,
+      wardId: value,
+      ward: ward?.name || "",
+    }));
   }
 
   function openCreateModal() {
@@ -227,57 +216,6 @@ export default function AddressesPage() {
     }
   }
 
-  function handleUseCurrentLocation() {
-    if (!navigator.geolocation) {
-      toast.error("Trình duyệt không hỗ trợ lấy vị trí hiện tại");
-      return;
-    }
-
-    setLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const latitude = Number(position.coords.latitude.toFixed(8));
-        const longitude = Number(position.coords.longitude.toFixed(8));
-
-        try {
-          const location = await reverseGeocodeLocation(latitude, longitude);
-          setForm((current) => ({
-            ...current,
-            latitude,
-            longitude,
-            ward: location.ward || current.ward,
-            province: location.province || current.province,
-          }));
-          toast.success(
-            location.ward || location.province
-              ? "Đã lấy vị trí hiện tại."
-              : "Đã lấy tọa độ hiện tại.",
-          );
-        } catch (err) {
-          setForm((current) => ({
-            ...current,
-            latitude,
-            longitude,
-          }));
-          toast.warning(
-            err.message || "Đã lấy tọa độ, nhưng chưa tự điền được địa chỉ",
-          );
-        } finally {
-          setLocating(false);
-        }
-      },
-      (error) => {
-        setLocating(false);
-        const message =
-          error.code === error.PERMISSION_DENIED
-            ? "Bạn cần cho phép truy cập vị trí để dùng chức năng này"
-            : "Không lấy được vị trí hiện tại";
-        toast.error(message);
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
-    );
-  }
-
   return (
     <AccountLayout>
       <section className="rounded-lg bg-surface-container-lowest px-6 py-6 shadow-sm md:px-8">
@@ -340,28 +278,11 @@ export default function AddressesPage() {
                     {formatAddress(item)}
                   </p>
                  <div className="mt-2 flex items-center gap-4">
-                   <div>
-                    {getMapUrl(item.latitude, item.longitude) ? (
-                    <a
-                      className="mt-2 inline-flex items-center gap-1 text-label-md font-label-md text-primary hover:underline"
-                      href={getMapUrl(item.latitude, item.longitude)}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      <span className="material-symbols-outlined text-[18px]">
-                        map
-                      </span>
-                      Xem trên bản đồ
-                    </a>
-                  ) : null}
-                  </div>
-                  <div>
                     {item.isDefault ? (
                       <span className=" inline-flex rounded-md border border-primary px-2 py-1 text-label-md text-primary">
                         Mặc định
                       </span>
                     ) : null}
-                  </div>
                  </div>
                 </div>
                 <div className="flex gap-3 text-label-md">
@@ -517,71 +438,36 @@ export default function AddressesPage() {
                 />
               </label>
 
-              <div className="grid gap-3 rounded-lg border border-outline-variant px-4 py-4 sm:col-span-2">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="text-label-lg font-label-lg text-on-surface">
-                      Vị trí bản đồ
-                    </p>
-                    <p className="mt-1 text-body-sm text-on-surface-variant">
-                      {getMapUrl(form.latitude, form.longitude)
-                        ? `${form.latitude}, ${form.longitude}`
-                        : "Chưa chọn vị trí bản đồ"}
-                    </p>
-                  </div>
-                  <button
-                    className="inline-flex h-10 items-center gap-2 rounded-lg border border-outline-variant px-4 text-label-md font-label-md text-on-surface hover:border-primary hover:text-primary disabled:opacity-60"
-                    type="button"
-                    onClick={handleUseCurrentLocation}
-                    disabled={saving || locating}
-                  >
-                    <span className="material-symbols-outlined text-[18px]">
-                      my_location
-                    </span>
-                    {locating ? "Đang lấy vị trí..." : "Dùng vị trí hiện tại"}
-                  </button>
-                </div>
-
-                {getMapUrl(form.latitude, form.longitude) ? (
-                  <a
-                    className="inline-flex w-fit items-center gap-1 text-label-md font-label-md text-primary hover:underline"
-                    href={getMapUrl(form.latitude, form.longitude)}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    <span className="material-symbols-outlined text-[18px]">
-                      map
-                    </span>
-                    Mở vị trí trên Google Maps
-                  </a>
-                ) : null}
-              </div>
-
               <label className="grid gap-2">
-                <span className="text-body-sm text-on-surface-variant">
-                  Phường/Xã
-                </span>
-                <input
+                <span className="text-body-sm text-on-surface-variant">Tỉnh/Thành phố</span>
+                <select
                   className="h-10 rounded-lg border-outline-variant bg-surface-container-low text-body-sm focus:border-primary focus:ring-primary"
-                  value={form.ward}
-                  onChange={(event) => updateField("ward", event.target.value)}
+                  value={form.provinceId}
+                  onChange={(event) => updateProvince(event.target.value)}
                   disabled={saving}
-                />
+                  required
+                >
+                  <option value="">Chọn tỉnh/thành phố</option>
+                  {locations.map((item) => (
+                    <option key={item.id} value={item.id}>{item.name}</option>
+                  ))}
+                </select>
               </label>
 
               <label className="grid gap-2">
-                <span className="text-body-sm text-on-surface-variant">
-                  Tỉnh/Thành phố
-                </span>
-                <input
+                <span className="text-body-sm text-on-surface-variant">Phường/Xã</span>
+                <select
                   className="h-10 rounded-lg border-outline-variant bg-surface-container-low text-body-sm focus:border-primary focus:ring-primary"
-                  value={form.province}
-                  onChange={(event) =>
-                    updateField("province", event.target.value)
-                  }
-                  disabled={saving}
+                  value={form.wardId}
+                  onChange={(event) => updateWard(event.target.value)}
+                  disabled={saving || !form.provinceId}
                   required
-                />
+                >
+                  <option value="">Chọn phường/xã</option>
+                  {wardOptions.map((item) => (
+                    <option key={item.id} value={item.id}>{item.name}</option>
+                  ))}
+                </select>
               </label>
 
               <label className="mt-7 flex min-h-10 items-center gap-3">

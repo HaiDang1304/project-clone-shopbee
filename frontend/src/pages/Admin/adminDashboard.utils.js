@@ -38,7 +38,7 @@ export function formatDateTime(value) {
 }
 
 export function formatShopAddress(shop) {
-  return [shop.addressLine1, shop.ward, shop.district, shop.province].filter(Boolean).join(', ') || 'Chưa cập nhật'
+  return [shop.addressLine1, shop.ward, shop.province].filter(Boolean).join(', ') || 'Chưa cập nhật'
 }
 
 export function withAvatarClass(item, index) {
@@ -58,6 +58,13 @@ export function buildOverviewStats(data) {
       icon: 'payments',
       change: stats.monthlyRevenueChange || '0%',
       iconClass: 'bg-[#fff2df] text-[#d47b00]',
+    },
+    {
+      label: 'Doanh thu phí sàn',
+      value: formatCurrency(stats.monthlyPlatformFeeRevenue),
+      icon: 'receipt',
+      change: stats.monthlyPlatformFeeRevenueChange || '0%',
+      iconClass: 'bg-[#e8fff5] text-[#047857]',
     },
     {
       label: 'Số đơn hàng mới',
@@ -191,6 +198,13 @@ export function buildShopStats(data) {
       icon: 'pending_actions',
       change: 'Cần xử lý',
       iconClass: 'bg-[#f3e8ff] text-[#9d4edd]',
+    },
+    {
+      label: 'Phí sàn tháng',
+      value: formatCurrency(stats.monthlyPlatformFee),
+      icon: 'receipt',
+      change: '5% đơn đã giao',
+      iconClass: 'bg-[#e8fff5] text-[#047857]',
     },
     {
       label: 'Sản phẩm toàn sàn',

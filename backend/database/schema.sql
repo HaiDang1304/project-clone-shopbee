@@ -28,26 +28,50 @@ CREATE TABLE IF NOT EXISTS users (
   KEY idx_users_role (role)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS provinces (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  code VARCHAR(30) NULL,
+  name VARCHAR(120) NOT NULL,
+  region ENUM('BAC', 'TRUNG', 'NAM') NOT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_provinces_code (code),
+  UNIQUE KEY uq_provinces_name (name),
+  KEY idx_provinces_region (region)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS wards (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  code VARCHAR(30) NULL,
+  province_id BIGINT UNSIGNED NOT NULL,
+  name VARCHAR(120) NOT NULL,
+  zone_type ENUM('NORMAL', 'REMOTE') NOT NULL DEFAULT 'NORMAL',
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_wards_code (code),
+  KEY idx_wards_province_name (province_id, name),
+  KEY idx_wards_province (province_id),
+  KEY idx_wards_zone (zone_type),
+  CONSTRAINT fk_wards_province FOREIGN KEY (province_id) REFERENCES provinces(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS user_addresses (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   user_id BIGINT UNSIGNED NOT NULL,
   full_name VARCHAR(120) NOT NULL,
   phone VARCHAR(30) NOT NULL,
   line1 VARCHAR(255) NOT NULL,
-  line2 VARCHAR(255) NULL,
+  province_id BIGINT UNSIGNED NULL,
+  ward_id BIGINT UNSIGNED NULL,
   ward VARCHAR(120) NULL,
-  district VARCHAR(120) NULL,
   province VARCHAR(120) NOT NULL,
-  country VARCHAR(10) NOT NULL DEFAULT 'VN',
-  postal_code VARCHAR(20) NULL,
-  latitude DECIMAL(10,8) NULL,
-  longitude DECIMAL(11,8) NULL,
   is_default TINYINT(1) NOT NULL DEFAULT 0,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   KEY idx_user_addresses_user (user_id),
-  CONSTRAINT fk_user_addresses_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  KEY idx_user_addresses_location (province_id, ward_id),
+  CONSTRAINT fk_user_addresses_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT fk_user_addresses_province FOREIGN KEY (province_id) REFERENCES provinces(id) ON DELETE SET NULL,
+  CONSTRAINT fk_user_addresses_ward FOREIGN KEY (ward_id) REFERENCES wards(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS categories (
@@ -74,8 +98,9 @@ CREATE TABLE IF NOT EXISTS shops (
   cover_url VARCHAR(500) NULL,
   description TEXT NULL,
   address_line1 VARCHAR(255) NULL,
+  province_id BIGINT UNSIGNED NULL,
+  ward_id BIGINT UNSIGNED NULL,
   ward VARCHAR(120) NULL,
-  district VARCHAR(120) NULL,
   province VARCHAR(120) NULL,
   country VARCHAR(10) NOT NULL DEFAULT 'VN',
   rating_avg DECIMAL(3,2) NOT NULL DEFAULT 0,
@@ -87,7 +112,10 @@ CREATE TABLE IF NOT EXISTS shops (
   PRIMARY KEY (id),
   UNIQUE KEY uq_shops_slug (slug),
   KEY idx_shops_owner (owner_id),
-  CONSTRAINT fk_shops_owner FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE RESTRICT
+  KEY idx_shops_location (province_id, ward_id),
+  CONSTRAINT fk_shops_owner FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_shops_province FOREIGN KEY (province_id) REFERENCES provinces(id) ON DELETE SET NULL,
+  CONSTRAINT fk_shops_ward FOREIGN KEY (ward_id) REFERENCES wards(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS shop_applications (
@@ -100,6 +128,8 @@ CREATE TABLE IF NOT EXISTS shop_applications (
   contact_email VARCHAR(190) NULL,
   description TEXT NULL,
   address_line1 VARCHAR(255) NOT NULL,
+  province_id BIGINT UNSIGNED NULL,
+  ward_id BIGINT UNSIGNED NULL,
   ward VARCHAR(120) NULL,
   province VARCHAR(120) NOT NULL,
   country VARCHAR(10) NOT NULL DEFAULT 'VN',
@@ -114,9 +144,12 @@ CREATE TABLE IF NOT EXISTS shop_applications (
   KEY idx_shop_applications_status (status, created_at),
   KEY idx_shop_applications_shop (shop_id),
   KEY idx_shop_applications_reviewer (reviewed_by),
+  KEY idx_shop_applications_location (province_id, ward_id),
   CONSTRAINT fk_shop_applications_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   CONSTRAINT fk_shop_applications_shop FOREIGN KEY (shop_id) REFERENCES shops(id) ON DELETE SET NULL,
-  CONSTRAINT fk_shop_applications_reviewer FOREIGN KEY (reviewed_by) REFERENCES users(id) ON DELETE SET NULL
+  CONSTRAINT fk_shop_applications_reviewer FOREIGN KEY (reviewed_by) REFERENCES users(id) ON DELETE SET NULL,
+  CONSTRAINT fk_shop_applications_province FOREIGN KEY (province_id) REFERENCES provinces(id) ON DELETE SET NULL,
+  CONSTRAINT fk_shop_applications_ward FOREIGN KEY (ward_id) REFERENCES wards(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS products (
@@ -129,7 +162,7 @@ CREATE TABLE IF NOT EXISTS products (
   price DECIMAL(12,2) NOT NULL DEFAULT 0,
   original_price DECIMAL(12,2) NULL,
   stock INT UNSIGNED NOT NULL DEFAULT 0,
-  weight_grams INT UNSIGNED NULL,
+  weight_grams INT UNSIGNED NOT NULL,
   thumbnail_url VARCHAR(500) NULL,
   status ENUM('draft', 'active', 'hidden') NOT NULL DEFAULT 'active',
   product_options JSON NULL,
@@ -252,8 +285,10 @@ CREATE TABLE IF NOT EXISTS orders (
   shipping_phone VARCHAR(30) NOT NULL,
   shipping_line1 VARCHAR(255) NOT NULL,
   shipping_ward VARCHAR(120) NULL,
-  shipping_district VARCHAR(120) NOT NULL,
   shipping_province VARCHAR(120) NOT NULL,
+  shipping_distance_type VARCHAR(30) NOT NULL DEFAULT 'SAME_PROVINCE',
+  shipping_weight_grams INT UNSIGNED NOT NULL DEFAULT 0,
+  shipping_address_snapshot JSON NULL,
   shipping_country VARCHAR(10) NOT NULL DEFAULT 'VN',
   shipping_postal_code VARCHAR(20) NULL,
   note TEXT NULL,
@@ -287,6 +322,24 @@ CREATE TABLE IF NOT EXISTS order_items (
   CONSTRAINT fk_order_items_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE RESTRICT,
   CONSTRAINT fk_order_items_shop FOREIGN KEY (shop_id) REFERENCES shops(id) ON DELETE RESTRICT,
   CONSTRAINT fk_order_items_variant FOREIGN KEY (variant_id) REFERENCES product_variants(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS order_shops (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  order_id BIGINT UNSIGNED NOT NULL,
+  shop_id BIGINT UNSIGNED NOT NULL,
+  shop_name VARCHAR(160) NOT NULL,
+  shop_subtotal DECIMAL(12,2) NOT NULL DEFAULT 0,
+  total_weight_grams INT UNSIGNED NOT NULL DEFAULT 0,
+  distance_type ENUM('SAME_WARD', 'SAME_PROVINCE', 'SAME_REGION', 'DIFFERENT_REGION') NOT NULL,
+  shipping_fee DECIMAL(12,2) NOT NULL DEFAULT 0,
+  shop_total DECIMAL(12,2) NOT NULL DEFAULT 0,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_order_shops_order (order_id),
+  KEY idx_order_shops_shop (shop_id),
+  CONSTRAINT fk_order_shops_order FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+  CONSTRAINT fk_order_shops_shop FOREIGN KEY (shop_id) REFERENCES shops(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS notifications (

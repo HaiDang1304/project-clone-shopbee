@@ -6,6 +6,7 @@ import AccountLayout from './AccountLayout'
 import {
   createSellerProduct,
   deleteSellerProduct,
+  getAccountLocations,
   getAccountProfile,
   getAdminSellerApplications,
   getSellerDashboard,
@@ -56,6 +57,7 @@ export default function SellerChannelPage({ standalone = false }) {
   const [sellerSaving, setSellerSaving] = useState(false)
   const [savingShopProfile, setSavingShopProfile] = useState(false)
   const [categories, setCategories] = useState([])
+  const [locations, setLocations] = useState([])
   const [productForm, setProductForm] = useState(() => createEmptyProductForm())
   const [productErrors, setProductErrors] = useState({})
   const [productModalOpen, setProductModalOpen] = useState(false)
@@ -94,7 +96,11 @@ export default function SellerChannelPage({ standalone = false }) {
         setProfile(profileData)
         setLoadError('')
 
-        const [sellerResponse, categoriesResponse] = await Promise.all([getSellerRegistration(), apiGet('/api/categories')])
+        const [sellerResponse, categoriesResponse, locationsResponse] = await Promise.all([
+          getSellerRegistration(),
+          apiGet('/api/categories'),
+          getAccountLocations(),
+        ])
         let dashboardData = null
         let adminData = []
 
@@ -110,6 +116,7 @@ export default function SellerChannelPage({ standalone = false }) {
 
         if (sellerResponse.token) setAuthToken(sellerResponse.token)
         setCategories(categoriesResponse.data || [])
+        setLocations(locationsResponse || [])
         setSellerData({
           application: sellerResponse.data?.application || null,
           shop: dashboardData?.shop || sellerResponse.data?.shop || null,
@@ -484,6 +491,11 @@ export default function SellerChannelPage({ standalone = false }) {
   }
 
   async function handleOrderStatus(order, status) {
+    if (order.status === 'delivered' && status !== 'delivered') {
+      toast.error('Đơn hàng đã giao không thể thay đổi trạng thái.')
+      return
+    }
+
     setWorkingOrderId(order.id)
 
     try {
@@ -594,6 +606,7 @@ export default function SellerChannelPage({ standalone = false }) {
                 updateShopField={updateShopField}
                 handleShopImageChange={handleShopImageChange}
                 handleShopProfileSubmit={handleShopProfileSubmit}
+                locations={locations}
               />
             ) : null}
 
@@ -642,6 +655,7 @@ export default function SellerChannelPage({ standalone = false }) {
             sellerSaving={sellerSaving}
             updateShopField={updateShopField}
             handleShopSubmit={handleShopSubmit}
+            locations={locations}
           />
         ) : null}
       </section>

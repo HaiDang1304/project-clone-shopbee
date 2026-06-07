@@ -14,6 +14,11 @@ export async function getAccountAddresses() {
   return data.data || []
 }
 
+export async function getAccountLocations() {
+  const data = await apiGet('/api/account/locations')
+  return data.data || []
+}
+
 export async function createAccountAddress(address) {
   const data = await apiPost('/api/account/addresses', address)
   return data.data

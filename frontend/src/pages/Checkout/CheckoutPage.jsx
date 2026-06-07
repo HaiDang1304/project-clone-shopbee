@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+﻿import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import Swal from 'sweetalert2'
+import 'sweetalert2/dist/sweetalert2.min.css'
 import { toast } from 'react-toastify'
 
 import Header from '../../components/Header/Header'
@@ -32,7 +34,7 @@ function readCheckoutData() {
 }
 
 function formatAddress(address) {
-  return [address.line1, address.ward, address.district, address.province].filter(Boolean).join(', ')
+  return [address.line1, address.ward, address.province].filter(Boolean).join(', ')
 }
 
 function optionText(options) {
@@ -105,7 +107,10 @@ export default function CheckoutPage() {
     () => items.reduce((sum, item) => sum + Number(item.unitPrice || 0) * Number(item.quantity || 0), 0),
     [items],
   )
-  const shippingFee = Number(shippingQuote?.fee || 0)
+  const shippingFee = Number(shippingQuote?.totalShippingFee || 0)
+  const shippingWeightGrams = useMemo(() => {
+    return (shippingQuote?.shops || []).reduce((sum, shop) => sum + Number(shop.totalWeightGrams || 0), 0)
+  }, [shippingQuote])
   const discountTotal = 0
   const grandTotal = itemsTotal + shippingFee - discountTotal
   const selectedAddress = addresses.find((address) => String(address.id) === String(selectedAddressId))
@@ -196,7 +201,13 @@ export default function CheckoutPage() {
       sessionStorage.removeItem(CHECKOUT_STORAGE_KEY)
       sessionStorage.setItem(LAST_ORDER_STORAGE_KEY, JSON.stringify(order))
       await loadCart().catch(() => {})
-      toast.success('Đặt hàng thành công')
+      await Swal.fire({
+        icon: 'success',
+        title: 'Đặt hàng thành công',
+        text: 'Đơn hàng của bạn đã được ghi nhận và đang chờ xác nhận.',
+        confirmButtonText: 'Xem đơn hàng',
+        confirmButtonColor: '#c2410c',
+      })
       navigate(`/order-success?orderId=${order.id}`)
     } catch (err) {
       toast.error(err.message || 'Đặt hàng thất bại')
@@ -326,17 +337,16 @@ export default function CheckoutPage() {
                   <label className="mt-3 flex cursor-pointer items-center gap-3 rounded-lg border border-primary bg-primary-fixed px-4 py-3">
                     <input className="text-primary focus:ring-primary" type="radio" checked readOnly />
                     <span>
-                      <span className="block text-body-md font-semibold text-on-surface">Giao hàng tiết kiệm</span>
+                      <span className="block text-body-md font-semibold text-on-surface">ShopBee vận chuyển</span>
                       <span className="block text-body-sm text-on-surface-variant">
                         {shippingLoading
                           ? 'Đang tính phí vận chuyển...'
                           : shippingQuote
-                            ? `${formatCurrency(shippingFee)} · ${formatCount(shippingQuote.weightGrams)} g`
+                            ? `${formatCurrency(shippingFee)} · ${formatCount(shippingWeightGrams)} g`
                             : shippingError || 'Chọn địa chỉ để tính phí'}
                       </span>
                     </span>
                   </label>
-                  {shippingError ? <p className="mt-2 text-body-sm text-error">{shippingError}</p> : null}
                 </div>
 
                 <label className="grid gap-2">
@@ -443,3 +453,6 @@ export default function CheckoutPage() {
     </>
   )
 }
+
+
+

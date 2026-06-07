@@ -1,6 +1,7 @@
-import { apiAssetUrl } from '../../../lib/api'
+﻿import { apiAssetUrl } from '../../../lib/api'
+import { LocationSelectFields } from './common'
 
-export function SellerShopProfilePanel({ shopForm, savingShopProfile, updateShopField, handleShopImageChange, handleShopProfileSubmit }) {
+export function SellerShopProfilePanel({ shopForm, savingShopProfile, updateShopField, handleShopImageChange, handleShopProfileSubmit, locations }) {
   const avatarPreview = shopForm.avatarDataUrl || apiAssetUrl(shopForm.avatarUrl)
   const coverPreview = shopForm.coverDataUrl || apiAssetUrl(shopForm.coverUrl)
 
@@ -43,49 +44,13 @@ export function SellerShopProfilePanel({ shopForm, savingShopProfile, updateShop
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <label className="grid gap-2">
-          <span className="text-body-sm text-on-surface-variant">Tên cửa hàng</span>
-          <input
-            className="h-10 rounded-lg border-outline-variant bg-surface-container-low text-body-sm focus:border-primary focus:ring-primary"
-            value={shopForm.shopName}
-            onChange={(event) => updateShopField('shopName', event.target.value)}
-            disabled={savingShopProfile}
-            required
-          />
-        </label>
-
-        <label className="grid gap-2">
-          <span className="text-body-sm text-on-surface-variant">Số điện thoại liên hệ</span>
-          <input
-            className="h-10 rounded-lg border-outline-variant bg-surface-container-low text-body-sm focus:border-primary focus:ring-primary"
-            value={shopForm.contactPhone}
-            onChange={(event) => updateShopField('contactPhone', event.target.value)}
-            disabled={savingShopProfile}
-            required
-          />
-        </label>
-
-        <label className="grid gap-2">
-          <span className="text-body-sm text-on-surface-variant">Email liên hệ</span>
-          <input
-            className="h-10 rounded-lg border-outline-variant bg-surface-container-low text-body-sm focus:border-primary focus:ring-primary"
-            type="email"
-            value={shopForm.contactEmail}
-            onChange={(event) => updateShopField('contactEmail', event.target.value)}
-            disabled={savingShopProfile}
-          />
-        </label>
-
-        <label className="grid gap-2">
-          <span className="text-body-sm text-on-surface-variant">Tỉnh/Thành phố</span>
-          <input
-            className="h-10 rounded-lg border-outline-variant bg-surface-container-low text-body-sm focus:border-primary focus:ring-primary"
-            value={shopForm.province}
-            onChange={(event) => updateShopField('province', event.target.value)}
-            disabled={savingShopProfile}
-            required
-          />
-        </label>
+        <LocationSelectFields
+          locations={locations}
+          form={shopForm}
+          disabled={savingShopProfile}
+          onChange={updateShopField}
+          provinceLabel="Tỉnh/Thành phố"
+        />
 
         <label className="grid gap-2 md:col-span-2">
           <span className="text-body-sm text-on-surface-variant">Địa chỉ cửa hàng</span>
@@ -95,16 +60,6 @@ export function SellerShopProfilePanel({ shopForm, savingShopProfile, updateShop
             onChange={(event) => updateShopField('addressLine1', event.target.value)}
             disabled={savingShopProfile}
             required
-          />
-        </label>
-
-        <label className="grid gap-2">
-          <span className="text-body-sm text-on-surface-variant">Phường/Xã</span>
-          <input
-            className="h-10 rounded-lg border-outline-variant bg-surface-container-low text-body-sm focus:border-primary focus:ring-primary"
-            value={shopForm.ward}
-            onChange={(event) => updateShopField('ward', event.target.value)}
-            disabled={savingShopProfile}
           />
         </label>
 
@@ -157,3 +112,4 @@ export function SellerShopProfilePanel({ shopForm, savingShopProfile, updateShop
     </form>
   )
 }
+

@@ -154,6 +154,79 @@ function RevenueTrendCard({ trend }) {
   )
 }
 
+function PlatformFeeShopsTable({ shops }) {
+  const visibleShops = shops || []
+
+  return (
+    <section className="overflow-hidden rounded-lg border border-[#eaded2] bg-white shadow-[0_8px_24px_rgba(60,42,22,0.05)]">
+      <div className="flex flex-wrap items-start justify-between gap-3 px-4 py-3">
+        <div>
+          <h2 className="text-[15px] font-bold text-[#15110d]">Phí sàn theo cửa hàng</h2>
+          <p className="mt-0.5 text-[11px] text-[#7c6657]">Phí sàn cố định 5% trên đơn đã giao trong tháng.</p>
+        </div>
+        <span className="rounded-full bg-[#e8fff5] px-3 py-1 text-[10px] font-bold text-[#047857]">
+          {formatCount(visibleShops.length)} cửa hàng
+        </span>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[860px] border-collapse text-left">
+          <thead>
+            <tr className="h-10 bg-[#f4f3f2] text-[10px] font-bold uppercase text-[#4b3527]">
+              <th className="px-4">Cửa hàng</th>
+              <th className="px-4">Chủ sở hữu</th>
+              <th className="px-4">Đơn đã giao</th>
+              <th className="px-4">Doanh thu đã giao</th>
+              <th className="px-4">Phí sàn</th>
+              <th className="px-4">Seller thực lãnh</th>
+            </tr>
+          </thead>
+          <tbody>
+            {visibleShops.map((shop) => (
+              <tr key={shop.id} className="border-t border-[#f0e7df] text-[12px] text-[#17120e]">
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    {shop.avatarUrl ? (
+                      <img
+                        className="h-8 w-8 rounded-md border border-[#eaded2] object-cover"
+                        src={apiAssetUrl(shop.avatarUrl)}
+                        alt={shop.name}
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-[#fff2df] text-[10px] font-bold text-[#9a5700]">
+                        {getInitial(shop.name, shop.slug)}
+                      </span>
+                    )}
+                    <div className="min-w-0">
+                      <p className="truncate font-bold text-[#1d1712]">{shop.name}</p>
+                      <p className="text-[10px] text-[#7b6556]">/{shop.slug}</p>
+                    </div>
+                  </div>
+                </td>
+                <td className="px-4 py-3">
+                  <p className="font-semibold text-[#2a211a]">{shop.owner?.name || 'Chưa cập nhật'}</p>
+                  <p className="text-[10px] text-[#6e5c51]">{shop.owner?.email || 'Không có email'}</p>
+                </td>
+                <td className="px-4 py-3 font-semibold">{formatCount(shop.deliveredOrderCount)}</td>
+                <td className="px-4 py-3 font-semibold text-[#a15d00]">{formatCurrency(shop.monthlyDeliveredRevenue)}</td>
+                <td className="px-4 py-3 font-bold text-[#047857]">{formatCurrency(shop.monthlyPlatformFee)}</td>
+                <td className="px-4 py-3 font-semibold">{formatCurrency(shop.monthlyPayout)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {!visibleShops.length ? (
+        <div className="border-t border-[#f0e7df] px-4 py-8 text-center text-[13px] text-[#6e5c51]">
+          Chưa có cửa hàng phát sinh phí sàn trong tháng.
+        </div>
+      ) : null}
+    </section>
+  )
+}
+
 function ShopApplicationDetailsModal({ shop, onClose }) {
   if (!shop) return null
 
@@ -506,6 +579,7 @@ function PendingShopsTable({ shops, totalCount, onReviewed }) {
 export function OverviewDashboard({ dashboardData, onDashboardRefresh }) {
   const stats = buildOverviewStats(dashboardData)
   const trend = dashboardData?.revenueTrend || []
+  const platformFeeShops = dashboardData?.platformFeeShops || []
   const shops = buildPendingShops(dashboardData)
   const pendingActions = dashboardData?.stats?.pendingActions ?? shops.length
 
@@ -525,6 +599,8 @@ export function OverviewDashboard({ dashboardData, onDashboardRefresh }) {
       </div>
 
       <RevenueTrendCard trend={trend} />
+
+      <PlatformFeeShopsTable shops={platformFeeShops} />
 
       <PendingShopsTable
         shops={shops}
@@ -623,7 +699,7 @@ export function ShopsDashboard({ searchTerm, shopsData }) {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1080px] border-collapse text-left">
+          <table className="w-full min-w-[1180px] border-collapse text-left">
             <thead>
               <tr className="h-12 bg-[#eeeeed] text-[10px] font-bold uppercase text-[#4b3527]">
                 <th className="px-4">Cửa hàng</th>
@@ -632,6 +708,7 @@ export function ShopsDashboard({ searchTerm, shopsData }) {
                 <th className="px-4">Sản phẩm</th>
                 <th className="px-4">Đơn hàng</th>
                 <th className="px-4">Doanh thu</th>
+                <th className="px-4">Phí sàn tháng</th>
                 <th className="px-4">Đánh giá</th>
                 <th className="px-4">Theo dõi</th>
                 <th className="px-4">Trạng thái</th>
@@ -674,6 +751,7 @@ export function ShopsDashboard({ searchTerm, shopsData }) {
                     <td className="px-4 py-4 font-semibold">{formatCount(shop.productCount)}</td>
                     <td className="px-4 py-4 font-semibold">{formatCount(shop.orderCount)}</td>
                     <td className="px-4 py-4 font-semibold text-[#a15d00]">{formatCurrency(shop.revenue)}</td>
+                    <td className="px-4 py-4 font-bold text-[#047857]">{formatCurrency(shop.monthlyPlatformFee)}</td>
                     <td className="px-4 py-4">
                       <p className="font-semibold">{Number(shop.ratingAvg || 0).toFixed(1)}/5</p>
                       <p className="text-[10px] text-[#6e5c51]">{formatCount(shop.ratingCount)} lượt</p>

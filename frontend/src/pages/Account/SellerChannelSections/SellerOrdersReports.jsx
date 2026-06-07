@@ -37,7 +37,7 @@ export function SellerOrdersPanel({ orders, workingOrderId, handleOrderStatus })
                     className="h-12 rounded-md border-outline-variant bg-surface-container-low text-body-sm focus:border-primary focus:ring-primary disabled:opacity-60"
                     value={order.status}
                     onChange={(event) => handleOrderStatus(order, event.target.value)}
-                    disabled={workingOrderId === order.id || order.status === 'refunded'}
+                    disabled={workingOrderId === order.id || order.status === 'delivered' || order.status === 'refunded'}
                   >
                     {orderStatusOptions.map((option) => (
                       <option key={option.value} value={option.value}>

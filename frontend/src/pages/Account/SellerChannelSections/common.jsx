@@ -92,3 +92,59 @@ export function RevenueChart({ trend }) {
     </div>
   )
 }
+
+export function LocationSelectFields({ locations = [], form, disabled, onChange, provinceLabel = 'Tỉnh/Thành phố' }) {
+  const provinceId = String(form.provinceId || '')
+  const province = locations.find((item) => String(item.id) === provinceId)
+  const wards = province?.wards || []
+
+  function updateProvince(value) {
+    const nextProvince = locations.find((item) => String(item.id) === String(value))
+    onChange('provinceId', value)
+    onChange('wardId', '')
+    onChange('province', nextProvince?.name || '')
+    onChange('ward', '')
+  }
+
+  function updateWard(value) {
+    const nextWard = wards.find((item) => String(item.id) === String(value))
+    onChange('wardId', value)
+    onChange('ward', nextWard?.name || '')
+  }
+
+  return (
+    <>
+      <label className="grid gap-2">
+        <span className="text-body-sm text-on-surface-variant">{provinceLabel}</span>
+        <select
+          className="h-10 rounded-lg border-outline-variant bg-surface-container-low text-body-sm focus:border-primary focus:ring-primary"
+          value={provinceId}
+          onChange={(event) => updateProvince(event.target.value)}
+          disabled={disabled}
+          required
+        >
+          <option value="">Chọn tỉnh/thành phố</option>
+          {locations.map((item) => (
+            <option key={item.id} value={item.id}>{item.name}</option>
+          ))}
+        </select>
+      </label>
+
+      <label className="grid gap-2">
+        <span className="text-body-sm text-on-surface-variant">Phường/Xã</span>
+        <select
+          className="h-10 rounded-lg border-outline-variant bg-surface-container-low text-body-sm focus:border-primary focus:ring-primary"
+          value={String(form.wardId || '')}
+          onChange={(event) => updateWard(event.target.value)}
+          disabled={disabled || !provinceId}
+          required
+        >
+          <option value="">Chọn phường/xã</option>
+          {wards.map((item) => (
+            <option key={item.id} value={item.id}>{item.name}</option>
+          ))}
+        </select>
+      </label>
+    </>
+  )
+}

@@ -5,10 +5,13 @@ import { formatCount, formatCurrency, formatDateTime } from '../sellerChannel.ut
 export function SellerOverview({ stats, orders, products, revenueTrend }) {
   const recentOrders = orders.slice(0, 5)
   const attentionProducts = products.filter((product) => Number(product.stock || 0) <= 0 || !product.isActive).slice(0, 5)
+  const platformFeePercent = Math.round(Number(stats.platformFeeRate || 0.05) * 100)
 
   return (
     <div className="space-y-5">
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <MetricCard icon="receipt" label="Phí sàn tháng" value={formatCurrency(stats.monthlyPlatformFee)} note={`${platformFeePercent}% đơn đã giao`} />
+        <MetricCard icon="account_balance_wallet" label="Thực lãnh tháng" value={formatCurrency(stats.monthlyPayout)} note="Sau phí sàn" />
         <MetricCard icon="payments" label="Doanh thu tháng" value={formatCurrency(stats.monthlyRevenue)} note="Tháng này" />
         <MetricCard icon="shopping_cart" label="Tổng đơn hàng" value={formatCount(stats.orderCount)} note={`${formatCount(stats.pendingOrders)} chờ xử lý`} />
         <MetricCard icon="inventory_2" label="Sản phẩm đang bán" value={formatCount(stats.activeProducts)} note={`${formatCount(stats.productCount)} tổng`} />

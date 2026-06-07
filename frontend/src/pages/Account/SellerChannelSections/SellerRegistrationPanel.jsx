@@ -1,7 +1,7 @@
-import { EmptySellerNotice, StatusBadge } from './common'
+﻿import { EmptySellerNotice, LocationSelectFields, StatusBadge } from './common'
 import { formatDateTime } from '../sellerChannel.utils'
 
-export function SellerRegistrationPanel({ application, canSubmitShopApplication, shopForm, sellerSaving, updateShopField, handleShopSubmit }) {
+export function SellerRegistrationPanel({ application, canSubmitShopApplication, shopForm, sellerSaving, updateShopField, handleShopSubmit, locations }) {
   return (
     <div className="mt-5 space-y-5">
       {application ? (
@@ -82,26 +82,13 @@ export function SellerRegistrationPanel({ application, canSubmitShopApplication,
                 required
               />
             </label>
-
-            <label className="grid gap-2">
-              <span className="text-body-sm text-on-surface-variant">Phường/Xã</span>
-              <input
-                className="h-10 rounded-lg border-outline-variant bg-surface-container-low text-body-sm focus:border-primary focus:ring-primary"
-                value={shopForm.ward}
-                onChange={(event) => updateShopField('ward', event.target.value)}
-                disabled={sellerSaving}
-              />
-            </label>
-            <label className="grid gap-2">
-              <span className="text-body-sm text-on-surface-variant">Tỉnh/Thành phố</span>
-              <input
-                className="h-10 rounded-lg border-outline-variant bg-surface-container-low text-body-sm focus:border-primary focus:ring-primary"
-                value={shopForm.province}
-                onChange={(event) => updateShopField('province', event.target.value)}
-                disabled={sellerSaving}
-                required
-              />
-            </label>
+            <LocationSelectFields
+              locations={locations}
+              form={shopForm}
+              disabled={sellerSaving}
+              onChange={updateShopField}
+              provinceLabel="Tỉnh/Thành phố"
+            />
 
             <label className="grid gap-2 md:col-span-2">
               <span className="text-body-sm text-on-surface-variant">Mô tả cửa hàng</span>
@@ -128,3 +115,4 @@ export function SellerRegistrationPanel({ application, canSubmitShopApplication,
     </div>
   )
 }
+

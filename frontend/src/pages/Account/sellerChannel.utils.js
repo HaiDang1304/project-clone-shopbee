@@ -30,6 +30,8 @@ export function toShopForm(profile, application, shop) {
     coverFileName: '',
     description: shop?.description || application?.description || '',
     addressLine1: shop?.addressLine1 || application?.addressLine1 || '',
+    provinceId: shop?.provinceId ? String(shop.provinceId) : application?.provinceId ? String(application.provinceId) : '',
+    wardId: shop?.wardId ? String(shop.wardId) : application?.wardId ? String(application.wardId) : '',
     ward: shop?.ward || application?.ward || '',
     province: shop?.province || application?.province || '',
     country: shop?.country || application?.country || 'VN',
