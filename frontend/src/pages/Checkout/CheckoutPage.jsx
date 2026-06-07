@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
 
@@ -8,8 +8,8 @@ import { useCart } from '../../context/useCart'
 import { getAccountAddresses } from '../../lib/account'
 import { apiAssetUrl } from '../../lib/api'
 import { getAuthUser, subscribeAuth } from '../../lib/auth'
-import { createOrder } from '../../lib/orders'
-import { formatCurrency, productPath } from '../../lib/format'
+import { calculateShippingFee, createOrder } from '../../lib/orders'
+import { formatCount, formatCurrency, productPath } from '../../lib/format'
 
 const CHECKOUT_STORAGE_KEY = 'shopbee_checkout'
 const LAST_ORDER_STORAGE_KEY = 'shopbee_last_order'
@@ -54,6 +54,9 @@ export default function CheckoutPage() {
   const [note, setNote] = useState('')
   const [loading, setLoading] = useState(true)
   const [placingOrder, setPlacingOrder] = useState(false)
+  const [shippingQuote, setShippingQuote] = useState(null)
+  const [shippingLoading, setShippingLoading] = useState(false)
+  const [shippingError, setShippingError] = useState('')
 
   useEffect(() => subscribeAuth(setAuthUser), [])
 
@@ -102,10 +105,58 @@ export default function CheckoutPage() {
     () => items.reduce((sum, item) => sum + Number(item.unitPrice || 0) * Number(item.quantity || 0), 0),
     [items],
   )
-  const shippingFee = 0
+  const shippingFee = Number(shippingQuote?.fee || 0)
   const discountTotal = 0
   const grandTotal = itemsTotal + shippingFee - discountTotal
   const selectedAddress = addresses.find((address) => String(address.id) === String(selectedAddressId))
+
+  const buildCheckoutPayload = useCallback((addressId = selectedAddressId) => {
+    const payload = {
+      source: checkoutData?.source === 'cart' ? 'cart' : 'buyNow',
+      addressId: Number(addressId),
+    }
+
+    if (payload.source === 'cart') {
+      payload.cartItemIds = checkoutData.cartItemIds || items.map((item) => item.id).filter(Boolean)
+    } else {
+      payload.items = items.map((item) => ({
+        productId: item.productId,
+        variantId: item.variantId || null,
+        quantity: item.quantity,
+        selectedOptions: item.selectedOptions || {},
+      }))
+    }
+
+    return payload
+  }, [checkoutData, items, selectedAddressId])
+
+  useEffect(() => {
+    if (!checkoutData?.items?.length || !selectedAddressId) {
+      return undefined
+    }
+
+    let active = true
+    async function loadShippingFee() {
+      setShippingLoading(true)
+      setShippingError('')
+      try {
+        const quote = await calculateShippingFee(buildCheckoutPayload(selectedAddressId))
+        if (active) setShippingQuote(quote)
+      } catch (err) {
+        if (active) {
+          setShippingQuote(null)
+          setShippingError(err.message || 'Không tính được phí vận chuyển')
+        }
+      } finally {
+        if (active) setShippingLoading(false)
+      }
+    }
+
+    loadShippingFee()
+    return () => {
+      active = false
+    }
+  }, [buildCheckoutPayload, checkoutData?.items?.length, selectedAddressId])
 
   async function handlePlaceOrder() {
     if (!checkoutData?.items?.length) {
@@ -123,24 +174,22 @@ export default function CheckoutPage() {
       return
     }
 
+    if (shippingLoading) {
+      toast.info('Đang tính phí vận chuyển, vui lòng chờ trong giây lát')
+      return
+    }
+
+    if (shippingError || !shippingQuote) {
+      toast.error(shippingError || 'Vui lòng tính phí vận chuyển trước khi đặt hàng')
+      return
+    }
+
     setPlacingOrder(true)
     try {
       const payload = {
-        source: checkoutData.source === 'cart' ? 'cart' : 'buyNow',
-        addressId: Number(selectedAddressId),
+        ...buildCheckoutPayload(selectedAddressId),
         paymentMethod,
         note,
-      }
-
-      if (payload.source === 'cart') {
-        payload.cartItemIds = checkoutData.cartItemIds || items.map((item) => item.id).filter(Boolean)
-      } else {
-        payload.items = items.map((item) => ({
-          productId: item.productId,
-          variantId: item.variantId || null,
-          quantity: item.quantity,
-          selectedOptions: item.selectedOptions || {},
-        }))
       }
 
       const order = await createOrder(payload)
@@ -277,10 +326,17 @@ export default function CheckoutPage() {
                   <label className="mt-3 flex cursor-pointer items-center gap-3 rounded-lg border border-primary bg-primary-fixed px-4 py-3">
                     <input className="text-primary focus:ring-primary" type="radio" checked readOnly />
                     <span>
-                      <span className="block text-body-md font-semibold text-on-surface">Tiêu chuẩn</span>
-                      <span className="block text-body-sm text-on-surface-variant">Miễn phí vận chuyển</span>
+                      <span className="block text-body-md font-semibold text-on-surface">Giao hàng tiết kiệm</span>
+                      <span className="block text-body-sm text-on-surface-variant">
+                        {shippingLoading
+                          ? 'Đang tính phí vận chuyển...'
+                          : shippingQuote
+                            ? `${formatCurrency(shippingFee)} · ${formatCount(shippingQuote.weightGrams)} g`
+                            : shippingError || 'Chọn địa chỉ để tính phí'}
+                      </span>
                     </span>
                   </label>
+                  {shippingError ? <p className="mt-2 text-body-sm text-error">{shippingError}</p> : null}
                 </div>
 
                 <label className="grid gap-2">
@@ -346,7 +402,9 @@ export default function CheckoutPage() {
                   </div>
                   <div className="flex justify-between gap-3 text-body-sm">
                     <span className="text-on-surface-variant">Vận chuyển</span>
-                    <span className="font-semibold text-on-surface">{formatCurrency(shippingFee)}</span>
+                    <span className="font-semibold text-on-surface">
+                      {shippingLoading ? 'Đang tính...' : formatCurrency(shippingFee)}
+                    </span>
                   </div>
                   <div className="flex justify-between gap-3 text-body-sm">
                     <span className="text-on-surface-variant">Giảm giá</span>
@@ -371,7 +429,7 @@ export default function CheckoutPage() {
                 <button
                   className="mt-5 h-12 w-full rounded-lg bg-primary text-label-lg font-label-lg text-on-primary hover:bg-primary/90 disabled:opacity-60"
                   type="button"
-                  disabled={placingOrder || !addresses.length}
+                  disabled={placingOrder || shippingLoading || Boolean(shippingError) || !shippingQuote || !addresses.length}
                   onClick={handlePlaceOrder}
                 >
                   {placingOrder ? 'Đang đặt hàng...' : 'Đặt hàng'}

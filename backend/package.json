@@ -13,8 +13,11 @@
     "db:migrate:address-location": "mysql -u root -p < database/migrations/20260602_add_user_address_location_fields.sql",
     "db:migrate:address-simplify": "mysql -u root -p < database/migrations/20260602_make_user_address_district_optional.sql",
     "db:migrate:shop-applications": "mysql -u root -p < database/migrations/20260603_add_shop_applications.sql",
+    "db:migrate:drop-shop-application-district": "mysql -u root -p < database/migrations/20260607_drop_shop_application_district.sql",
+    "db:migrate:product-weight": "mysql -u root -p < database/migrations/20260607_add_product_weight_grams.sql",
     "db:migrate:product-metadata": "mysql -u root -p < database/migrations/20260606_add_product_metadata.sql",
-    "db:migrate:checkout-options": "mysql -u root -p < database/migrations/20260606_add_checkout_selected_options.sql"
+    "db:migrate:checkout-options": "mysql -u root -p < database/migrations/20260606_add_checkout_selected_options.sql",
+    "db:migrate:notifications": "mysql -u root -p < database/migrations/20260607_add_notifications.sql"
   },
   "keywords": [],
   "author": "",

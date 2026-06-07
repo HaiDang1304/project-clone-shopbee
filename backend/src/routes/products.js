@@ -56,6 +56,7 @@ function mapProduct(row) {
     price: Number(row.price),
     originalPrice: row.original_price == null ? null : Number(row.original_price),
     stock: row.stock,
+    weightGrams: row.weight_grams == null ? null : Number(row.weight_grams),
     thumbnailUrl: row.thumbnail_url || row.image_url || null,
     imageUrl: row.image_url || row.thumbnail_url || null,
     status: row.status || (Number(row.is_active) === 1 ? 'active' : 'hidden'),
@@ -105,7 +106,7 @@ router.get(
     const limit = toPositiveInt(req.query.limit, 24, 100)
     const offset = (page - 1) * limit
 
-    const where = ['p.is_active = 1']
+    const where = ['p.is_active = 1', 's.is_active = 1', "u.role = 'seller'", 'u.is_active = 1']
     const params = []
 
     if (req.query.search) {
@@ -139,7 +140,8 @@ router.get(
          (SELECT pi.image_url FROM product_images pi WHERE pi.product_id = p.id ORDER BY pi.sort_order ASC, pi.id ASC LIMIT 1) AS image_url
        FROM products p
        LEFT JOIN categories c ON c.id = p.category_id
-       LEFT JOIN shops s ON s.id = p.shop_id
+       JOIN shops s ON s.id = p.shop_id
+       JOIN users u ON u.id = s.owner_id
        WHERE ${where.join(' AND ')}
        ORDER BY p.created_at DESC
        LIMIT ? OFFSET ?`,
@@ -173,8 +175,9 @@ router.get(
          s.follower_count AS shop_follower_count
        FROM products p
        LEFT JOIN categories c ON c.id = p.category_id
-       LEFT JOIN shops s ON s.id = p.shop_id
-       WHERE p.is_active = 1 AND ${isNumericId ? 'p.id = ?' : 'p.slug = ?'}
+       JOIN shops s ON s.id = p.shop_id
+       JOIN users u ON u.id = s.owner_id
+        WHERE p.is_active = 1 AND s.is_active = 1 AND u.role = 'seller' AND u.is_active = 1 AND ${isNumericId ? 'p.id = ?' : 'p.slug = ?'}
        LIMIT 1`,
       [isNumericId ? Number(idOrSlug) : idOrSlug],
     )

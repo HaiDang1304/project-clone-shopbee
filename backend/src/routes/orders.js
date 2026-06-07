@@ -3,6 +3,8 @@ const express = require('express')
 const { query, transaction } = require('../config/db')
 const { requireAuth } = require('../middleware/auth')
 const { asyncHandler } = require('../middleware/error')
+const { calculateGhtkShippingFee } = require('../utils/ghtk')
+const { createNotification } = require('../utils/notifications')
 
 const router = express.Router()
 const allowedPaymentMethods = new Set(['cod', 'bank', 'momo', 'vnpay'])
@@ -52,6 +54,7 @@ function toCheckoutLine(row, quantity, selectedOptions) {
   const stock = Number(hasVariant ? row.variantStock : row.productStock)
   const unitPrice = Number(hasVariant ? row.variantPrice : row.productPrice)
   const lineQuantity = Number(quantity)
+  const weightGrams = Number(row.weightGrams || 0)
 
   if (Number(row.isActive) !== 1 || row.status !== 'active') {
     throwStatus(`Sản phẩm "${row.name}" đã ngừng bán`)
@@ -65,6 +68,10 @@ function toCheckoutLine(row, quantity, selectedOptions) {
     throwStatus(`Số lượng "${row.name}" vượt quá tồn kho`)
   }
 
+  if (!Number.isFinite(weightGrams) || weightGrams <= 0) {
+    throwStatus(`Sản phẩm "${row.name}" chưa có khối lượng để tính phí vận chuyển`)
+  }
+
   return {
     cartItemId: row.cartItemId == null ? null : Number(row.cartItemId),
     productId: Number(row.productId),
@@ -76,7 +83,34 @@ function toCheckoutLine(row, quantity, selectedOptions) {
     selectedOptions: finalSelectedOptions,
     unitPrice,
     quantity: lineQuantity,
+    weightGrams,
     lineTotal: unitPrice * lineQuantity,
+  }
+}
+
+function getTotalWeight(lines) {
+  return lines.reduce((sum, line) => sum + Number(line.weightGrams || 0) * Number(line.quantity || 0), 0)
+}
+
+async function calculateShippingForLines(address, lines) {
+  const itemsTotal = lines.reduce((sum, line) => sum + line.lineTotal, 0)
+  const quote = await calculateGhtkShippingFee({
+    address: address.line1,
+    province: address.province,
+    district: address.district,
+    ward: address.ward,
+    weight: getTotalWeight(lines),
+    value: itemsTotal,
+    transport: process.env.GHTK_TRANSPORT || 'road',
+  })
+
+  if (!quote.delivery) {
+    throwStatus('GHTK chưa hỗ trợ giao đến địa chỉ này')
+  }
+
+  return {
+    ...quote,
+    weightGrams: getTotalWeight(lines),
   }
 }
 
@@ -109,6 +143,7 @@ async function readCartLines(connection, userId, cartItemIds) {
        p.shop_id AS shopId,
        p.price AS productPrice,
        p.stock AS productStock,
+       p.weight_grams AS weightGrams,
        p.is_active AS isActive,
        p.status,
        pv.price AS variantPrice,
@@ -159,6 +194,7 @@ async function readDirectLines(connection, items) {
          p.shop_id AS shopId,
          p.price AS productPrice,
          p.stock AS productStock,
+         p.weight_grams AS weightGrams,
          p.is_active AS isActive,
          p.status,
          pv.id AS variantId,
@@ -339,6 +375,32 @@ async function readOrder(userId, orderId) {
 router.use(requireAuth)
 
 router.post(
+  '/shipping-fee',
+  asyncHandler(async (req, res) => {
+    const userId = Number(req.user.sub)
+    const source = req.body?.source === 'cart' ? 'cart' : 'buyNow'
+    const addressId = toPositiveId(req.body?.addressId)
+
+    if (!addressId) return res.status(400).json({ ok: false, message: 'Vui lòng chọn địa chỉ nhận hàng' })
+
+    const quote = await transaction(async (connection) => {
+      const address = await readAddress(connection, userId, addressId)
+      if (!address) throwStatus('Không tìm thấy địa chỉ nhận hàng', 404)
+
+      const lines =
+        source === 'cart'
+          ? await readCartLines(connection, userId, req.body?.cartItemIds || [])
+          : await readDirectLines(connection, req.body?.items || [])
+      if (!lines.length) throwStatus('Không có sản phẩm để tính phí vận chuyển')
+
+      return calculateShippingForLines(address, lines)
+    })
+
+    return res.json({ ok: true, data: quote })
+  }),
+)
+
+router.post(
   '/',
   asyncHandler(async (req, res) => {
     const userId = Number(req.user.sub)
@@ -363,7 +425,8 @@ router.post(
       if (!lines.length) throwStatus('Không có sản phẩm để thanh toán')
 
       const itemsTotal = lines.reduce((sum, line) => sum + line.lineTotal, 0)
-      const shippingFee = 0
+      const shippingQuote = await calculateShippingForLines(address, lines)
+      const shippingFee = shippingQuote.fee
       const discountTotal = 0
       const grandTotal = itemsTotal + shippingFee - discountTotal
 
@@ -396,6 +459,20 @@ router.post(
 
       await insertOrderItems(connection, createdOrder.insertId, lines)
       if (source === 'cart') await deleteCheckedCartItems(connection, userId, lines)
+
+      await createNotification({
+        connection,
+        userId,
+        type: 'order',
+        title: 'Đặt hàng thành công',
+        message: `Đơn hàng #${createdOrder.insertId} đã được ghi nhận và đang chờ người bán xác nhận.`,
+        actionUrl: '/orders',
+        orderId: createdOrder.insertId,
+        metadata: {
+          status: 'pending',
+          itemCount: lines.reduce((sum, line) => sum + Number(line.quantity || 0), 0),
+        },
+      })
 
       return createdOrder.insertId
     })

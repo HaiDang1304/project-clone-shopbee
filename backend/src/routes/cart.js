@@ -59,6 +59,7 @@ function toCartItem(row) {
     variantName: row.variantName || '',
     variantSku: row.variantSku || '',
     stock: Number(row.stock || 0),
+    weightGrams: row.weightGrams == null ? null : Number(row.weightGrams),
     lineTotal: unitPrice * quantity,
     shop: row.shopId
       ? {
@@ -106,6 +107,7 @@ async function readCart(userId) {
        p.slug,
        COALESCE(pv.price, p.price) AS unitPrice,
        COALESCE(pv.stock, p.stock) AS stock,
+       p.weight_grams AS weightGrams,
        COALESCE(pv.image_url, p.thumbnail_url,
          (SELECT pi.image_url FROM product_images pi WHERE pi.product_id = p.id ORDER BY pi.sort_order ASC, pi.id ASC LIMIT 1)
        ) AS imageUrl,
@@ -147,6 +149,7 @@ async function readSellableProduct(connection, productId, variantId) {
        p.is_active AS isActive,
        p.status,
        p.stock AS productStock,
+       p.weight_grams AS weightGrams,
        pv.id AS variantId,
        pv.stock AS variantStock
      FROM products p

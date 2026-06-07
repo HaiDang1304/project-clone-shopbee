@@ -39,6 +39,24 @@ export async function getAccountOrders() {
   return data.data || []
 }
 
+export async function getAccountNotifications() {
+  const data = await apiGet('/api/account/notifications')
+  return data.data || { items: [], unreadCount: 0 }
+}
+
+export async function markNotificationRead(notificationId) {
+  return apiPatch(`/api/account/notifications/${notificationId}/read`)
+}
+
+export async function markAllNotificationsRead() {
+  return apiPatch('/api/account/notifications/read-all')
+}
+
+export async function submitProductReview(payload) {
+  const data = await apiPost('/api/account/reviews', payload)
+  return data.data
+}
+
 export async function changeAccountPassword(payload) {
   return apiPatch('/api/account/password', payload)
 }

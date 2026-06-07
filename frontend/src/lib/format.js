@@ -14,6 +14,10 @@ export function formatCompact(value) {
   return String(number)
 }
 
+export function formatCount(value) {
+  return new Intl.NumberFormat('vi-VN').format(Number(value || 0))
+}
+
 export function productPath(product) {
   return `/product/${product?.slug || product?.id || ''}`
 }

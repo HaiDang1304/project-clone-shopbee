@@ -101,7 +101,6 @@ CREATE TABLE IF NOT EXISTS shop_applications (
   description TEXT NULL,
   address_line1 VARCHAR(255) NOT NULL,
   ward VARCHAR(120) NULL,
-  district VARCHAR(120) NULL,
   province VARCHAR(120) NOT NULL,
   country VARCHAR(10) NOT NULL DEFAULT 'VN',
   status ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending',
@@ -130,6 +129,7 @@ CREATE TABLE IF NOT EXISTS products (
   price DECIMAL(12,2) NOT NULL DEFAULT 0,
   original_price DECIMAL(12,2) NULL,
   stock INT UNSIGNED NOT NULL DEFAULT 0,
+  weight_grams INT UNSIGNED NULL,
   thumbnail_url VARCHAR(500) NULL,
   status ENUM('draft', 'active', 'hidden') NOT NULL DEFAULT 'active',
   product_options JSON NULL,
@@ -287,4 +287,25 @@ CREATE TABLE IF NOT EXISTS order_items (
   CONSTRAINT fk_order_items_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE RESTRICT,
   CONSTRAINT fk_order_items_shop FOREIGN KEY (shop_id) REFERENCES shops(id) ON DELETE RESTRICT,
   CONSTRAINT fk_order_items_variant FOREIGN KEY (variant_id) REFERENCES product_variants(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS notifications (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id BIGINT UNSIGNED NOT NULL,
+  type ENUM('order', 'review', 'system') NOT NULL DEFAULT 'system',
+  title VARCHAR(180) NOT NULL,
+  message VARCHAR(500) NOT NULL,
+  action_url VARCHAR(500) NULL,
+  order_id BIGINT UNSIGNED NULL,
+  product_id BIGINT UNSIGNED NULL,
+  metadata JSON NULL,
+  read_at DATETIME NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_notifications_user_read_created (user_id, read_at, created_at),
+  KEY idx_notifications_order (order_id),
+  KEY idx_notifications_product (product_id),
+  CONSTRAINT fk_notifications_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT fk_notifications_order FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE SET NULL,
+  CONSTRAINT fk_notifications_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

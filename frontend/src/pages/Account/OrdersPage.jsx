@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 
 import AccountLayout from './AccountLayout'
+import ReviewModal from '../../components/Reviews/ReviewModal'
 import { getAccountOrders } from '../../lib/account'
 import { apiAssetUrl } from '../../lib/api'
 import { formatCurrency } from '../../lib/format'
@@ -35,6 +36,7 @@ export default function OrdersPage() {
   const [activeTab, setActiveTab] = useState('all')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [reviewRequest, setReviewRequest] = useState(null)
 
   useEffect(() => {
     let active = true
@@ -145,7 +147,24 @@ export default function OrdersPage() {
                     ) : null}
                     <p className="mt-1 text-body-sm text-on-surface-variant">x{item.quantity}</p>
                   </div>
-                  <p className="shrink-0 text-body-sm text-on-surface">{formatCurrency(item.unitPrice)}</p>
+                  <div className="flex shrink-0 flex-col items-end gap-3">
+                    <p className="text-body-sm text-on-surface">{formatCurrency(item.unitPrice)}</p>
+                    {order.status === 'delivered' ? (
+                      <button
+                        className="h-9 rounded-lg border border-primary px-3 text-label-md font-label-md text-primary hover:bg-primary-fixed"
+                        type="button"
+                        onClick={() =>
+                          setReviewRequest({
+                            orderId: order.id,
+                            productId: item.productId,
+                            products: order.items,
+                          })
+                        }
+                      >
+                        Đánh giá
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
               ))}
 
@@ -166,6 +185,16 @@ export default function OrdersPage() {
           ))}
         </div>
       </section>
+
+      {reviewRequest ? (
+        <ReviewModal
+          open
+          orderId={reviewRequest.orderId}
+          products={reviewRequest.products || []}
+          initialProductId={reviewRequest.productId}
+          onClose={() => setReviewRequest(null)}
+        />
+      ) : null}
     </AccountLayout>
   )
 }

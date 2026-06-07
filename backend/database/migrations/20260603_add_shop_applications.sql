@@ -11,7 +11,6 @@ CREATE TABLE IF NOT EXISTS shop_applications (
   description TEXT NULL,
   address_line1 VARCHAR(255) NOT NULL,
   ward VARCHAR(120) NULL,
-  district VARCHAR(120) NULL,
   province VARCHAR(120) NOT NULL,
   country VARCHAR(10) NOT NULL DEFAULT 'VN',
   status ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending',

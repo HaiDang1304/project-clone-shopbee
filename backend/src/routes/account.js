@@ -7,6 +7,7 @@ const path = require('path')
 const { query, transaction } = require('../config/db')
 const { requireAuth } = require('../middleware/auth')
 const { asyncHandler } = require('../middleware/error')
+const { createNotification } = require('../utils/notifications')
 const { signUserToken } = require('../utils/jwt')
 
 const router = express.Router()
@@ -19,6 +20,24 @@ const productPublicPath = '/uploads/products'
 const maxAvatarSize = 10 * 1024 * 1024
 const allowedGenders = new Set(['male', 'female', 'other'])
 const allowedProductStatuses = new Set(['draft', 'active', 'hidden'])
+const buyerOrderStatusNotifications = {
+  processing: {
+    title: 'Đơn hàng đã được xác nhận',
+    message: (orderId) => `Người bán đã xác nhận đơn hàng #${orderId} và đang chuẩn bị hàng.`,
+  },
+  shipping: {
+    title: 'Đơn hàng đang giao',
+    message: (orderId) => `Đơn hàng #${orderId} đang trên đường giao đến bạn.`,
+  },
+  delivered: {
+    title: 'Đơn hàng đã giao thành công',
+    message: (orderId) => `Đơn hàng #${orderId} đã được xác nhận giao thành công.`,
+  },
+  cancelled: {
+    title: 'Đơn hàng đã bị hủy',
+    message: (orderId) => `Đơn hàng #${orderId} đã được cập nhật sang trạng thái đã hủy.`,
+  },
+}
 
 function slugify(value) {
   const slug = String(value || '')
@@ -57,6 +76,17 @@ function formatTrendLabel(date, index) {
 }
 
 router.use(requireAuth)
+
+function throwStatus(message, status = 400) {
+  const err = new Error(message)
+  err.status = status
+  throw err
+}
+
+function toPositiveId(value) {
+  const id = Number(value)
+  return Number.isSafeInteger(id) && id > 0 ? id : null
+}
 
 async function saveAvatarDataUrl(userId, dataUrl) {
   const match = String(dataUrl || '').match(/^data:image\/(png|jpe?g);base64,([A-Za-z0-9+/=]+)$/)
@@ -277,7 +307,6 @@ function toShopApplication(row) {
     description: row.description || '',
     addressLine1: row.address_line1,
     ward: row.ward || '',
-    district: row.district || '',
     province: row.province,
     country: row.country,
     status: row.status,
@@ -331,6 +360,7 @@ function toSellerProduct(row) {
     price: Number(row.price || 0),
     originalPrice: row.original_price === null || row.original_price === undefined ? '' : Number(row.original_price),
     stock: Number(row.stock || 0),
+    weightGrams: row.weight_grams == null ? '' : Number(row.weight_grams),
     thumbnailUrl: row.thumbnail_url || '',
     images: row.images || [],
     status: row.status || (Number(row.is_active) === 1 ? 'active' : 'hidden'),
@@ -454,7 +484,6 @@ function normalizeShopApplicationPayload(body = {}) {
   const description = String(body.description || '').trim()
   const addressLine1 = String(body.addressLine1 || '').trim()
   const ward = String(body.ward || '').trim()
-  const district = String(body.district || '').trim()
   const province = String(body.province || '').trim()
   const country = String(body.country || 'VN').trim().toUpperCase()
 
@@ -496,7 +525,6 @@ function normalizeShopApplicationPayload(body = {}) {
     description: description || null,
     addressLine1,
     ward: ward || null,
-    district: district || null,
     province,
     country: country || 'VN',
   }
@@ -528,6 +556,7 @@ function normalizeSellerProductPayload(body = {}) {
   const price = Number(body.price)
   const originalPrice = body.originalPrice === undefined || body.originalPrice === null || body.originalPrice === '' ? null : Number(body.originalPrice)
   const stock = Number.parseInt(body.stock, 10)
+  const weightGrams = Number.parseInt(body.weightGrams, 10)
   const status = allowedProductStatuses.has(String(body.status || '').trim())
     ? String(body.status || '').trim()
     : body.isActive === false
@@ -565,6 +594,12 @@ function normalizeSellerProductPayload(body = {}) {
     throw err
   }
 
+  if (!Number.isSafeInteger(weightGrams) || weightGrams <= 0) {
+    const err = new Error('Vui lòng nhập khối lượng sản phẩm hợp lệ theo gram')
+    err.status = 400
+    throw err
+  }
+
   if (categoryId !== null && (!Number.isSafeInteger(categoryId) || categoryId <= 0)) {
     const err = new Error('Danh mục không hợp lệ')
     err.status = 400
@@ -592,6 +627,7 @@ function normalizeSellerProductPayload(body = {}) {
     price,
     originalPrice,
     stock,
+    weightGrams,
     status,
     isActive: status === 'active',
     images,
@@ -652,7 +688,7 @@ async function readAddresses(userId) {
 async function readShopApplication(userId) {
   const rows = await query(
     `SELECT id, user_id, shop_id, shop_name, shop_slug, contact_phone, contact_email,
-            description, address_line1, ward, district, province, country, status,
+            description, address_line1, ward, province, country, status,
             reject_reason, reviewed_by, reviewed_at, created_at, updated_at
      FROM shop_applications
      WHERE user_id = ?
@@ -669,8 +705,9 @@ async function readSellerShop(userId) {
             s.district, s.province, s.country, s.is_active, s.created_at, s.updated_at,
             sa.contact_phone, sa.contact_email
      FROM shops s
+     JOIN users u ON u.id = s.owner_id
      LEFT JOIN shop_applications sa ON sa.shop_id = s.id AND sa.user_id = s.owner_id
-     WHERE s.owner_id = ? AND s.is_active = 1
+     WHERE s.owner_id = ? AND s.is_active = 1 AND u.role = 'seller'
      ORDER BY s.id DESC
      LIMIT 1`,
     [userId],
@@ -681,8 +718,8 @@ async function readSellerShop(userId) {
 
 async function readSellerProducts(userId) {
   const rows = await query(
-    `SELECT p.id, p.slug, p.name, p.description, p.price, p.original_price, p.stock,
-            p.thumbnail_url, p.status, p.product_options, p.is_active, p.rating_avg, p.rating_count, p.sold_count,
+     `SELECT p.id, p.slug, p.name, p.description, p.price, p.original_price, p.stock, p.weight_grams,
+             p.thumbnail_url, p.status, p.product_options, p.is_active, p.rating_avg, p.rating_count, p.sold_count,
             p.created_at, p.updated_at,
             c.id AS category_id, c.name AS category_name, c.slug AS category_slug
      FROM products p
@@ -836,6 +873,61 @@ function toOrder(row, items) {
   }
 }
 
+function toNotification(row) {
+  return {
+    id: Number(row.id),
+    type: row.type,
+    title: row.title,
+    message: row.message,
+    actionUrl: row.actionUrl || '',
+    orderId: row.orderId == null ? null : Number(row.orderId),
+    productId: row.productId == null ? null : Number(row.productId),
+    metadata: safeParseJson(row.metadata, {}) || {},
+    readAt: row.readAt || null,
+    isRead: Boolean(row.readAt),
+    createdAt: row.createdAt,
+  }
+}
+
+function toReview(row) {
+  return {
+    id: Number(row.id),
+    productId: Number(row.product_id),
+    userId: Number(row.user_id),
+    orderId: row.order_id == null ? null : Number(row.order_id),
+    rating: Number(row.rating || 0),
+    comment: row.comment || '',
+    userName: row.user_name || '',
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
+}
+
+async function readOrderReviewProducts(connection, orderId, shopId) {
+  const [rows] = await connection.execute(
+    `SELECT
+       oi.product_id AS productId,
+       MAX(oi.name) AS name,
+       MAX(oi.image_url) AS imageUrl,
+       MAX(s.name) AS shopName,
+       SUM(oi.quantity) AS quantity
+     FROM order_items oi
+     LEFT JOIN shops s ON s.id = oi.shop_id
+     WHERE oi.order_id = ? AND oi.shop_id = ?
+     GROUP BY oi.product_id
+     ORDER BY MIN(oi.id) ASC`,
+    [orderId, shopId],
+  )
+
+  return rows.map((row) => ({
+    productId: Number(row.productId),
+    name: row.name || '',
+    imageUrl: row.imageUrl || '',
+    shopName: row.shopName || '',
+    quantity: Number(row.quantity || 0),
+  }))
+}
+
 async function readProfile(userId) {
   const rows = await query(
     `SELECT id, name, email, phone, gender, DATE_FORMAT(date_of_birth, '%Y-%m-%d') AS dateOfBirth,
@@ -982,7 +1074,7 @@ router.post(
       await query(
         `UPDATE shop_applications
          SET shop_name = ?, shop_slug = ?, contact_phone = ?, contact_email = ?, description = ?,
-             address_line1 = ?, ward = ?, district = ?, province = ?, country = ?,
+             address_line1 = ?, ward = ?, province = ?, country = ?,
              status = 'pending', reject_reason = NULL, reviewed_by = NULL, reviewed_at = NULL,
              updated_at = NOW()
          WHERE id = ? AND user_id = ?`,
@@ -994,7 +1086,6 @@ router.post(
           payload.description,
           payload.addressLine1,
           payload.ward,
-          payload.district,
           payload.province,
           payload.country,
           existing.id,
@@ -1005,8 +1096,8 @@ router.post(
       await query(
         `INSERT INTO shop_applications
            (user_id, shop_name, shop_slug, contact_phone, contact_email, description,
-            address_line1, ward, district, province, country, status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
+            address_line1, ward, province, country, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
         [
           userId,
           payload.shopName,
@@ -1016,7 +1107,6 @@ router.post(
           payload.description,
           payload.addressLine1,
           payload.ward,
-          payload.district,
           payload.province,
           payload.country,
         ],
@@ -1065,8 +1155,8 @@ router.patch(
       await connection.execute(
         `UPDATE shops
          SET name = ?, avatar_url = ?, cover_url = ?, description = ?, address_line1 = ?,
-             ward = ?, district = ?, province = ?, country = ?, updated_at = NOW()
-         WHERE id = ? AND owner_id = ?`,
+             ward = ?, province = ?, country = ?, updated_at = NOW()
+          WHERE id = ? AND owner_id = ?`,
         [
           payload.shopName,
           payload.avatarUrl,
@@ -1074,7 +1164,6 @@ router.patch(
           payload.description,
           payload.addressLine1,
           payload.ward,
-          payload.district,
           payload.province,
           payload.country,
           shop.id,
@@ -1085,8 +1174,8 @@ router.patch(
       await connection.execute(
         `UPDATE shop_applications
          SET shop_name = ?, contact_phone = ?, contact_email = ?, description = ?,
-             address_line1 = ?, ward = ?, district = ?, province = ?, country = ?, updated_at = NOW()
-         WHERE user_id = ? AND shop_id = ?`,
+             address_line1 = ?, ward = ?, province = ?, country = ?, updated_at = NOW()
+          WHERE user_id = ? AND shop_id = ?`,
         [
           payload.shopName,
           payload.contactPhone,
@@ -1094,7 +1183,6 @@ router.patch(
           payload.description,
           payload.addressLine1,
           payload.ward,
-          payload.district,
           payload.province,
           payload.country,
           userId,
@@ -1148,9 +1236,9 @@ router.post(
     await transaction(async (connection) => {
       const [createdProduct] = await connection.execute(
         `INSERT INTO products
-           (shop_id, category_id, name, slug, description, price, original_price, stock,
+           (shop_id, category_id, name, slug, description, price, original_price, stock, weight_grams,
             thumbnail_url, status, product_options, is_active)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           shop.id,
           product.categoryId,
@@ -1160,6 +1248,7 @@ router.post(
           product.price,
           product.originalPrice,
           product.stock,
+          product.weightGrams,
           product.thumbnailUrl,
           product.status,
           JSON.stringify(product.productOptions),
@@ -1249,8 +1338,8 @@ router.patch(
       await connection.execute(
         `UPDATE products
          SET category_id = ?, name = ?, description = ?, price = ?, original_price = ?,
-             stock = ?, thumbnail_url = ?, status = ?, product_options = ?, is_active = ?, updated_at = NOW()
-         WHERE id = ? AND shop_id = ?`,
+             stock = ?, weight_grams = ?, thumbnail_url = ?, status = ?, product_options = ?, is_active = ?, updated_at = NOW()
+          WHERE id = ? AND shop_id = ?`,
         [
           product.categoryId,
           product.name,
@@ -1258,6 +1347,7 @@ router.patch(
           product.price,
           product.originalPrice,
           product.stock,
+          product.weightGrams,
           nextThumbnailUrl,
           product.status,
           JSON.stringify(product.productOptions),
@@ -1377,7 +1467,7 @@ router.patch(
     }
 
     const orderRows = await query(
-      `SELECT o.id
+      `SELECT o.id, o.user_id AS userId, o.status AS currentStatus
        FROM orders o
        JOIN order_items oi ON oi.order_id = o.id
        WHERE o.id = ? AND oi.shop_id = ?
@@ -1389,7 +1479,47 @@ router.patch(
       return res.status(404).json({ ok: false, message: 'Không tìm thấy đơn hàng của cửa hàng' })
     }
 
-    await query('UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?', [status, orderId])
+    const order = orderRows[0]
+
+    await transaction(async (connection) => {
+      await connection.execute('UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?', [status, orderId])
+
+      if (order.currentStatus === status) return
+
+      const statusNotification = buyerOrderStatusNotifications[status]
+      if (statusNotification) {
+        await createNotification({
+          connection,
+          userId: Number(order.userId),
+          type: 'order',
+          title: statusNotification.title,
+          message: statusNotification.message(orderId),
+          actionUrl: '/orders',
+          orderId,
+          metadata: { status, previousStatus: order.currentStatus },
+        })
+      }
+
+      if (status === 'delivered') {
+        const products = await readOrderReviewProducts(connection, orderId, shop.id)
+        if (products.length) {
+          await createNotification({
+            connection,
+            userId: Number(order.userId),
+            type: 'review',
+            title: 'Bạn có thể để lại góp ý cho sản phẩm',
+            message: `Đơn hàng #${orderId} đã giao thành công. Hãy đánh giá sản phẩm bạn vừa mua.`,
+            actionUrl: '/orders',
+            orderId,
+            productId: products[0].productId,
+            metadata: {
+              orderId,
+              products,
+            },
+          })
+        }
+      }
+    })
 
     const dashboard = await readSellerDashboard(userId)
     return res.json({ ok: true, data: dashboard, message: 'Đã cập nhật đơn hàng.' })
@@ -1568,6 +1698,71 @@ router.get(
 )
 
 router.get(
+  '/notifications',
+  asyncHandler(async (req, res) => {
+    const userId = Number(req.user.sub)
+    const [notifications, unreadRows] = await Promise.all([
+      query(
+        `SELECT
+           id,
+           type,
+           title,
+           message,
+           action_url AS actionUrl,
+           order_id AS orderId,
+           product_id AS productId,
+           metadata,
+           read_at AS readAt,
+           created_at AS createdAt
+         FROM notifications
+         WHERE user_id = ?
+         ORDER BY created_at DESC, id DESC
+         LIMIT 40`,
+        [userId],
+      ),
+      query('SELECT COUNT(*) AS count FROM notifications WHERE user_id = ? AND read_at IS NULL', [userId]),
+    ])
+
+    return res.json({
+      ok: true,
+      data: {
+        items: notifications.map(toNotification),
+        unreadCount: Number(unreadRows[0]?.count || 0),
+      },
+    })
+  }),
+)
+
+router.patch(
+  '/notifications/read-all',
+  asyncHandler(async (req, res) => {
+    const userId = Number(req.user.sub)
+    await query('UPDATE notifications SET read_at = COALESCE(read_at, NOW()) WHERE user_id = ?', [userId])
+    return res.json({ ok: true, message: 'Đã đánh dấu tất cả thông báo là đã đọc.' })
+  }),
+)
+
+router.patch(
+  '/notifications/:notificationId/read',
+  asyncHandler(async (req, res) => {
+    const userId = Number(req.user.sub)
+    const notificationId = toPositiveId(req.params.notificationId)
+
+    if (!notificationId) {
+      return res.status(400).json({ ok: false, message: 'Thông báo không hợp lệ' })
+    }
+
+    const result = await query(
+      'UPDATE notifications SET read_at = COALESCE(read_at, NOW()) WHERE id = ? AND user_id = ?',
+      [notificationId, userId],
+    )
+
+    if (!result.affectedRows) return res.status(404).json({ ok: false, message: 'Không tìm thấy thông báo' })
+    return res.json({ ok: true, message: 'Đã đọc thông báo.' })
+  }),
+)
+
+router.get(
   '/orders',
   asyncHandler(async (req, res) => {
     const userId = Number(req.user.sub)
@@ -1649,6 +1844,106 @@ router.get(
       ok: true,
       data: orders.map((order) => toOrder(order, itemsByOrder.get(Number(order.id)) || [])),
     })
+  }),
+)
+
+router.post(
+  '/reviews',
+  asyncHandler(async (req, res) => {
+    const userId = Number(req.user.sub)
+    const orderId = toPositiveId(req.body?.orderId)
+    const productId = toPositiveId(req.body?.productId)
+    const rating = Number(req.body?.rating)
+    const comment = String(req.body?.comment || '').trim()
+
+    if (!orderId) return res.status(400).json({ ok: false, message: 'Đơn hàng không hợp lệ' })
+    if (!productId) return res.status(400).json({ ok: false, message: 'Sản phẩm không hợp lệ' })
+    if (!Number.isSafeInteger(rating) || rating < 1 || rating > 5) {
+      return res.status(400).json({ ok: false, message: 'Vui lòng chọn số sao từ 1 đến 5' })
+    }
+    if (comment.length > 1000) {
+      return res.status(400).json({ ok: false, message: 'Góp ý tối đa 1000 ký tự' })
+    }
+
+    const review = await transaction(async (connection) => {
+      const [orderRows] = await connection.execute(
+        `SELECT o.id, o.status, oi.product_id AS productId, p.shop_id AS shopId
+         FROM orders o
+         JOIN order_items oi ON oi.order_id = o.id
+         JOIN products p ON p.id = oi.product_id
+         WHERE o.id = ? AND o.user_id = ? AND oi.product_id = ?
+         LIMIT 1`,
+        [orderId, userId, productId],
+      )
+      const order = orderRows[0]
+
+      if (!order) throwStatus('Không tìm thấy sản phẩm trong đơn hàng của bạn', 404)
+      if (order.status !== 'delivered') {
+        throwStatus('Bạn chỉ có thể đánh giá sau khi đơn hàng đã giao thành công')
+      }
+
+      await connection.execute(
+        `INSERT INTO reviews (product_id, user_id, order_id, rating, comment, is_visible)
+         VALUES (?, ?, ?, ?, ?, 1)
+         ON DUPLICATE KEY UPDATE
+           order_id = VALUES(order_id),
+           rating = VALUES(rating),
+           comment = VALUES(comment),
+           is_visible = 1,
+           updated_at = NOW()`,
+        [productId, userId, orderId, rating, comment || null],
+      )
+
+      await connection.execute(
+        `UPDATE products p
+         SET rating_avg = COALESCE((
+               SELECT ROUND(AVG(r.rating), 2)
+               FROM reviews r
+               WHERE r.product_id = p.id AND r.is_visible = 1
+             ), 0),
+             rating_count = (
+               SELECT COUNT(*)
+               FROM reviews r
+               WHERE r.product_id = p.id AND r.is_visible = 1
+             ),
+             updated_at = NOW()
+         WHERE p.id = ?`,
+        [productId],
+      )
+
+      await connection.execute(
+        `UPDATE shops s
+         SET rating_avg = COALESCE((
+               SELECT ROUND(AVG(r.rating), 2)
+               FROM reviews r
+               JOIN products p ON p.id = r.product_id
+               WHERE p.shop_id = s.id AND r.is_visible = 1
+             ), 0),
+             rating_count = (
+               SELECT COUNT(*)
+               FROM reviews r
+               JOIN products p ON p.id = r.product_id
+               WHERE p.shop_id = s.id AND r.is_visible = 1
+             ),
+             updated_at = NOW()
+         WHERE s.id = ?`,
+        [order.shopId],
+      )
+
+      const [reviewRows] = await connection.execute(
+        `SELECT r.id, r.product_id, r.user_id, r.order_id, r.rating, r.comment,
+                r.created_at, r.updated_at, u.name AS user_name
+         FROM reviews r
+         JOIN users u ON u.id = r.user_id
+         WHERE r.product_id = ? AND r.user_id = ?
+         LIMIT 1`,
+        [productId, userId],
+      )
+
+      return toReview(reviewRows[0])
+    })
+
+    return res.status(201).json({ ok: true, data: review, message: 'Đã lưu đánh giá của bạn.' })
   }),
 )
 

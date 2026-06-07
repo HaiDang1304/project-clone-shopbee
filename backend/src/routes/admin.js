@@ -67,7 +67,6 @@ function toShopApplication(row) {
     description: row.description || '',
     addressLine1: row.address_line1,
     ward: row.ward || '',
-    district: row.district || '',
     province: row.province,
     country: row.country,
     status: row.status,
@@ -104,8 +103,16 @@ function toPendingShop(row) {
     id: row.id,
     initials: getInitials(row.shop_name, row.owner_email),
     name: row.shop_name,
+    slug: row.shop_slug,
     owner: row.owner_name || row.owner_email || 'Người bán',
+    ownerEmail: row.owner_email || '',
+    contactPhone: row.contact_phone || '',
+    contactEmail: row.contact_email || '',
+    description: row.description || '',
+    addressLine1: row.address_line1 || '',
+    ward: row.ward || '',
     province: row.province || '',
+    country: row.country || 'VN',
     createdAt: row.created_at,
     status: 'pending',
   }
@@ -157,6 +164,23 @@ function toAdminShop(row) {
       email: row.owner_email,
       phone: row.owner_phone || '',
       isActive: Boolean(row.owner_active),
+    },
+  }
+}
+
+function toDashboardNotification(row) {
+  return {
+    id: row.id,
+    type: row.type,
+    title: row.title,
+    message: row.message,
+    actionUrl: row.action_url || '',
+    readAt: row.read_at || null,
+    createdAt: row.created_at,
+    user: {
+      id: row.user_id,
+      name: row.user_name || '',
+      email: row.user_email || '',
     },
   }
 }
@@ -277,6 +301,7 @@ async function readDashboardData() {
     pendingShopRows,
     statusRows,
     latestOrderRows,
+    notificationRows,
   ] = await Promise.all([
     query(
       `SELECT COALESCE(SUM(grand_total), 0) AS total
@@ -323,7 +348,9 @@ async function readDashboardData() {
        ORDER BY date_key ASC`,
     ),
     query(
-      `SELECT sa.id, sa.shop_name, sa.province, sa.created_at,
+      `SELECT sa.id, sa.shop_name, sa.shop_slug, sa.contact_phone, sa.contact_email,
+              sa.description, sa.address_line1, sa.ward, sa.province,
+              sa.country, sa.created_at,
               u.name AS owner_name, u.email AS owner_email
        FROM shop_applications sa
        JOIN users u ON u.id = sa.user_id
@@ -344,8 +371,16 @@ async function readDashboardData() {
          JOIN shops s ON s.id = oi.shop_id
          GROUP BY oi.order_id
        ) shop_summary ON shop_summary.order_id = o.id
-       ORDER BY o.created_at DESC
-       LIMIT 20`,
+      ORDER BY o.created_at DESC
+      LIMIT 20`,
+    ),
+    query(
+      `SELECT n.id, n.user_id, n.type, n.title, n.message, n.action_url, n.read_at,
+              n.created_at, u.name AS user_name, u.email AS user_email
+       FROM notifications n
+       JOIN users u ON u.id = n.user_id
+       ORDER BY n.created_at DESC, n.id DESC
+       LIMIT 8`,
     ),
   ])
 
@@ -394,6 +429,7 @@ async function readDashboardData() {
     },
     revenueTrend,
     pendingShops: pendingShopRows.map(toPendingShop),
+    notifications: notificationRows.map(toDashboardNotification),
     orders: {
       tabs: orderTabs,
       items: latestOrderRows.map(toDashboardOrder),
@@ -425,7 +461,7 @@ async function readApplications(status) {
   const rows = await query(
     `SELECT
        sa.id, sa.user_id, sa.shop_id, sa.shop_name, sa.shop_slug, sa.contact_phone,
-       sa.contact_email, sa.description, sa.address_line1, sa.ward, sa.district,
+       sa.contact_email, sa.description, sa.address_line1, sa.ward,
        sa.province, sa.country, sa.status, sa.reject_reason, sa.reviewed_by,
        sa.reviewed_at, sa.created_at, sa.updated_at,
        u.name AS user_name, u.email AS user_email, u.role AS user_role
@@ -471,6 +507,7 @@ router.patch(
     const adminId = Number(req.user.sub)
     const fields = []
     const params = []
+    let nextRole = null
 
     if (!Number.isSafeInteger(userId) || userId <= 0) {
       return res.status(400).json({ ok: false, message: 'Người dùng không hợp lệ' })
@@ -493,6 +530,7 @@ router.patch(
         return res.status(400).json({ ok: false, message: 'Không thể tự hạ quyền tài khoản admin hiện tại' })
       }
 
+      nextRole = role
       fields.push('role = ?')
       params.push(role)
     }
@@ -515,12 +553,25 @@ router.patch(
       return res.json({ ok: true, data: users })
     }
 
-    await query(
-      `UPDATE users
-       SET ${fields.join(', ')}, updated_at = NOW()
-       WHERE id = ?`,
-      [...params, userId],
-    )
+    await transaction(async (connection) => {
+      await connection.execute(
+        `UPDATE users
+         SET ${fields.join(', ')}, updated_at = NOW()
+         WHERE id = ?`,
+        [...params, userId],
+      )
+
+      if (user.role === 'seller' && nextRole && nextRole !== 'seller') {
+        await connection.execute(
+          `UPDATE products p
+           JOIN shops s ON s.id = p.shop_id
+           SET p.status = 'hidden', p.is_active = 0, p.updated_at = NOW()
+           WHERE s.owner_id = ?`,
+          [userId],
+        )
+        await connection.execute('UPDATE shops SET is_active = 0, updated_at = NOW() WHERE owner_id = ?', [userId])
+      }
+    })
 
     const users = await readAdminUsersData()
     return res.json({ ok: true, data: users, message: 'Đã cập nhật người dùng.' })
@@ -599,7 +650,7 @@ router.patch(
     await transaction(async (connection) => {
       const [rows] = await connection.execute(
         `SELECT id, user_id, shop_id, shop_name, shop_slug, contact_phone, contact_email,
-                description, address_line1, ward, district, province, country, status
+                description, address_line1, ward, province, country, status
          FROM shop_applications
          WHERE id = ?
          LIMIT 1
@@ -641,8 +692,8 @@ router.patch(
         const shopSlug = await makeUniqueShopSlug(connection, application.shop_slug)
         const [createdShop] = await connection.execute(
           `INSERT INTO shops
-             (owner_id, name, slug, description, address_line1, ward, district, province, country, is_active)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+             (owner_id, name, slug, description, address_line1, ward, province, country, is_active)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
           [
             application.user_id,
             application.shop_name,
@@ -650,7 +701,6 @@ router.patch(
             application.description,
             application.address_line1,
             application.ward,
-            application.district,
             application.province,
             application.country,
           ],

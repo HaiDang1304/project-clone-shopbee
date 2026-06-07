@@ -22,6 +22,7 @@ function normalizeCart(cart) {
         quantity: Number(item.quantity || 0),
         unitPrice: Number(item.unitPrice || 0),
         stock: Number(item.stock || 0),
+        weightGrams: item.weightGrams == null ? null : Number(item.weightGrams),
         lineTotal: Number(item.lineTotal || Number(item.quantity || 0) * Number(item.unitPrice || 0)),
         selectedOptions: item.selectedOptions || {},
       }))
