@@ -200,24 +200,6 @@ CREATE TABLE IF NOT EXISTS product_images (
   CONSTRAINT fk_product_images_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS product_variants (
-  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  product_id BIGINT UNSIGNED NOT NULL,
-  name VARCHAR(160) NOT NULL,
-  sku VARCHAR(120) NULL,
-  price DECIMAL(12,2) NOT NULL DEFAULT 0,
-  original_price DECIMAL(12,2) NULL,
-  stock INT UNSIGNED NOT NULL DEFAULT 0,
-  attributes JSON NULL,
-  image_url VARCHAR(500) NULL,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (id),
-  UNIQUE KEY uq_product_variants_sku (sku),
-  KEY idx_product_variants_product (product_id),
-  CONSTRAINT fk_product_variants_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
 CREATE TABLE IF NOT EXISTS product_tags (
   product_id BIGINT UNSIGNED NOT NULL,
   tag VARCHAR(80) NOT NULL,
@@ -258,7 +240,6 @@ CREATE TABLE IF NOT EXISTS cart_items (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   cart_id BIGINT UNSIGNED NOT NULL,
   product_id BIGINT UNSIGNED NOT NULL,
-  variant_id BIGINT UNSIGNED NULL,
   selected_options JSON NULL,
   quantity INT UNSIGNED NOT NULL DEFAULT 1,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -267,19 +248,23 @@ CREATE TABLE IF NOT EXISTS cart_items (
   KEY idx_cart_items_cart (cart_id),
   KEY idx_cart_items_product (product_id),
   CONSTRAINT fk_cart_items_cart FOREIGN KEY (cart_id) REFERENCES carts(id) ON DELETE CASCADE,
-  CONSTRAINT fk_cart_items_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
-  CONSTRAINT fk_cart_items_variant FOREIGN KEY (variant_id) REFERENCES product_variants(id) ON DELETE SET NULL
+  CONSTRAINT fk_cart_items_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS orders (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   user_id BIGINT UNSIGNED NOT NULL,
-  status ENUM('pending', 'paid', 'processing', 'shipping', 'delivered', 'cancelled', 'refunded') NOT NULL DEFAULT 'pending',
+  status ENUM('payment_pending', 'pending', 'paid', 'processing', 'shipping', 'delivered', 'cancelled', 'refunded', 'payment_expired') NOT NULL DEFAULT 'pending',
   items_total DECIMAL(12,2) NOT NULL DEFAULT 0,
   shipping_fee DECIMAL(12,2) NOT NULL DEFAULT 0,
   discount_total DECIMAL(12,2) NOT NULL DEFAULT 0,
   grand_total DECIMAL(12,2) NOT NULL DEFAULT 0,
-  payment_method ENUM('cod', 'bank', 'momo', 'vnpay') NOT NULL DEFAULT 'cod',
+  payment_method ENUM('cod', 'bank') NOT NULL DEFAULT 'cod',
+  payment_provider VARCHAR(30) NULL,
+  payment_link_id VARCHAR(120) NULL,
+  payment_checkout_url VARCHAR(600) NULL,
+  payment_qr_code TEXT NULL,
+  payment_expires_at DATETIME NULL,
   paid_at DATETIME NULL,
   shipping_full_name VARCHAR(120) NOT NULL,
   shipping_phone VARCHAR(30) NOT NULL,
@@ -297,6 +282,7 @@ CREATE TABLE IF NOT EXISTS orders (
   PRIMARY KEY (id),
   KEY idx_orders_user (user_id, created_at),
   KEY idx_orders_status (status, created_at),
+  KEY idx_orders_payment_expiry (status, payment_expires_at),
   CONSTRAINT fk_orders_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -307,8 +293,6 @@ CREATE TABLE IF NOT EXISTS order_items (
   shop_id BIGINT UNSIGNED NOT NULL,
   name VARCHAR(255) NOT NULL,
   image_url VARCHAR(500) NULL,
-  variant_id BIGINT UNSIGNED NULL,
-  variant_sku VARCHAR(120) NULL,
   selected_options JSON NULL,
   unit_price DECIMAL(12,2) NOT NULL DEFAULT 0,
   quantity INT UNSIGNED NOT NULL DEFAULT 1,
@@ -320,8 +304,7 @@ CREATE TABLE IF NOT EXISTS order_items (
   KEY idx_order_items_shop (shop_id),
   CONSTRAINT fk_order_items_order FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
   CONSTRAINT fk_order_items_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE RESTRICT,
-  CONSTRAINT fk_order_items_shop FOREIGN KEY (shop_id) REFERENCES shops(id) ON DELETE RESTRICT,
-  CONSTRAINT fk_order_items_variant FOREIGN KEY (variant_id) REFERENCES product_variants(id) ON DELETE SET NULL
+  CONSTRAINT fk_order_items_shop FOREIGN KEY (shop_id) REFERENCES shops(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS order_shops (

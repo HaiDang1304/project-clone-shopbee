@@ -18,6 +18,7 @@
     "db:migrate:notifications": "mysql -u root -p < database/migrations/20260607_add_notifications.sql",
     "db:migrate:internal-shipping": "mysql -u root -p < database/migrations/20260607_simplify_shipping_address_two_levels.sql",
     "db:migrate:shipping-two-levels": "mysql -u root -p < database/migrations/20260607_simplify_shipping_address_two_levels.sql",
+    "db:migrate:drop-product-variants": "mysql -u root -p < database/migrations/20260608_drop_product_variants.sql",
     "db:seed:shipping-locations": "mysql -u root -p shopbee_clone < database/seed_shipping_locations.sql",
     "db:seed:address-data": "node scripts/seedAddressData.js"
   },

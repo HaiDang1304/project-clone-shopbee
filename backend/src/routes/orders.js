@@ -5,9 +5,10 @@ const { requireAuth } = require('../middleware/auth')
 const { asyncHandler } = require('../middleware/error')
 const { createNotification } = require('../utils/notifications')
 const { calculateShippingForCart } = require('../services/shipping.service')
+const { createPayosPaymentLink, verifyPayosWebhook } = require('../services/payos.service')
 
 const router = express.Router()
-const allowedPaymentMethods = new Set(['cod', 'bank', 'momo', 'vnpay'])
+const allowedPaymentMethods = new Set(['cod', 'bank'])
 
 function safeParseJson(value, fallback) {
   if (!value) return fallback
@@ -57,13 +58,9 @@ function getAggregateDistanceType(shops = []) {
 }
 
 function toCheckoutLine(row, quantity, selectedOptions) {
-  const hasVariant = row.variantId !== null && row.variantId !== undefined
-  const variantOptions = normalizeSelectedOptions(row.variantAttributes)
-  const finalSelectedOptions = Object.keys(normalizeSelectedOptions(selectedOptions)).length
-    ? normalizeSelectedOptions(selectedOptions)
-    : variantOptions
-  const stock = Number(hasVariant ? row.variantStock : row.productStock)
-  const unitPrice = Number(hasVariant ? row.variantPrice : row.productPrice)
+  const finalSelectedOptions = normalizeSelectedOptions(selectedOptions)
+  const stock = Number(row.productStock)
+  const unitPrice = Number(row.productPrice)
   const lineQuantity = Number(quantity)
   const weightGrams = Number(row.weightGrams || 0)
 
@@ -89,8 +86,8 @@ function toCheckoutLine(row, quantity, selectedOptions) {
     shopId: Number(row.shopId),
     name: row.name,
     imageUrl: row.imageUrl || '',
-    variantId: hasVariant ? Number(row.variantId) : null,
-    variantSku: row.variantSku || '',
+    variantId: null,
+    variantSku: '',
     selectedOptions: finalSelectedOptions,
     unitPrice,
     quantity: lineQuantity,
@@ -140,7 +137,6 @@ async function readCartLines(connection, userId, cartItemIds) {
     `SELECT
        ci.id AS cartItemId,
        ci.product_id AS productId,
-       ci.variant_id AS variantId,
        ci.selected_options AS selectedOptions,
        ci.quantity,
        p.name,
@@ -155,11 +151,7 @@ async function readCartLines(connection, userId, cartItemIds) {
        p.weight_grams AS weightGrams,
        p.is_active AS isActive,
        p.status,
-       pv.price AS variantPrice,
-       pv.stock AS variantStock,
-       pv.sku AS variantSku,
-       pv.attributes AS variantAttributes,
-       COALESCE(pv.image_url, p.thumbnail_url,
+       COALESCE(p.thumbnail_url,
          (SELECT pi.image_url FROM product_images pi WHERE pi.product_id = p.id ORDER BY pi.sort_order ASC, pi.id ASC LIMIT 1)
        ) AS imageUrl
      FROM cart_items ci
@@ -168,7 +160,6 @@ async function readCartLines(connection, userId, cartItemIds) {
      JOIN shops s ON s.id = p.shop_id
      LEFT JOIN provinces sp ON sp.id = s.province_id
      LEFT JOIN wards sw ON sw.id = s.ward_id
-     LEFT JOIN product_variants pv ON pv.id = ci.variant_id
      WHERE cart.user_id = ? AND ci.id IN (${placeholders})`,
     [userId, ...ids],
   )
@@ -187,7 +178,6 @@ async function readDirectLines(connection, items) {
     ? items
         .map((item) => ({
           productId: toPositiveId(item?.productId),
-          variantId: item?.variantId == null ? null : toPositiveId(item.variantId),
           quantity: Number.parseInt(item?.quantity || 1, 10),
           selectedOptions: normalizeSelectedOptions(item?.selectedOptions),
         }))
@@ -214,27 +204,20 @@ async function readDirectLines(connection, items) {
          p.weight_grams AS weightGrams,
          p.is_active AS isActive,
          p.status,
-         pv.id AS variantId,
-         pv.price AS variantPrice,
-         pv.stock AS variantStock,
-         pv.sku AS variantSku,
-         pv.attributes AS variantAttributes,
-         COALESCE(pv.image_url, p.thumbnail_url,
+         COALESCE(p.thumbnail_url,
            (SELECT pi.image_url FROM product_images pi WHERE pi.product_id = p.id ORDER BY pi.sort_order ASC, pi.id ASC LIMIT 1)
          ) AS imageUrl
        FROM products p
        JOIN shops s ON s.id = p.shop_id
        LEFT JOIN provinces sp ON sp.id = s.province_id
        LEFT JOIN wards sw ON sw.id = s.ward_id
-       LEFT JOIN product_variants pv ON pv.product_id = p.id AND pv.id = ?
        WHERE p.id = ?
        LIMIT 1`,
-      [item.variantId || 0, item.productId],
+      [item.productId],
     )
 
     const row = rows[0]
     if (!row) throwStatus('Sản phẩm không tồn tại', 404)
-    if (item.variantId && !row.variantId) throwStatus('Phiên bản sản phẩm không tồn tại', 404)
 
     lines.push(toCheckoutLine(row, item.quantity, item.selectedOptions))
   }
@@ -246,17 +229,14 @@ async function insertOrderItems(connection, orderId, lines) {
   for (const line of lines) {
     await connection.execute(
       `INSERT INTO order_items
-         (order_id, product_id, shop_id, name, image_url, variant_id, variant_sku,
-          selected_options, unit_price, quantity, line_total)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (order_id, product_id, shop_id, name, image_url, selected_options, unit_price, quantity, line_total)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         orderId,
         line.productId,
         line.shopId,
         line.name,
         line.imageUrl || null,
-        line.variantId,
-        line.variantSku || null,
         JSON.stringify(line.selectedOptions || {}),
         line.unitPrice,
         line.quantity,
@@ -288,24 +268,31 @@ async function insertOrderShopSnapshots(connection, orderId, shops) {
 
 async function updateInventory(connection, lines) {
   for (const line of lines) {
-    if (line.variantId) {
-      const [result] = await connection.execute(
-        'UPDATE product_variants SET stock = stock - ?, updated_at = NOW() WHERE id = ? AND stock >= ?',
-        [line.quantity, line.variantId, line.quantity],
-      )
-      if (!result.affectedRows) throwStatus(`Số lượng "${line.name}" vượt quá tồn kho`)
-    } else {
-      const [result] = await connection.execute(
-        'UPDATE products SET stock = stock - ?, updated_at = NOW() WHERE id = ? AND stock >= ?',
-        [line.quantity, line.productId, line.quantity],
-      )
-      if (!result.affectedRows) throwStatus(`Số lượng "${line.name}" vượt quá tồn kho`)
-    }
-
+    const [result] = await connection.execute(
+      'UPDATE products SET stock = stock - ?, updated_at = NOW() WHERE id = ? AND stock >= ?',
+      [line.quantity, line.productId, line.quantity],
+    )
+    if (!result.affectedRows) throwStatus(`Số lượng "${line.name}" vượt quá tồn kho`)
     await connection.execute('UPDATE products SET sold_count = sold_count + ?, updated_at = NOW() WHERE id = ?', [
       line.quantity,
       line.productId,
     ])
+  }
+}
+
+async function restoreOrderInventory(connection, orderId) {
+  const [items] = await connection.execute(
+    `SELECT product_id AS productId, quantity
+     FROM order_items
+     WHERE order_id = ?`,
+    [orderId],
+  )
+
+  for (const item of items) {
+    await connection.execute(
+      'UPDATE products SET stock = stock + ?, sold_count = GREATEST(0, sold_count - ?), updated_at = NOW() WHERE id = ?',
+      [Number(item.quantity || 0), Number(item.quantity || 0), Number(item.productId)],
+    )
   }
 }
 
@@ -323,7 +310,129 @@ async function deleteCheckedCartItems(connection, userId, lines) {
   await connection.execute('UPDATE carts SET updated_at = NOW() WHERE user_id = ?', [userId])
 }
 
+async function expirePendingPaymentOrder(orderId) {
+  if (!orderId) return false
+
+  return transaction(async (connection) => {
+    const [orders] = await connection.execute(
+      `SELECT id, status, payment_expires_at AS paymentExpiresAt
+       FROM orders
+       WHERE id = ?
+       FOR UPDATE`,
+      [orderId],
+    )
+    const order = orders[0]
+    if (!order || order.status !== 'payment_pending') return false
+    const expiresAt = order.paymentExpiresAt ? new Date(order.paymentExpiresAt) : null
+    if (!expiresAt || expiresAt.getTime() > Date.now()) return false
+
+    await restoreOrderInventory(connection, orderId)
+    await connection.execute(
+      `UPDATE orders
+       SET status = 'payment_expired', updated_at = NOW()
+       WHERE id = ? AND status = 'payment_pending'`,
+      [orderId],
+    )
+    return true
+  })
+}
+
+async function cancelPendingPaymentOrder(orderId) {
+  if (!orderId) return
+
+  await transaction(async (connection) => {
+    const [orders] = await connection.execute(
+      `SELECT id, status
+       FROM orders
+       WHERE id = ?
+       FOR UPDATE`,
+      [orderId],
+    )
+    const order = orders[0]
+    if (!order || order.status !== 'payment_pending') return
+
+    await restoreOrderInventory(connection, orderId)
+    await connection.execute(
+      `UPDATE orders
+       SET status = 'payment_expired', updated_at = NOW()
+       WHERE id = ? AND status = 'payment_pending'`,
+      [orderId],
+    )
+  })
+}
+
+async function expireOverduePaymentOrders() {
+  const rows = await query(
+    `SELECT id
+     FROM orders
+     WHERE status = 'payment_pending'
+       AND payment_expires_at IS NOT NULL
+       AND payment_expires_at <= NOW()
+     ORDER BY payment_expires_at ASC
+     LIMIT 50`,
+  )
+
+  for (const row of rows) {
+    await cancelPendingPaymentOrder(Number(row.id))
+  }
+}
+
+function startPaymentExpirationJob() {
+  if (process.env.NODE_ENV === 'test') return
+
+  const interval = setInterval(() => {
+    expireOverduePaymentOrders().catch((err) => {
+      // eslint-disable-next-line no-console
+      console.error('Failed to expire pending payment orders:', err)
+    })
+  }, 60 * 1000)
+
+  interval.unref?.()
+}
+
+async function markPayosOrderPaid(orderId, paymentLinkId) {
+  if (!orderId) return false
+
+  return transaction(async (connection) => {
+    const [orders] = await connection.execute(
+      `SELECT id, user_id AS userId, status, payment_expires_at AS paymentExpiresAt
+       FROM orders
+       WHERE id = ?
+       FOR UPDATE`,
+      [orderId],
+    )
+    const order = orders[0]
+    if (!order || order.status === 'paid') return false
+    if (order.status !== 'payment_pending') return false
+
+    await connection.execute(
+      `UPDATE orders
+       SET status = 'paid', paid_at = NOW(), payment_link_id = COALESCE(?, payment_link_id), updated_at = NOW()
+       WHERE id = ? AND status = 'payment_pending'`,
+      [paymentLinkId || null, orderId],
+    )
+
+    await createNotification({
+      connection,
+      userId: Number(order.userId),
+      type: 'order',
+      title: 'Thanh toán thành công',
+      message: `Đơn hàng #${orderId} đã thanh toán thành công và đang chờ người bán xác nhận.`,
+      actionUrl: '/orders',
+      orderId,
+      metadata: {
+        status: 'paid',
+        paymentProvider: 'payos',
+      },
+    })
+
+    return true
+  })
+}
+
 async function readOrder(userId, orderId) {
+  await expirePendingPaymentOrder(orderId)
+
   const orders = await query(
     `SELECT
        id,
@@ -333,6 +442,13 @@ async function readOrder(userId, orderId) {
        discount_total AS discountTotal,
        grand_total AS grandTotal,
        payment_method AS paymentMethod,
+       (SELECT email FROM users WHERE users.id = orders.user_id LIMIT 1) AS customerEmail,
+       payment_provider AS paymentProvider,
+       payment_link_id AS paymentLinkId,
+       payment_checkout_url AS paymentCheckoutUrl,
+       payment_qr_code AS paymentQrCode,
+       payment_expires_at AS paymentExpiresAt,
+       paid_at AS paidAt,
        shipping_full_name AS shippingFullName,
        shipping_phone AS shippingPhone,
        shipping_line1 AS shippingLine1,
@@ -363,8 +479,6 @@ async function readOrder(userId, orderId) {
        s.name AS shopName,
        oi.name,
        oi.image_url AS imageUrl,
-       oi.variant_id AS variantId,
-       oi.variant_sku AS variantSku,
        oi.selected_options AS selectedOptions,
        oi.unit_price AS unitPrice,
        oi.quantity,
@@ -384,6 +498,20 @@ async function readOrder(userId, orderId) {
     discountTotal: Number(order.discountTotal || 0),
     grandTotal: Number(order.grandTotal || 0),
     paymentMethod: order.paymentMethod,
+    customerEmail: order.customerEmail || '',
+    paidAt: order.paidAt || null,
+    payment:
+      order.paymentProvider === 'payos'
+        ? {
+            provider: 'payos',
+            orderCode: Number(order.id),
+            amount: Number(order.grandTotal || 0),
+            checkoutUrl: order.paymentCheckoutUrl || '',
+            qrCode: order.paymentQrCode || '',
+            paymentLinkId: order.paymentLinkId || '',
+            expiresAt: order.paymentExpiresAt || null,
+          }
+        : null,
     shipping: {
       fullName: order.shippingFullName,
       phone: order.shippingPhone,
@@ -406,8 +534,8 @@ async function readOrder(userId, orderId) {
       shopName: item.shopName || '',
       name: item.name,
       imageUrl: item.imageUrl || '',
-      variantId: item.variantId == null ? null : Number(item.variantId),
-      variantSku: item.variantSku || '',
+      variantId: null,
+      variantSku: '',
       selectedOptions: normalizeSelectedOptions(item.selectedOptions),
       unitPrice: Number(item.unitPrice || 0),
       quantity: Number(item.quantity || 0),
@@ -415,6 +543,28 @@ async function readOrder(userId, orderId) {
     })),
   }
 }
+
+router.post(
+  '/payos/webhook',
+  asyncHandler(async (req, res) => {
+    const { data, signature, success } = req.body || {}
+
+    if (!verifyPayosWebhook(data, signature)) {
+      return res.status(400).json({ ok: false, message: 'Chữ ký PayOS không hợp lệ' })
+    }
+
+    const orderId = toPositiveId(data?.orderCode)
+    if (!orderId) return res.status(400).json({ ok: false, message: 'Mã đơn PayOS không hợp lệ' })
+
+    if (success && String(data?.code || '00') === '00') {
+      await markPayosOrderPaid(orderId, data?.paymentLinkId)
+    } else if (String(data?.code || '').toUpperCase() === 'CANCELLED') {
+      await cancelPendingPaymentOrder(orderId)
+    }
+
+    return res.json({ ok: true })
+  }),
+)
 
 router.use(requireAuth)
 
@@ -489,6 +639,8 @@ router.post(
         country: 'VN',
         postalCode: '',
       }
+      const orderStatus = paymentMethod === 'bank' ? 'payment_pending' : 'pending'
+      const paymentExpiresAt = paymentMethod === 'bank' ? new Date(Date.now() + 5 * 60 * 1000) : null
 
       await updateInventory(connection, lines)
 
@@ -497,10 +649,11 @@ router.post(
            (user_id, status, items_total, shipping_fee, discount_total, grand_total, payment_method,
             shipping_full_name, shipping_phone, shipping_line1, shipping_ward, shipping_province,
             shipping_distance_type, shipping_weight_grams, shipping_address_snapshot,
-            shipping_country, shipping_postal_code, note)
-         VALUES (?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            shipping_country, shipping_postal_code, note, payment_provider, payment_expires_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           userId,
+          orderStatus,
           itemsTotal,
           shippingFee,
           discountTotal,
@@ -517,6 +670,8 @@ router.post(
           'VN',
           null,
           note || null,
+          paymentMethod === 'bank' ? 'payos' : null,
+          paymentExpiresAt,
         ],
       )
 
@@ -524,7 +679,8 @@ router.post(
       await insertOrderShopSnapshots(connection, createdOrder.insertId, shippingQuote.shops || [])
       if (source === 'cart') await deleteCheckedCartItems(connection, userId, lines)
 
-      await createNotification({
+      if (paymentMethod === 'cod') {
+        await createNotification({
         connection,
         userId,
         type: 'order',
@@ -536,12 +692,34 @@ router.post(
           status: 'pending',
           itemCount: lines.reduce((sum, line) => sum + Number(line.quantity || 0), 0),
         },
-      })
+        })
+      }
 
       return createdOrder.insertId
     })
 
     const order = await readOrder(userId, orderId)
+    if (paymentMethod === 'bank') {
+      try {
+        const payment = await createPayosPaymentLink(order)
+        await query(
+          `UPDATE orders
+           SET payment_link_id = ?, payment_checkout_url = ?, payment_qr_code = ?, updated_at = NOW()
+           WHERE id = ? AND user_id = ? AND status = 'payment_pending'`,
+          [payment.paymentLinkId || null, payment.checkoutUrl || null, payment.qrCode || null, orderId, userId],
+        )
+        const nextOrder = await readOrder(userId, orderId)
+        return res.status(201).json({
+          ok: true,
+          data: { ...nextOrder, payment: { ...(nextOrder.payment || {}), ...payment } },
+          message: 'Đã tạo mã QR thanh toán PayOS. Vui lòng thanh toán trong 5 phút.',
+        })
+      } catch (err) {
+        await cancelPendingPaymentOrder(orderId)
+        throw err
+      }
+    }
+
     return res.status(201).json({ ok: true, data: order, message: 'Đặt hàng thành công' })
   }),
 )
@@ -560,5 +738,7 @@ router.get(
     return res.json({ ok: true, data: order })
   }),
 )
+
+startPaymentExpirationJob()
 
 module.exports = router

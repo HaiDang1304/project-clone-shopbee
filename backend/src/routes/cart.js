@@ -41,23 +41,21 @@ function optionsEqual(left, right) {
 
 function toCartItem(row) {
   const selectedOptions = normalizeSelectedOptions(row.selectedOptions)
-  const variantAttributes = normalizeSelectedOptions(row.variantAttributes)
-  const displayOptions = Object.keys(selectedOptions).length ? selectedOptions : variantAttributes
   const unitPrice = Number(row.unitPrice || 0)
   const quantity = Number(row.quantity || 0)
 
   return {
     id: Number(row.id),
     productId: Number(row.productId),
-    variantId: row.variantId == null ? null : Number(row.variantId),
+    variantId: null,
     quantity,
     name: row.name,
     slug: row.slug,
     unitPrice,
     imageUrl: row.imageUrl || '',
-    selectedOptions: displayOptions,
-    variantName: row.variantName || '',
-    variantSku: row.variantSku || '',
+    selectedOptions,
+    variantName: '',
+    variantSku: '',
     stock: Number(row.stock || 0),
     weightGrams: row.weightGrams == null ? null : Number(row.weightGrams),
     lineTotal: unitPrice * quantity,
@@ -100,20 +98,16 @@ async function readCart(userId) {
     `SELECT
        ci.id,
        ci.product_id AS productId,
-       ci.variant_id AS variantId,
        ci.selected_options AS selectedOptions,
        ci.quantity,
        p.name,
        p.slug,
-       COALESCE(pv.price, p.price) AS unitPrice,
-       COALESCE(pv.stock, p.stock) AS stock,
+       p.price AS unitPrice,
+       p.stock AS stock,
        p.weight_grams AS weightGrams,
-       COALESCE(pv.image_url, p.thumbnail_url,
+       COALESCE(p.thumbnail_url,
          (SELECT pi.image_url FROM product_images pi WHERE pi.product_id = p.id ORDER BY pi.sort_order ASC, pi.id ASC LIMIT 1)
        ) AS imageUrl,
-       pv.name AS variantName,
-       pv.sku AS variantSku,
-       pv.attributes AS variantAttributes,
        s.id AS shopId,
        s.name AS shopName,
        s.slug AS shopSlug,
@@ -122,7 +116,6 @@ async function readCart(userId) {
        c.slug AS categorySlug
      FROM cart_items ci
      JOIN products p ON p.id = ci.product_id
-     LEFT JOIN product_variants pv ON pv.id = ci.variant_id
      LEFT JOIN shops s ON s.id = p.shop_id
      LEFT JOIN categories c ON c.id = p.category_id
      WHERE ci.cart_id = ?
@@ -142,21 +135,18 @@ async function readCart(userId) {
   }
 }
 
-async function readSellableProduct(connection, productId, variantId) {
+async function readSellableProduct(connection, productId) {
   const [rows] = await connection.execute(
     `SELECT
        p.id,
        p.is_active AS isActive,
        p.status,
        p.stock AS productStock,
-       p.weight_grams AS weightGrams,
-       pv.id AS variantId,
-       pv.stock AS variantStock
+       p.weight_grams AS weightGrams
      FROM products p
-     LEFT JOIN product_variants pv ON pv.product_id = p.id AND pv.id = ?
      WHERE p.id = ?
      LIMIT 1`,
-    [variantId || 0, productId],
+    [productId],
   )
 
   const product = rows[0]
@@ -164,13 +154,10 @@ async function readSellableProduct(connection, productId, variantId) {
     throwStatus('Sản phẩm không tồn tại hoặc đã ngừng bán', 404)
   }
 
-  if (variantId && !product.variantId) {
-    throwStatus('Phiên bản sản phẩm không tồn tại', 404)
-  }
 
   return {
     id: Number(product.id),
-    stock: Number(variantId ? product.variantStock : product.productStock),
+    stock: Number(product.productStock),
   }
 }
 
@@ -189,7 +176,6 @@ router.post(
   asyncHandler(async (req, res) => {
     const userId = Number(req.user.sub)
     const productId = Number(req.body?.productId)
-    const variantId = req.body?.variantId == null ? null : Number(req.body.variantId)
     const quantity = Number.parseInt(req.body?.quantity || 1, 10)
     const selectedOptions = normalizeSelectedOptions(req.body?.selectedOptions)
 
@@ -197,24 +183,21 @@ router.post(
       return res.status(400).json({ ok: false, message: 'Thiếu productId' })
     }
 
-    if (variantId !== null && (!Number.isSafeInteger(variantId) || variantId <= 0)) {
-      return res.status(400).json({ ok: false, message: 'Phiên bản sản phẩm không hợp lệ' })
-    }
 
     if (!Number.isSafeInteger(quantity) || quantity < 1) {
       return res.status(400).json({ ok: false, message: 'Số lượng không hợp lệ' })
     }
 
     await transaction(async (connection) => {
-      const product = await readSellableProduct(connection, productId, variantId)
+      const product = await readSellableProduct(connection, productId)
       if (quantity > product.stock) throwStatus('Số lượng vượt quá tồn kho')
 
       const cart = await getOrCreateCart(userId, connection)
       const [candidates] = await connection.execute(
         `SELECT id, quantity, selected_options AS selectedOptions
          FROM cart_items
-         WHERE cart_id = ? AND product_id = ? AND ${variantId ? 'variant_id = ?' : 'variant_id IS NULL'}`,
-        variantId ? [cart.id, productId, variantId] : [cart.id, productId],
+         WHERE cart_id = ? AND product_id = ?`,
+        [cart.id, productId],
       )
       const existing = candidates.find((item) => optionsEqual(item.selectedOptions, selectedOptions))
       const nextQuantity = Number(existing?.quantity || 0) + quantity
@@ -228,9 +211,9 @@ router.post(
         ])
       } else {
         await connection.execute(
-          `INSERT INTO cart_items (cart_id, product_id, variant_id, selected_options, quantity)
-           VALUES (?, ?, ?, ?, ?)`,
-          [cart.id, productId, variantId, JSON.stringify(selectedOptions), quantity],
+          `INSERT INTO cart_items (cart_id, product_id, selected_options, quantity)
+           VALUES (?, ?, ?, ?)`,
+          [cart.id, productId, JSON.stringify(selectedOptions), quantity],
         )
       }
 
@@ -262,13 +245,12 @@ router.patch(
         `SELECT
            ci.id,
            ci.cart_id AS cartId,
-           COALESCE(pv.stock, p.stock) AS stock,
+           p.stock AS stock,
            p.is_active AS isActive,
            p.status
          FROM cart_items ci
          JOIN carts c ON c.id = ci.cart_id
          JOIN products p ON p.id = ci.product_id
-         LEFT JOIN product_variants pv ON pv.id = ci.variant_id
          WHERE ci.id = ? AND c.user_id = ?
          LIMIT 1`,
         [itemId, userId],

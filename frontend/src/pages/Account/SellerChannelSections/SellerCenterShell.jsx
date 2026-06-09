@@ -70,8 +70,8 @@ export function SellerCenterShell({ profile, shop, activeTab, onTabChange, child
             ))}
           </nav>
 
-          <div id="top" className="px-4 py-5 md:px-6">
-            <div className="mx-auto max-w-[1280px]">{children}</div>
+          <div id="top" className="px-4 py-5 md:px-6 xl:px-8">
+            <div className="w-full">{children}</div>
           </div>
         </section>
       </div>

@@ -8,14 +8,17 @@ import { formatCurrency } from '../../lib/format'
 
 const orderTabs = [
   { value: 'all', label: 'Tất cả' },
+  { value: 'payment_pending', label: 'Chờ thanh toán' },
   { value: 'pending', label: 'Chờ xác nhận' },
   { value: 'processing', label: 'Chờ lấy hàng' },
   { value: 'shipping', label: 'Đang giao' },
   { value: 'delivered', label: 'Hoàn thành' },
   { value: 'cancelled', label: 'Đã hủy' },
+  { value: 'payment_expired', label: 'Hết hạn thanh toán' },
 ]
 
 const statusLabels = {
+  payment_pending: 'Chờ thanh toán',
   pending: 'Chờ xác nhận',
   paid: 'Đã thanh toán',
   processing: 'Chờ lấy hàng',
@@ -23,6 +26,7 @@ const statusLabels = {
   delivered: 'Hoàn thành',
   cancelled: 'Đã hủy',
   refunded: 'Đã hoàn tiền',
+  payment_expired: 'Hết hạn thanh toán',
 }
 
 function optionText(options) {

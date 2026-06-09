@@ -34,11 +34,6 @@ VALUES
   (1, 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=900&q=80', 'Smartphone detail', 2),
   (2, 'https://images.unsplash.com/photo-1546868871-7041f2a55e12?auto=format&fit=crop&w=900&q=80', 'Smart watch', 1);
 
-INSERT IGNORE INTO product_variants (product_id, name, sku, price, original_price, stock, attributes)
-VALUES
-  (1, 'Black / 256GB', 'SP-AI-PM-BLK-256', 28490000, 33500000, 30, JSON_OBJECT('color', 'Black', 'storage', '256GB')),
-  (1, 'White / 512GB', 'SP-AI-PM-WHT-512', 31490000, 36500000, 20, JSON_OBJECT('color', 'White', 'storage', '512GB'));
-
 INSERT IGNORE INTO product_tags (product_id, tag)
 VALUES
   (1, 'ai'),

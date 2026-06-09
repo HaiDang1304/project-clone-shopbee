@@ -19,8 +19,6 @@ const LAST_ORDER_STORAGE_KEY = 'shopbee_last_order'
 const paymentMethods = [
   { value: 'cod', label: 'Thanh toán khi nhận hàng' },
   { value: 'bank', label: 'Chuyển khoản ngân hàng' },
-  { value: 'momo', label: 'Ví MoMo' },
-  { value: 'vnpay', label: 'VNPay' },
 ]
 
 function readCheckoutData() {
@@ -203,9 +201,12 @@ export default function CheckoutPage() {
       await loadCart().catch(() => {})
       await Swal.fire({
         icon: 'success',
-        title: 'Đặt hàng thành công',
-        text: 'Đơn hàng của bạn đã được ghi nhận và đang chờ xác nhận.',
-        confirmButtonText: 'Xem đơn hàng',
+        title: paymentMethod === 'bank' ? 'Đã tạo mã QR thanh toán' : 'Đặt hàng thành công',
+        text:
+          paymentMethod === 'bank'
+            ? 'Vui lòng quét mã QR PayOS ở màn hình tiếp theo để hoàn tất thanh toán.'
+            : 'Đơn hàng của bạn đã được ghi nhận và đang chờ xác nhận.',
+        confirmButtonText: paymentMethod === 'bank' ? 'Thanh toán ngay' : 'Xem đơn hàng',
         confirmButtonColor: '#c2410c',
       })
       navigate(`/order-success?orderId=${order.id}`)

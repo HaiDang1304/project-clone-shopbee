@@ -185,19 +185,12 @@ router.get(
     if (!rows[0]) return res.status(404).json({ ok: false, message: 'Không tìm thấy sản phẩm' })
     const product = mapProduct(rows[0])
 
-    const [images, variants, tags, reviews] = await Promise.all([
+    const [images, tags, reviews] = await Promise.all([
       query(
         `SELECT id, image_url AS imageUrl, alt_text AS altText, sort_order AS sortOrder
          FROM product_images
          WHERE product_id = ?
          ORDER BY sort_order ASC, id ASC`,
-        [product.id],
-      ),
-      query(
-        `SELECT id, name, sku, price, original_price AS originalPrice, stock, attributes, image_url AS imageUrl
-         FROM product_variants
-         WHERE product_id = ?
-         ORDER BY id ASC`,
         [product.id],
       ),
       query('SELECT tag FROM product_tags WHERE product_id = ? ORDER BY tag ASC', [product.id]),
@@ -217,7 +210,7 @@ router.get(
       data: {
         ...product,
         images,
-        variants,
+        variants: [],
         tags: tags.map((row) => row.tag),
         reviews,
       },

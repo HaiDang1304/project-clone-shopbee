@@ -4,7 +4,7 @@ const { query, transaction } = require('../../config/db')
 const { asyncHandler } = require('../../middleware/error')
 
 const allowedApplicationStatuses = new Set(['pending', 'approved', 'rejected'])
-const dashboardOrderStatuses = ['pending', 'paid', 'processing', 'shipping', 'delivered', 'cancelled', 'refunded']
+const dashboardOrderStatuses = ['payment_pending', 'pending', 'paid', 'processing', 'shipping', 'delivered', 'cancelled', 'refunded', 'payment_expired']
 const allowedUserRoles = new Set(['customer', 'seller', 'admin'])
 const platformFeeRate = 0.05
 
@@ -252,7 +252,7 @@ async function readAdminShopsData() {
        LEFT JOIN (
          SELECT oi.shop_id,
                 COUNT(DISTINCT oi.order_id) AS order_count,
-                COALESCE(SUM(CASE WHEN o.status NOT IN ('cancelled', 'refunded') THEN oi.line_total ELSE 0 END), 0) AS revenue,
+                COALESCE(SUM(CASE WHEN o.status NOT IN ('payment_pending', 'payment_expired', 'cancelled', 'refunded') THEN oi.line_total ELSE 0 END), 0) AS revenue,
                 COALESCE(SUM(CASE WHEN o.status = 'delivered' THEN oi.line_total ELSE 0 END), 0) AS delivered_revenue,
                 ROUND(COALESCE(SUM(CASE WHEN o.status = 'delivered' THEN oi.line_total ELSE 0 END), 0) * ?) AS platform_fee_revenue,
                 COALESCE(SUM(CASE WHEN o.status = 'delivered'
@@ -307,7 +307,7 @@ async function readAdminUsersData() {
        LEFT JOIN (
          SELECT user_id,
                 COUNT(*) AS order_count,
-                COALESCE(SUM(CASE WHEN status NOT IN ('cancelled', 'refunded') THEN grand_total ELSE 0 END), 0) AS total_spent
+                COALESCE(SUM(CASE WHEN status NOT IN ('payment_pending', 'payment_expired', 'cancelled', 'refunded') THEN grand_total ELSE 0 END), 0) AS total_spent
          FROM orders
          GROUP BY user_id
        ) order_summary ON order_summary.user_id = u.id
@@ -357,14 +357,14 @@ async function readDashboardData() {
       `SELECT COALESCE(SUM(grand_total), 0) AS total
        FROM orders
        WHERE created_at >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
-         AND status NOT IN ('cancelled', 'refunded')`,
+         AND status NOT IN ('payment_pending', 'payment_expired', 'cancelled', 'refunded')`,
     ),
     query(
       `SELECT COALESCE(SUM(grand_total), 0) AS total
        FROM orders
        WHERE created_at >= DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 1 MONTH), '%Y-%m-01')
          AND created_at < DATE_FORMAT(CURDATE(), '%Y-%m-01')
-         AND status NOT IN ('cancelled', 'refunded')`,
+         AND status NOT IN ('payment_pending', 'payment_expired', 'cancelled', 'refunded')`,
     ),
     query(
       `SELECT ROUND(COALESCE(SUM(oi.line_total), 0) * ?) AS total
@@ -410,7 +410,7 @@ async function readDashboardData() {
       `SELECT DATE(created_at) AS date_key, COALESCE(SUM(grand_total), 0) AS total
        FROM orders
        WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
-         AND status NOT IN ('cancelled', 'refunded')
+         AND status NOT IN ('payment_pending', 'payment_expired', 'cancelled', 'refunded')
        GROUP BY DATE(created_at)
        ORDER BY date_key ASC`,
     ),

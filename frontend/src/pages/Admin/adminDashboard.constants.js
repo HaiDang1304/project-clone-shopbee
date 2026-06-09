@@ -51,6 +51,7 @@ export const moduleCopy = {
 }
 
 export const statusClassNames = {
+  payment_pending: 'bg-[#fff1cc] text-[#9a5a00]',
   pending: 'bg-[#fff1cc] text-[#9a5a00]',
   paid: 'bg-[#e5f4ff] text-[#0369a1]',
   shipping: 'bg-[#dce9ff] text-[#1f5fe0]',
@@ -58,10 +59,12 @@ export const statusClassNames = {
   cancelled: 'bg-[#ffdcd6] text-[#b42318]',
   processing: 'bg-[#e9e4ff] text-[#5d43c5]',
   refunded: 'bg-[#eeeeed] text-[#4b4b4b]',
+  payment_expired: 'bg-[#ffdcd6] text-[#b42318]',
 }
 
 export const orderStatusLabels = {
   all: 'Tất cả',
+  payment_pending: 'Chờ thanh toán',
   pending: 'Chờ xác nhận',
   paid: 'Đã thanh toán',
   processing: 'Đang xử lý',
@@ -69,6 +72,7 @@ export const orderStatusLabels = {
   delivered: 'Đã giao',
   cancelled: 'Đã hủy',
   refunded: 'Đã hoàn tiền',
+  payment_expired: 'Hết hạn thanh toán',
 }
 
 export const userRoleLabels = {

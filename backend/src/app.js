@@ -3,7 +3,7 @@ const cors = require('cors')
 const path = require('path')
 
 const authRoutes = require('./routes/auth')
-const accountRoutes = require('./routes/account')
+const accountRoutes = require('./routes/account/index')
 const adminRoutes = require('./routes/admin')
 const cartRoutes = require('./routes/cart')
 const categoryRoutes = require('./routes/categories')
