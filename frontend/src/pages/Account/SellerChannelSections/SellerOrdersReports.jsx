@@ -454,7 +454,7 @@ export function SellerOrdersPanel({ orders, workingOrderId, handleOrderStatus })
   )
 }
 
-export function SellerReportsPanel({ stats, orders, revenueTrend, orderStatusCounts }) {
+export function SellerReportsPanel({ stats, orders, revenueTrend, revenueRange, revenueFilter, orderStatusCounts, onRevenueFilterChange }) {
   return (
     <div className="space-y-5">
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -464,7 +464,12 @@ export function SellerReportsPanel({ stats, orders, revenueTrend, orderStatusCou
         <MetricCard icon="inventory" label="Sản phẩm" value={formatCount(stats.productCount)} note={`${formatCount(stats.activeProducts)} đang bán`} />
       </div>
 
-      <RevenueChart trend={revenueTrend} />
+      <RevenueChart
+        trend={revenueTrend}
+        revenueRange={revenueRange}
+        revenueFilter={revenueFilter}
+        onRevenueFilterChange={onRevenueFilterChange}
+      />
 
       <div className="grid gap-4 md:grid-cols-2">
         <div className="rounded-lg border border-outline-variant bg-surface-container-lowest px-4 py-4">

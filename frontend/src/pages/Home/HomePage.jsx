@@ -4,7 +4,6 @@ import FlashSaleSection from '../../components/FlashSaleSection/FlashSaleSection
 import CategoriesGrid from '../../components/CategoriesGrid/CategoriesGrid'
 import RecommendationGrid from '../../components/RecommendationGrid/RecommendationGrid'
 import Footer from '../../components/Footer/Footer'
-import FloatingChatButton from '../../components/FloatingChatButton/FloatingChatButton'
 
 export default function HomePage() {
   return (
@@ -17,7 +16,6 @@ export default function HomePage() {
         <RecommendationGrid />
       </main>
       <Footer />
-      <FloatingChatButton />
     </>
   )
 }

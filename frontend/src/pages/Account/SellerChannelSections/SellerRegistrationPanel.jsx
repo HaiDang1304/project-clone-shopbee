@@ -1,6 +1,12 @@
 ﻿import { EmptySellerNotice, LocationSelectFields, StatusBadge } from './common'
 import { formatDateTime } from '../sellerChannel.utils'
 
+const phonePattern = '[0-9]{10}'
+
+function normalizePhoneInput(value) {
+  return String(value || '').replace(/\D/g, '').slice(0, 10)
+}
+
 export function SellerRegistrationPanel({ application, canSubmitShopApplication, shopForm, sellerSaving, updateShopField, handleShopSubmit, locations }) {
   return (
     <div className="mt-5 space-y-5">
@@ -52,8 +58,13 @@ export function SellerRegistrationPanel({ application, canSubmitShopApplication,
               <span className="text-body-sm text-on-surface-variant">Số điện thoại liên hệ</span>
               <input
                 className="h-10 rounded-lg border-outline-variant bg-surface-container-low text-body-sm focus:border-primary focus:ring-primary"
+                type="tel"
+                inputMode="numeric"
+                pattern={phonePattern}
+                maxLength={10}
+                title="Số điện thoại phải gồm đúng 10 chữ số"
                 value={shopForm.contactPhone}
-                onChange={(event) => updateShopField('contactPhone', event.target.value)}
+                onChange={(event) => updateShopField('contactPhone', normalizePhoneInput(event.target.value))}
                 disabled={sellerSaving}
                 required
               />

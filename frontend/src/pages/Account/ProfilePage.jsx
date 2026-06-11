@@ -7,6 +7,7 @@ import { apiAssetUrl } from '../../lib/api'
 import { setAuthToken } from '../../lib/auth'
 
 const maxAvatarSize = 10 * 1024 * 1024
+const phonePattern = '[0-9]{10}'
 
 const emptyForm = {
   name: '',
@@ -25,6 +26,10 @@ const genderOptions = [
 
 function getInitial(name, email) {
   return String(name || email || 'U').trim().slice(0, 1).toUpperCase()
+}
+
+function normalizePhoneInput(value) {
+  return String(value || '').replace(/\D/g, '').slice(0, 10)
 }
 
 function toForm(profile) {
@@ -201,9 +206,15 @@ export default function ProfilePage() {
               <span className="text-right text-body-sm text-on-surface-variant sm:block">Số điện thoại</span>
               <input
                 className="h-10 w-full max-w-sm rounded-lg border-outline-variant bg-surface-container-low text-body-sm focus:border-primary focus:ring-primary"
+                type="tel"
+                inputMode="numeric"
+                pattern={phonePattern}
+                maxLength={10}
+                title="Số điện thoại phải gồm đúng 10 chữ số"
                 value={form.phone}
-                onChange={(event) => updateField('phone', event.target.value)}
+                onChange={(event) => updateField('phone', normalizePhoneInput(event.target.value))}
                 disabled={loading || saving}
+                required
               />
             </label>
 

@@ -36,7 +36,7 @@ export default function HeroSection() {
               src="https://lh3.googleusercontent.com/aida-public/AB6AXuBd2EkOu6S5NZq-AxKR7J-QRaaRQshl3WRnwavPcZ1e-GGRWp5VZ4wH6dKNznmxDu1XQ1DP-I-T6nz8LP_6rg0mAIXVMhK1ZRbft5E8fevyr5CWu_ycHH8mAMHbjv94pfdSDCrVA4QGQTTEUSe2NYjzR9pC9dhtwMJlvuKPyrWxHjQe3T1OoJF6NDZ28bFledsAMdx48LvFd8RnirK_VuPZb8pdGJUDVUxtLI2aSZU6ncydDgLznmIlx6X01vC5PRkkLzd7SVV2RKb1"
             />
             <div className="absolute inset-0 bg-black/20 p-6 flex flex-col justify-end text-white">
-              <h3 className="font-headline-md text-headline-md">Xu Hướng 2024</h3>
+              <h3 className="font-headline-md text-headline-md">Xu Hướng 2026</h3>
               <p className="text-body-md font-body-md opacity-90">
                 Bộ sưu tập thời trang thu đông
               </p>

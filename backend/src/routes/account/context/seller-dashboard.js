@@ -1,9 +1,10 @@
-const { addDays, formatDateKey, formatTrendLabel, platformFeeRate, query } = require('./common')
+const { platformFeeRate, query } = require('./common')
+const { buildDailyRevenueTrend, normalizeRevenueRange } = require('../../../utils/revenue-range')
 const { readSellerShop } = require('./shop')
 const { readSellerProducts } = require('./seller-products')
 const { readSellerOrders } = require('./seller-orders')
 
-async function readSellerDashboard(userId) {
+async function readSellerDashboard(userId, rangeOptions = {}) {
   const shop = await readSellerShop(userId)
 
   if (!shop) {
@@ -12,6 +13,7 @@ async function readSellerDashboard(userId) {
     throw err
   }
 
+  const revenueRange = normalizeRevenueRange(rangeOptions)
   const [products, orders, statRows, trendRows] = await Promise.all([
     readSellerProducts(userId),
     readSellerOrders(shop.id),
@@ -48,28 +50,17 @@ async function readSellerDashboard(userId) {
          JOIN order_items oi ON o.id = oi.order_id
          LEFT JOIN order_shops os ON os.order_id = o.id AND os.shop_id = oi.shop_id
          WHERE oi.shop_id = ? AND o.status NOT IN ('payment_pending', 'payment_expired')
-           AND o.created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+           AND o.created_at >= ?
+           AND o.created_at < DATE_ADD(?, INTERVAL 1 DAY)
          GROUP BY o.id, o.status, o.created_at
        ) seller_orders
        GROUP BY DATE(seller_orders.created_at)
        ORDER BY date_key ASC`,
-      [shop.id],
+      [shop.id, revenueRange.startDate, revenueRange.endDate],
     ),
   ])
   const stats = statRows[0] || {}
-  const trendByDate = new Map(trendRows.map((row) => [formatDateKey(row.date_key), Number(row.revenue || 0)]))
-  const today = new Date()
-  const startDate = addDays(today, -6)
-  const revenueTrend = Array.from({ length: 7 }, (_, index) => {
-    const date = addDays(startDate, index)
-    const dateKey = formatDateKey(date)
-
-    return {
-      day: formatTrendLabel(date, index),
-      date: dateKey,
-      value: trendByDate.get(dateKey) || 0,
-    }
-  })
+  const revenueTrend = buildDailyRevenueTrend(trendRows, revenueRange)
 
   return {
     shop,
@@ -90,6 +81,7 @@ async function readSellerDashboard(userId) {
       outOfStockProducts: products.filter((product) => Number(product.stock || 0) <= 0).length,
     },
     revenueTrend,
+    revenueRange,
     products,
     orders,
   }

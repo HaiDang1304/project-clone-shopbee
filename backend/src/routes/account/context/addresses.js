@@ -1,4 +1,4 @@
-const { query, toPositiveId } = require('./common')
+const { normalizePhoneNumber, query, toPositiveId } = require('./common')
 
 function toAddress(row) {
   return {
@@ -18,7 +18,7 @@ function toAddress(row) {
 
 function normalizeAddressPayload(body = {}) {
   const fullName = String(body.fullName || '').trim()
-  const phone = String(body.phone || '').trim()
+  const phone = normalizePhoneNumber(body.phone)
   const line1 = String(body.line1 || '').trim()
   const provinceId = toPositiveId(body.provinceId)
   const wardId = toPositiveId(body.wardId)

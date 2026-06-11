@@ -1,7 +1,18 @@
 import { useMemo, useState } from 'react'
 import { toast } from 'react-toastify'
 
-import { deleteAdminUser, reviewSellerApplication, updateAdminUser } from '../../lib/account'
+import RevenueRangeControls from '../../components/Charts/RevenueRangeControls'
+import RevenueTrendChart from '../../components/Charts/RevenueTrendChart'
+import {
+  createAdminCategory,
+  deleteAdminCategory,
+  deleteAdminComment,
+  deleteAdminUser,
+  reviewSellerApplication,
+  updateAdminCategory,
+  updateAdminComment,
+  updateAdminUser,
+} from '../../lib/account'
 import { apiAssetUrl } from '../../lib/api'
 import {
   adminNavItems,
@@ -92,10 +103,9 @@ function OverviewMetricCard({ stat }) {
   )
 }
 
-function RevenueTrendCard({ trend }) {
+function RevenueTrendCard({ trend, revenueRange, revenueFilter, onRevenueFilterChange }) {
   const points = trend?.length ? trend : []
   const totalRevenue = points.reduce((sum, point) => sum + Number(point.value || 0), 0)
-  const maxValue = Math.max(1, ...points.map((point) => Number(point.value || 0)))
   const hasRevenue = totalRevenue > 0
   const peakPoint =
     points.reduce((best, point) => (Number(point.value || 0) > Number(best.value || 0) ? point : best), points[0] || {
@@ -107,7 +117,7 @@ function RevenueTrendCard({ trend }) {
     <section className="rounded-lg border border-[#eaded2] bg-white p-4 shadow-[0_8px_24px_rgba(60,42,22,0.05)]">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-[15px] font-bold text-[#15110d]">Doanh thu 7 ngày gần đây</h2>
+          <h2 className="text-[15px] font-bold text-[#15110d]">Doanh thu theo khoang thoi gian</h2>
           <p className="mt-1 text-[11px] text-[#7c6657]">
             {hasRevenue
               ? `Cao nhất ${peakPoint.day}: ${formatCurrency(peakPoint.value)}`
@@ -115,33 +125,27 @@ function RevenueTrendCard({ trend }) {
           </p>
         </div>
         <div className="rounded-lg bg-[#fff7ea] px-3 py-2 text-right">
-          <p className="text-[10px] font-semibold uppercase text-[#9a5700]">Tổng 7 ngày</p>
+          <p className="text-[10px] font-semibold uppercase text-[#9a5700]">Tong doanh thu</p>
           <p className="mt-0.5 text-[18px] font-bold leading-6 text-[#2b1a02]">{formatCurrency(totalRevenue)}</p>
         </div>
       </div>
 
-      <div className="mt-5 rounded-lg bg-[#fbfaf9] px-4 pb-3 pt-4">
-        <div className="flex h-[142px] items-end gap-3">
-          {points.map((point) => {
-            const value = Number(point.value || 0)
-            const barHeight = hasRevenue ? Math.max(8, Math.round((value / maxValue) * 100)) : 4
+      <RevenueRangeControls
+        className="mt-4"
+        value={revenueFilter}
+        revenueRange={revenueRange}
+        onChange={onRevenueFilterChange}
+      />
 
-            return (
-              <div key={`${point.day}-${point.date || value}`} className="flex h-full flex-1 flex-col items-center justify-end gap-2">
-                <div className="flex h-[116px] w-full items-end">
-                  <div
-                    className={`mx-auto w-full max-w-[34px] rounded-t-md transition-all ${
-                      value > 0 ? 'bg-[#c57900]' : 'bg-[#eaded2]'
-                    }`}
-                    style={{ height: `${barHeight}%` }}
-                    title={`${point.day}: ${formatCurrency(value)}`}
-                  />
-                </div>
-                <span className="h-4 text-[10px] font-semibold text-[#5f5147]">{point.day}</span>
-              </div>
-            )
-          })}
-        </div>
+      <div className="mt-5 h-[220px] rounded-lg bg-[#fbfaf9] px-3 pb-3 pt-4">
+        <RevenueTrendChart
+          trend={points}
+          lineColor="#c57900"
+          fillStart="rgba(197, 121, 0, 0.28)"
+          fillEnd="rgba(197, 121, 0, 0.03)"
+          gridColor="rgba(124, 102, 87, 0.16)"
+          tickColor="#6f5b4d"
+        />
       </div>
 
       {!hasRevenue ? (
@@ -161,7 +165,7 @@ function PlatformFeeShopsTable({ shops }) {
     <section className="overflow-hidden rounded-lg border border-[#eaded2] bg-white shadow-[0_8px_24px_rgba(60,42,22,0.05)]">
       <div className="flex flex-wrap items-start justify-between gap-3 px-4 py-3">
         <div>
-          <h2 className="text-[15px] font-bold text-[#15110d]">Phí sàn theo cửa hàng</h2>
+          <h2 className="text-[15px] font-bold text-[#15110d]">Doanh thu theo khoang thoi gian</h2>
           <p className="mt-0.5 text-[11px] text-[#7c6657]">Phí sàn cố định 5% trên đơn đã giao trong tháng.</p>
         </div>
         <span className="rounded-full bg-[#e8fff5] px-3 py-1 text-[10px] font-bold text-[#047857]">
@@ -465,7 +469,7 @@ function PendingShopsTable({ shops, totalCount, onReviewed }) {
     <section className="overflow-hidden rounded-lg border border-[#eaded2] bg-white shadow-[0_8px_24px_rgba(60,42,22,0.05)]">
       <div className="flex flex-wrap items-start justify-between gap-3 px-4 py-3">
         <div>
-          <h2 className="text-[15px] font-bold text-[#15110d]">Danh sách cửa hàng chờ duyệt</h2>
+          <h2 className="text-[15px] font-bold text-[#15110d]">Doanh thu theo khoang thoi gian</h2>
           <p className="mt-0.5 text-[11px] text-[#7c6657]">Kiểm tra thông tin pháp lý trước khi phê duyệt.</p>
         </div>
         <div className="flex gap-2">
@@ -576,7 +580,7 @@ function PendingShopsTable({ shops, totalCount, onReviewed }) {
   )
 }
 
-export function OverviewDashboard({ dashboardData, onDashboardRefresh }) {
+export function OverviewDashboard({ dashboardData, revenueFilter, onDashboardRefresh, onRevenueFilterChange }) {
   const stats = buildOverviewStats(dashboardData)
   const trend = dashboardData?.revenueTrend || []
   const platformFeeShops = dashboardData?.platformFeeShops || []
@@ -598,7 +602,12 @@ export function OverviewDashboard({ dashboardData, onDashboardRefresh }) {
         ))}
       </div>
 
-      <RevenueTrendCard trend={trend} />
+      <RevenueTrendCard
+        trend={trend}
+        revenueRange={dashboardData?.revenueRange}
+        revenueFilter={revenueFilter}
+        onRevenueFilterChange={onRevenueFilterChange}
+      />
 
       <PlatformFeeShopsTable shops={platformFeeShops} />
 
@@ -790,6 +799,512 @@ export function ShopsDashboard({ searchTerm, shopsData }) {
           </p>
           <p className="font-semibold text-[#7b6556]">Nguồn dữ liệu: bảng shops</p>
         </div>
+      </section>
+    </div>
+  )
+}
+
+const emptyCategoryForm = {
+  name: '',
+  slug: '',
+  parentId: '',
+  sortOrder: '0',
+  isActive: true,
+}
+
+function slugifyCategory(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+export function CategoriesDashboard({ searchTerm, categoriesData, onCategoriesDataChange }) {
+  const [activeStatus, setActiveStatus] = useState('all')
+  const [categoryForm, setCategoryForm] = useState(emptyCategoryForm)
+  const [editingCategoryId, setEditingCategoryId] = useState(null)
+  const [workingCategoryId, setWorkingCategoryId] = useState(null)
+  const [savingCategory, setSavingCategory] = useState(false)
+  const categories = useMemo(() => categoriesData?.items || [], [categoriesData])
+  const parentOptions = categories.filter((category) => Number(category.id) !== Number(editingCategoryId))
+  const statusTabs = [
+    { value: 'all', label: 'Tat ca', count: categoriesData?.stats?.total || 0 },
+    { value: 'active', label: 'Dang hien thi', count: categoriesData?.stats?.active || 0 },
+    { value: 'inactive', label: 'Tam an', count: categoriesData?.stats?.inactive || 0 },
+  ]
+
+  const filteredCategories = useMemo(() => {
+    const keyword = searchTerm.trim().toLowerCase()
+
+    return categories.filter((category) => {
+      const matchesStatus =
+        activeStatus === 'all' ||
+        (activeStatus === 'active' && category.isActive) ||
+        (activeStatus === 'inactive' && !category.isActive)
+      const haystack = `${category.id} ${category.name} ${category.slug}`.toLowerCase()
+      const matchesSearch = !keyword || haystack.includes(keyword)
+
+      return matchesStatus && matchesSearch
+    })
+  }, [activeStatus, categories, searchTerm])
+
+  const categoryById = useMemo(() => {
+    return categories.reduce((result, category) => {
+      result[category.id] = category
+      return result
+    }, {})
+  }, [categories])
+
+  function resetCategoryForm() {
+    setEditingCategoryId(null)
+    setCategoryForm(emptyCategoryForm)
+  }
+
+  function updateCategoryField(field, value) {
+    setCategoryForm((current) => {
+      if (field === 'name' && !editingCategoryId && (!current.slug || current.slug === slugifyCategory(current.name))) {
+        return { ...current, name: value, slug: slugifyCategory(value) }
+      }
+
+      return { ...current, [field]: value }
+    })
+  }
+
+  function editCategory(category) {
+    setEditingCategoryId(category.id)
+    setCategoryForm({
+      name: category.name || '',
+      slug: category.slug || '',
+      parentId: category.parentId ? String(category.parentId) : '',
+      sortOrder: String(category.sortOrder ?? 0),
+      isActive: Boolean(category.isActive),
+    })
+  }
+
+  async function handleCategorySubmit(event) {
+    event.preventDefault()
+    setSavingCategory(true)
+
+    const payload = {
+      name: categoryForm.name,
+      slug: categoryForm.slug,
+      parentId: categoryForm.parentId || null,
+      sortOrder: categoryForm.sortOrder,
+      isActive: categoryForm.isActive,
+    }
+
+    try {
+      const nextData = editingCategoryId
+        ? await updateAdminCategory(editingCategoryId, payload)
+        : await createAdminCategory(payload)
+      onCategoriesDataChange(nextData)
+      resetCategoryForm()
+      toast.success(editingCategoryId ? 'Da cap nhat danh muc.' : 'Da tao danh muc.')
+    } catch (err) {
+      toast.error(err.message || 'Khong luu duoc danh muc.')
+    } finally {
+      setSavingCategory(false)
+    }
+  }
+
+  async function handleToggleCategory(category) {
+    setWorkingCategoryId(category.id)
+
+    try {
+      const nextData = await updateAdminCategory(category.id, { isActive: !category.isActive })
+      onCategoriesDataChange(nextData)
+      toast.success('Da cap nhat trang thai danh muc.')
+    } catch (err) {
+      toast.error(err.message || 'Khong cap nhat duoc danh muc.')
+    } finally {
+      setWorkingCategoryId(null)
+    }
+  }
+
+  async function handleDeleteCategory(category) {
+    if (!window.confirm(`Ban co chac muon xoa danh muc "${category.name}"?`)) return
+    setWorkingCategoryId(category.id)
+
+    try {
+      const nextData = await deleteAdminCategory(category.id)
+      onCategoriesDataChange(nextData)
+      if (Number(editingCategoryId) === Number(category.id)) resetCategoryForm()
+      toast.success('Da xoa danh muc.')
+    } catch (err) {
+      toast.error(err.message || 'Khong xoa duoc danh muc.')
+    } finally {
+      setWorkingCategoryId(null)
+    }
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-[24px] font-bold leading-8 text-[#15110d]">Quan tri danh muc</h1>
+          <p className="mt-1 text-[12px] text-[#6b4d3e]">
+            Tao, sap xep va an hien danh muc san pham cho trang mua hang va kenh nguoi ban.
+          </p>
+        </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <OverviewMetricCard stat={{ label: 'Tong danh muc', value: formatCount(categoriesData?.stats?.total || 0), icon: 'category', change: 'Tat ca', iconClass: 'bg-[#fff2df] text-[#d47b00]' }} />
+        <OverviewMetricCard stat={{ label: 'Dang hien thi', value: formatCount(categoriesData?.stats?.active || 0), icon: 'visibility', change: 'Active', iconClass: 'bg-[#e8fff5] text-[#047857]' }} />
+        <OverviewMetricCard stat={{ label: 'Tam an', value: formatCount(categoriesData?.stats?.inactive || 0), icon: 'visibility_off', change: 'Inactive', iconClass: 'bg-[#fff0e7] text-[#e5791f]' }} />
+        <OverviewMetricCard stat={{ label: 'Danh muc goc', value: formatCount(categoriesData?.stats?.roots || 0), icon: 'account_tree', change: 'Root', iconClass: 'bg-[#e8f0ff] text-[#2f6bf2]' }} />
+      </div>
+
+      <section className="rounded-lg border border-[#eaded2] bg-white p-4 shadow-[0_8px_24px_rgba(60,42,22,0.05)]">
+        <form className="grid gap-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_140px_130px_auto]" onSubmit={handleCategorySubmit}>
+          <label className="grid gap-1.5">
+            <span className="text-[11px] font-bold text-[#4b3527]">Ten danh muc</span>
+            <input
+              className="h-10 rounded-lg border-[#dfc8b5] bg-[#fbfaf9] text-[13px] text-[#1d1712] focus:border-[#c98225] focus:ring-0"
+              value={categoryForm.name}
+              onChange={(event) => updateCategoryField('name', event.target.value)}
+              placeholder="Vi du: Dien tu"
+              required
+            />
+          </label>
+          <label className="grid gap-1.5">
+            <span className="text-[11px] font-bold text-[#4b3527]">Slug</span>
+            <input
+              className="h-10 rounded-lg border-[#dfc8b5] bg-[#fbfaf9] text-[13px] text-[#1d1712] focus:border-[#c98225] focus:ring-0"
+              value={categoryForm.slug}
+              onChange={(event) => updateCategoryField('slug', slugifyCategory(event.target.value))}
+              placeholder="dien-tu"
+              required
+            />
+          </label>
+          <label className="grid gap-1.5">
+            <span className="text-[11px] font-bold text-[#4b3527]">Danh muc cha</span>
+            <select
+              className="h-10 rounded-lg border-[#dfc8b5] bg-[#fbfaf9] text-[13px] text-[#1d1712] focus:border-[#c98225] focus:ring-0"
+              value={categoryForm.parentId}
+              onChange={(event) => updateCategoryField('parentId', event.target.value)}
+            >
+              <option value="">Danh muc goc</option>
+              {parentOptions.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="grid gap-1.5">
+            <span className="text-[11px] font-bold text-[#4b3527]">Thu tu</span>
+            <input
+              className="h-10 rounded-lg border-[#dfc8b5] bg-[#fbfaf9] text-[13px] text-[#1d1712] focus:border-[#c98225] focus:ring-0"
+              type="number"
+              min="0"
+              value={categoryForm.sortOrder}
+              onChange={(event) => updateCategoryField('sortOrder', event.target.value)}
+            />
+          </label>
+          <div className="flex items-end gap-2">
+            <label className="flex h-10 items-center gap-2 rounded-lg border border-[#dfc8b5] bg-[#fbfaf9] px-3 text-[12px] font-semibold text-[#4b3527]">
+              <input
+                className="rounded border-[#dfc8b5] text-[#c57900] focus:ring-[#c57900]"
+                type="checkbox"
+                checked={categoryForm.isActive}
+                onChange={(event) => updateCategoryField('isActive', event.target.checked)}
+              />
+              Hien thi
+            </label>
+            <button
+              className="h-10 rounded-lg bg-[#995900] px-4 text-[12px] font-bold text-white hover:bg-[#7b4600] disabled:opacity-60"
+              type="submit"
+              disabled={savingCategory}
+            >
+              {savingCategory ? 'Dang luu...' : editingCategoryId ? 'Cap nhat' : 'Them'}
+            </button>
+            {editingCategoryId ? (
+              <button
+                className="h-10 rounded-lg border border-[#bba795] px-3 text-[12px] font-bold text-[#4e3d31] hover:border-[#9a5700]"
+                type="button"
+                onClick={resetCategoryForm}
+              >
+                Huy
+              </button>
+            ) : null}
+          </div>
+        </form>
+      </section>
+
+      <section className="overflow-hidden rounded-lg border border-[#eaded2] bg-white shadow-[0_8px_24px_rgba(60,42,22,0.05)]">
+        <div className="flex min-h-12 overflow-x-auto border-b border-[#eaded2]">
+          {statusTabs.map((tab) => (
+            <button
+              key={tab.value}
+              className={`relative min-w-max px-5 text-[12px] font-medium transition-colors ${
+                activeStatus === tab.value ? 'text-[#a15d00]' : 'text-[#34261b] hover:text-[#a15d00]'
+              }`}
+              type="button"
+              onClick={() => setActiveStatus(tab.value)}
+            >
+              {tab.label} ({formatCount(tab.count)})
+              {activeStatus === tab.value ? <span className="absolute inset-x-0 bottom-0 h-px bg-[#a15d00]" /> : null}
+            </button>
+          ))}
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[900px] border-collapse text-left">
+            <thead>
+              <tr className="h-12 bg-[#eeeeed] text-[10px] font-bold uppercase text-[#4b3527]">
+                <th className="px-4">Danh muc</th>
+                <th className="px-4">Danh muc cha</th>
+                <th className="px-4">Thu tu</th>
+                <th className="px-4">San pham</th>
+                <th className="px-4">Danh muc con</th>
+                <th className="px-4">Trang thai</th>
+                <th className="px-4">Cap nhat</th>
+                <th className="px-4 text-center">Thao tac</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredCategories.map((category) => {
+                const updatedAt = formatDateTime(category.updatedAt)
+                const isWorking = workingCategoryId === category.id || savingCategory
+
+                return (
+                  <tr key={category.id} className="border-t border-[#f0e7df] text-[12px] text-[#17120e]">
+                    <td className="px-4 py-4">
+                      <p className="font-bold text-[#1d1712]">{category.name}</p>
+                      <p className="mt-0.5 text-[10px] text-[#7b6556]">/{category.slug}</p>
+                    </td>
+                    <td className="px-4 py-4">{category.parentId ? categoryById[category.parentId]?.name || `#${category.parentId}` : 'Danh muc goc'}</td>
+                    <td className="px-4 py-4 font-semibold">{formatCount(category.sortOrder)}</td>
+                    <td className="px-4 py-4">{formatCount(category.productCount)}</td>
+                    <td className="px-4 py-4">{formatCount(category.childCount)}</td>
+                    <td className="px-4 py-4">
+                      <span className={`inline-flex rounded-full px-2 py-1 text-[10px] font-bold ${category.isActive ? 'bg-[#d9f7df] text-[#087c32]' : 'bg-[#ffdcd6] text-[#b42318]'}`}>
+                        {category.isActive ? 'Dang hien thi' : 'Tam an'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-4">
+                      <p className="font-semibold">{updatedAt.date}</p>
+                      <p className="text-[10px] text-[#6e5c51]">{updatedAt.time}</p>
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="flex justify-center gap-1">
+                        <IconButton icon="edit" label="Sua danh muc" disabled={isWorking} onClick={() => editCategory(category)} />
+                        <IconButton
+                          icon={category.isActive ? 'visibility_off' : 'visibility'}
+                          label={category.isActive ? 'Tam an' : 'Hien thi'}
+                          disabled={isWorking}
+                          onClick={() => handleToggleCategory(category)}
+                        />
+                        <IconButton icon="delete" label="Xoa danh muc" disabled={isWorking} onClick={() => handleDeleteCategory(category)} />
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {!filteredCategories.length ? (
+          <div className="border-t border-[#f0e7df] px-4 py-10 text-center text-[13px] text-[#6e5c51]">
+            Khong tim thay danh muc phu hop.
+          </div>
+        ) : null}
+      </section>
+    </div>
+  )
+}
+
+function RatingStars({ value }) {
+  const rating = Number(value || 0)
+
+  return (
+    <span className="inline-flex items-center gap-0.5 text-[#f59e0b]" title={`${rating}/5`}>
+      {Array.from({ length: 5 }, (_, index) => (
+        <span key={index} className={`material-symbols-outlined text-[15px] ${rating >= index + 1 ? 'opacity-100' : 'opacity-25'}`}>
+          star
+        </span>
+      ))}
+    </span>
+  )
+}
+
+export function CommentsDashboard({ searchTerm, commentsData, onCommentsDataChange }) {
+  const [activeStatus, setActiveStatus] = useState('all')
+  const [workingCommentId, setWorkingCommentId] = useState(null)
+  const comments = useMemo(() => commentsData?.items || [], [commentsData])
+  const statusTabs = [
+    { value: 'all', label: 'Tat ca', count: commentsData?.stats?.total || 0 },
+    { value: 'visible', label: 'Dang hien thi', count: commentsData?.stats?.visible || 0 },
+    { value: 'hidden', label: 'Da an', count: commentsData?.stats?.hidden || 0 },
+    { value: 'low', label: 'Rating thap', count: commentsData?.stats?.lowRating || 0 },
+  ]
+
+  const filteredComments = useMemo(() => {
+    const keyword = searchTerm.trim().toLowerCase()
+
+    return comments.filter((comment) => {
+      const matchesStatus =
+        activeStatus === 'all' ||
+        (activeStatus === 'visible' && comment.isVisible) ||
+        (activeStatus === 'hidden' && !comment.isVisible) ||
+        (activeStatus === 'low' && Number(comment.rating || 0) <= 2)
+      const haystack = [
+        comment.id,
+        comment.comment,
+        comment.user?.name,
+        comment.user?.email,
+        comment.product?.name,
+        comment.shop?.name,
+        comment.orderId,
+      ].join(' ').toLowerCase()
+      const matchesSearch = !keyword || haystack.includes(keyword)
+
+      return matchesStatus && matchesSearch
+    })
+  }, [activeStatus, comments, searchTerm])
+
+  async function handleToggleComment(comment) {
+    setWorkingCommentId(comment.id)
+
+    try {
+      const nextData = await updateAdminComment(comment.id, { isVisible: !comment.isVisible })
+      onCommentsDataChange(nextData)
+      toast.success('Da cap nhat trang thai binh luan.')
+    } catch (err) {
+      toast.error(err.message || 'Khong cap nhat duoc binh luan.')
+    } finally {
+      setWorkingCommentId(null)
+    }
+  }
+
+  async function handleDeleteComment(comment) {
+    if (!window.confirm(`Ban co chac muon xoa binh luan #${comment.id}?`)) return
+    setWorkingCommentId(comment.id)
+
+    try {
+      const nextData = await deleteAdminComment(comment.id)
+      onCommentsDataChange(nextData)
+      toast.success('Da xoa binh luan.')
+    } catch (err) {
+      toast.error(err.message || 'Khong xoa duoc binh luan.')
+    } finally {
+      setWorkingCommentId(null)
+    }
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-[24px] font-bold leading-8 text-[#15110d]">Quan ly binh luan</h1>
+          <p className="mt-1 text-[12px] text-[#6b4d3e]">
+            Kiem duyet danh gia san pham, an hien noi dung va theo doi nhung rating can xu ly.
+          </p>
+        </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <OverviewMetricCard stat={{ label: 'Tong binh luan', value: formatCount(commentsData?.stats?.total || 0), icon: 'rate_review', change: 'Tat ca', iconClass: 'bg-[#fff2df] text-[#d47b00]' }} />
+        <OverviewMetricCard stat={{ label: 'Dang hien thi', value: formatCount(commentsData?.stats?.visible || 0), icon: 'visibility', change: 'Public', iconClass: 'bg-[#e8fff5] text-[#047857]' }} />
+        <OverviewMetricCard stat={{ label: 'Da an', value: formatCount(commentsData?.stats?.hidden || 0), icon: 'visibility_off', change: 'Hidden', iconClass: 'bg-[#fff0e7] text-[#e5791f]' }} />
+        <OverviewMetricCard stat={{ label: 'Rating thap', value: formatCount(commentsData?.stats?.lowRating || 0), icon: 'priority_high', change: 'Can xem', iconClass: 'bg-[#ffe0df] text-[#be2420]' }} />
+      </div>
+
+      <section className="overflow-hidden rounded-lg border border-[#eaded2] bg-white shadow-[0_8px_24px_rgba(60,42,22,0.05)]">
+        <div className="flex min-h-12 overflow-x-auto border-b border-[#eaded2]">
+          {statusTabs.map((tab) => (
+            <button
+              key={tab.value}
+              className={`relative min-w-max px-5 text-[12px] font-medium transition-colors ${
+                activeStatus === tab.value ? 'text-[#a15d00]' : 'text-[#34261b] hover:text-[#a15d00]'
+              }`}
+              type="button"
+              onClick={() => setActiveStatus(tab.value)}
+            >
+              {tab.label} ({formatCount(tab.count)})
+              {activeStatus === tab.value ? <span className="absolute inset-x-0 bottom-0 h-px bg-[#a15d00]" /> : null}
+            </button>
+          ))}
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[1040px] border-collapse text-left">
+            <thead>
+              <tr className="h-12 bg-[#eeeeed] text-[10px] font-bold uppercase text-[#4b3527]">
+                <th className="px-4">Binh luan</th>
+                <th className="px-4">Khach hang</th>
+                <th className="px-4">San pham</th>
+                <th className="px-4">Shop</th>
+                <th className="px-4">Danh gia</th>
+                <th className="px-4">Trang thai</th>
+                <th className="px-4">Ngay gui</th>
+                <th className="px-4 text-center">Thao tac</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredComments.map((comment) => {
+                const createdAt = formatDateTime(comment.createdAt)
+                const isWorking = workingCommentId === comment.id
+
+                return (
+                  <tr key={comment.id} className="border-t border-[#f0e7df] text-[12px] text-[#17120e]">
+                    <td className="max-w-[360px] px-4 py-4">
+                      <p className="line-clamp-3 leading-5 text-[#1d1712]">
+                        {comment.comment || 'Khach hang khong de lai binh luan.'}
+                      </p>
+                      <p className="mt-1 text-[10px] text-[#7b6556]">Review #{comment.id} · Don #{comment.orderId || 'N/A'}</p>
+                    </td>
+                    <td className="px-4 py-4">
+                      <p className="font-bold">{comment.user?.name || 'Khach hang'}</p>
+                      <p className="text-[10px] text-[#7b6556]">{comment.user?.email || 'Chua co email'}</p>
+                    </td>
+                    <td className="px-4 py-4">
+                      <p className="line-clamp-2 font-semibold">{comment.product?.name || 'San pham'}</p>
+                      <p className="text-[10px] text-[#7b6556]">ID #{comment.product?.id}</p>
+                    </td>
+                    <td className="px-4 py-4">{comment.shop?.name || 'Shop'}</td>
+                    <td className="px-4 py-4">
+                      <RatingStars value={comment.rating} />
+                      <p className="text-[10px] font-semibold text-[#7b6556]">{comment.rating}/5</p>
+                    </td>
+                    <td className="px-4 py-4">
+                      <span className={`inline-flex rounded-full px-2 py-1 text-[10px] font-bold ${comment.isVisible ? 'bg-[#d9f7df] text-[#087c32]' : 'bg-[#ffdcd6] text-[#b42318]'}`}>
+                        {comment.isVisible ? 'Dang hien thi' : 'Da an'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-4">
+                      <p className="font-semibold">{createdAt.date}</p>
+                      <p className="text-[10px] text-[#6e5c51]">{createdAt.time}</p>
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="flex justify-center gap-1">
+                        <IconButton
+                          icon={comment.isVisible ? 'visibility_off' : 'visibility'}
+                          label={comment.isVisible ? 'An binh luan' : 'Hien thi binh luan'}
+                          disabled={isWorking}
+                          onClick={() => handleToggleComment(comment)}
+                        />
+                        <IconButton icon="delete" label="Xoa binh luan" disabled={isWorking} onClick={() => handleDeleteComment(comment)} />
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {!filteredComments.length ? (
+          <div className="border-t border-[#f0e7df] px-4 py-10 text-center text-[13px] text-[#6e5c51]">
+            Khong tim thay binh luan phu hop.
+          </div>
+        ) : null}
       </section>
     </div>
   )

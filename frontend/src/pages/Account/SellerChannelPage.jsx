@@ -20,6 +20,7 @@ import {
 } from '../../lib/account'
 import { apiGet } from '../../lib/api'
 import { setAuthToken } from '../../lib/auth'
+import { defaultRevenueFilter, revenueFilterParams } from '../../lib/revenueFilters'
 import {
   allowedProductImageTypes,
   allowedShopImageTypes,
@@ -53,6 +54,7 @@ export default function SellerChannelPage({ standalone = false }) {
   const [loadError, setLoadError] = useState('')
   const [sellerData, setSellerData] = useState({ application: null, shop: null })
   const [sellerDashboard, setSellerDashboard] = useState({ shop: null, stats: {}, revenueTrend: [], products: [], orders: [] })
+  const [revenueFilter, setRevenueFilter] = useState(defaultRevenueFilter)
   const [shopForm, setShopForm] = useState(emptyShopForm)
   const [sellerSaving, setSellerSaving] = useState(false)
   const [savingShopProfile, setSavingShopProfile] = useState(false)
@@ -105,7 +107,7 @@ export default function SellerChannelPage({ standalone = false }) {
         let adminData = []
 
         if (sellerResponse.data?.shop) {
-          dashboardData = await getSellerDashboard()
+          dashboardData = await getSellerDashboard(revenueFilterParams(defaultRevenueFilter))
         }
 
         if (profileData?.role === 'admin') {
@@ -365,8 +367,20 @@ export default function SellerChannelPage({ standalone = false }) {
   }
 
   async function refreshSellerDashboard() {
-    const data = await getSellerDashboard()
+    const data = await getSellerDashboard(revenueFilterParams(revenueFilter))
     applySellerDashboard(data)
+  }
+
+  async function handleRevenueFilterChange(nextFilter, options = {}) {
+    setRevenueFilter(nextFilter)
+    if (options.deferLoad) return
+
+    try {
+      const data = await getSellerDashboard(revenueFilterParams(nextFilter))
+      applySellerDashboard(data)
+    } catch (err) {
+      toast.error(err.message || 'Khong tai duoc doanh thu theo khoang ngay')
+    }
   }
 
   function resetProductForm() {
@@ -596,7 +610,15 @@ export default function SellerChannelPage({ standalone = false }) {
             </div>
 
             {activeSellerTab === 'overview' ? (
-              <SellerOverview stats={stats} orders={orders} products={products} revenueTrend={sellerDashboard.revenueTrend} />
+              <SellerOverview
+                stats={stats}
+                orders={orders}
+                products={products}
+                revenueTrend={sellerDashboard.revenueTrend}
+                revenueRange={sellerDashboard.revenueRange}
+                revenueFilter={revenueFilter}
+                onRevenueFilterChange={handleRevenueFilterChange}
+              />
             ) : null}
 
             {activeSellerTab === 'profile' ? (
@@ -642,7 +664,15 @@ export default function SellerChannelPage({ standalone = false }) {
             ) : null}
 
             {activeSellerTab === 'reports' ? (
-              <SellerReportsPanel stats={stats} orders={orders} revenueTrend={sellerDashboard.revenueTrend} orderStatusCounts={orderStatusCounts} />
+              <SellerReportsPanel
+                stats={stats}
+                orders={orders}
+                revenueTrend={sellerDashboard.revenueTrend}
+                revenueRange={sellerDashboard.revenueRange}
+                revenueFilter={revenueFilter}
+                orderStatusCounts={orderStatusCounts}
+                onRevenueFilterChange={handleRevenueFilterChange}
+              />
             ) : null}
           </div>
         ) : null}

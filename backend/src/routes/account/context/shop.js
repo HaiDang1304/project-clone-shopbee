@@ -1,4 +1,4 @@
-const { crypto, query, slugify, toPositiveId } = require('./common')
+const { crypto, normalizePhoneNumber, query, slugify, toPositiveId } = require('./common')
 
 function toShopApplication(row) {
   if (!row) return null
@@ -61,7 +61,7 @@ function toSellerShop(row) {
 
 function normalizeShopApplicationPayload(body = {}) {
   const shopName = String(body.shopName || '').trim()
-  const contactPhone = String(body.contactPhone || '').trim()
+  const contactPhone = normalizePhoneNumber(body.contactPhone, 'Số điện thoại liên hệ phải gồm đúng 10 chữ số')
   const contactEmail = String(body.contactEmail || '').trim()
   const description = String(body.description || '').trim()
   const addressLine1 = String(body.addressLine1 || '').trim()

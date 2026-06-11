@@ -2,11 +2,25 @@ const crypto = require('crypto')
 
 const { query, transaction } = require('../../config/db')
 const { asyncHandler } = require('../../middleware/error')
+const { buildDailyRevenueTrend, normalizeRevenueRange } = require('../../utils/revenue-range')
 
 const allowedApplicationStatuses = new Set(['pending', 'approved', 'rejected'])
 const dashboardOrderStatuses = ['payment_pending', 'pending', 'paid', 'processing', 'shipping', 'delivered', 'cancelled', 'refunded', 'payment_expired']
 const allowedUserRoles = new Set(['customer', 'seller', 'admin'])
 const platformFeeRate = 0.05
+
+function slugify(value) {
+  const slug = String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+
+  return slug
+}
 
 function formatDateKey(value) {
   const date = value instanceof Date ? value : new Date(value)
@@ -169,6 +183,384 @@ function toAdminShop(row) {
       isActive: Boolean(row.owner_active),
     },
   }
+}
+
+function toAdminCategory(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    slug: row.slug,
+    parentId: row.parent_id == null ? null : Number(row.parent_id),
+    sortOrder: Number(row.sort_order || 0),
+    isActive: Boolean(row.is_active),
+    productCount: Number(row.product_count || 0),
+    childCount: Number(row.child_count || 0),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
+}
+
+function toAdminReview(row) {
+  return {
+    id: row.id,
+    rating: Number(row.rating || 0),
+    comment: row.comment || '',
+    isVisible: Boolean(row.is_visible),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    orderId: row.order_id || null,
+    user: {
+      id: row.user_id,
+      name: row.user_name || '',
+      email: row.user_email || '',
+      avatarUrl: row.user_avatar_url || '',
+    },
+    product: {
+      id: row.product_id,
+      name: row.product_name || '',
+      slug: row.product_slug || '',
+      thumbnailUrl: row.product_thumbnail_url || '',
+    },
+    shop: {
+      id: row.shop_id,
+      name: row.shop_name || '',
+      slug: row.shop_slug || '',
+    },
+  }
+}
+
+function normalizeCategoryPayload(body, { partial = false } = {}) {
+  const payload = {}
+
+  if (!partial || body.name !== undefined) {
+    const name = String(body.name || '').trim()
+    if (!name || name.length < 2 || name.length > 120) {
+      const err = new Error('Ten danh muc phai tu 2 den 120 ky tu')
+      err.status = 400
+      throw err
+    }
+    payload.name = name
+  }
+
+  if (!partial || body.slug !== undefined || payload.name) {
+    const slug = slugify(body.slug || payload.name)
+    if (!slug || slug.length > 160) {
+      const err = new Error('Slug danh muc khong hop le')
+      err.status = 400
+      throw err
+    }
+    payload.slug = slug
+  }
+
+  if (!partial || body.parentId !== undefined) {
+    const parentId = body.parentId === undefined || body.parentId === null || body.parentId === '' ? null : Number(body.parentId)
+    if (parentId !== null && (!Number.isSafeInteger(parentId) || parentId <= 0)) {
+      const err = new Error('Danh muc cha khong hop le')
+      err.status = 400
+      throw err
+    }
+    payload.parentId = parentId
+  }
+
+  if (!partial || body.sortOrder !== undefined) {
+    const sortOrder = body.sortOrder === undefined || body.sortOrder === '' ? 0 : Number(body.sortOrder)
+    if (!Number.isSafeInteger(sortOrder) || sortOrder < 0 || sortOrder > 999999) {
+      const err = new Error('Thu tu hien thi khong hop le')
+      err.status = 400
+      throw err
+    }
+    payload.sortOrder = sortOrder
+  }
+
+  if (!partial || body.isActive !== undefined) {
+    payload.isActive = body.isActive === undefined ? true : Boolean(body.isActive)
+  }
+
+  return payload
+}
+
+async function assertCategoryParent(parentId, currentId = null) {
+  if (!parentId) return
+  if (Number(parentId) === Number(currentId)) {
+    const err = new Error('Danh muc khong the chon chinh no lam danh muc cha')
+    err.status = 400
+    throw err
+  }
+
+  const rows = await query('SELECT id, parent_id FROM categories WHERE id = ? LIMIT 1', [parentId])
+  if (!rows.length) {
+    const err = new Error('Danh muc cha khong ton tai')
+    err.status = 400
+    throw err
+  }
+
+  let nextParentId = rows[0].parent_id
+  while (nextParentId) {
+    if (Number(nextParentId) === Number(currentId)) {
+      const err = new Error('Khong the tao vong lap danh muc cha con')
+      err.status = 400
+      throw err
+    }
+
+    const parentRows = await query('SELECT parent_id FROM categories WHERE id = ? LIMIT 1', [nextParentId])
+    nextParentId = parentRows[0]?.parent_id || null
+  }
+}
+
+async function readAdminCategoriesData() {
+  const rows = await query(
+    `SELECT c.id, c.name, c.slug, c.parent_id, c.sort_order, c.is_active, c.created_at, c.updated_at,
+            COALESCE(product_summary.product_count, 0) AS product_count,
+            COALESCE(child_summary.child_count, 0) AS child_count
+     FROM categories c
+     LEFT JOIN (
+       SELECT category_id, COUNT(*) AS product_count
+       FROM products
+       WHERE category_id IS NOT NULL
+       GROUP BY category_id
+     ) product_summary ON product_summary.category_id = c.id
+     LEFT JOIN (
+       SELECT parent_id, COUNT(*) AS child_count
+       FROM categories
+       WHERE parent_id IS NOT NULL
+       GROUP BY parent_id
+     ) child_summary ON child_summary.parent_id = c.id
+     ORDER BY c.sort_order ASC, c.name ASC`,
+  )
+
+  const items = rows.map(toAdminCategory)
+  const stats = {
+    total: items.length,
+    active: items.filter((category) => category.isActive).length,
+    inactive: items.filter((category) => !category.isActive).length,
+    roots: items.filter((category) => !category.parentId).length,
+  }
+
+  return { stats, items }
+}
+
+async function createAdminCategory(body) {
+  const payload = normalizeCategoryPayload(body)
+  await assertCategoryParent(payload.parentId)
+
+  try {
+    await query(
+      `INSERT INTO categories (name, slug, parent_id, sort_order, is_active)
+       VALUES (?, ?, ?, ?, ?)`,
+      [payload.name, payload.slug, payload.parentId, payload.sortOrder, payload.isActive ? 1 : 0],
+    )
+  } catch (err) {
+    if (err.code === 'ER_DUP_ENTRY') {
+      err.status = 409
+      err.message = 'Slug danh muc da ton tai'
+    }
+    throw err
+  }
+
+  return readAdminCategoriesData()
+}
+
+async function updateAdminCategory(categoryId, body) {
+  const id = Number(categoryId)
+  if (!Number.isSafeInteger(id) || id <= 0) {
+    const err = new Error('Danh muc khong hop le')
+    err.status = 400
+    throw err
+  }
+
+  const existing = await query('SELECT id FROM categories WHERE id = ? LIMIT 1', [id])
+  if (!existing.length) {
+    const err = new Error('Khong tim thay danh muc')
+    err.status = 404
+    throw err
+  }
+
+  const payload = normalizeCategoryPayload(body, { partial: true })
+  await assertCategoryParent(payload.parentId, id)
+
+  const fields = []
+  const params = []
+  if (payload.name !== undefined) {
+    fields.push('name = ?')
+    params.push(payload.name)
+  }
+  if (payload.slug !== undefined) {
+    fields.push('slug = ?')
+    params.push(payload.slug)
+  }
+  if (payload.parentId !== undefined) {
+    fields.push('parent_id = ?')
+    params.push(payload.parentId)
+  }
+  if (payload.sortOrder !== undefined) {
+    fields.push('sort_order = ?')
+    params.push(payload.sortOrder)
+  }
+  if (payload.isActive !== undefined) {
+    fields.push('is_active = ?')
+    params.push(payload.isActive ? 1 : 0)
+  }
+
+  if (!fields.length) return readAdminCategoriesData()
+
+  try {
+    await query(`UPDATE categories SET ${fields.join(', ')}, updated_at = NOW() WHERE id = ?`, [...params, id])
+  } catch (err) {
+    if (err.code === 'ER_DUP_ENTRY') {
+      err.status = 409
+      err.message = 'Slug danh muc da ton tai'
+    }
+    throw err
+  }
+
+  return readAdminCategoriesData()
+}
+
+async function deleteAdminCategory(categoryId) {
+  const id = Number(categoryId)
+  if (!Number.isSafeInteger(id) || id <= 0) {
+    const err = new Error('Danh muc khong hop le')
+    err.status = 400
+    throw err
+  }
+
+  const usageRows = await query(
+    `SELECT
+       (SELECT COUNT(*) FROM products WHERE category_id = ?) AS productCount,
+       (SELECT COUNT(*) FROM categories WHERE parent_id = ?) AS childCount`,
+    [id, id],
+  )
+  const usage = usageRows[0] || {}
+  if (Number(usage.productCount || 0) > 0) {
+    const err = new Error('Khong the xoa danh muc dang co san pham')
+    err.status = 409
+    throw err
+  }
+  if (Number(usage.childCount || 0) > 0) {
+    const err = new Error('Khong the xoa danh muc dang co danh muc con')
+    err.status = 409
+    throw err
+  }
+
+  await query('DELETE FROM categories WHERE id = ?', [id])
+  return readAdminCategoriesData()
+}
+
+async function recalculateProductAndShopRatings(connection, productId) {
+  const [productRows] = await connection.execute('SELECT shop_id FROM products WHERE id = ? LIMIT 1', [productId])
+  const shopId = productRows[0]?.shop_id
+
+  await connection.execute(
+    `UPDATE products p
+     SET rating_avg = COALESCE((
+           SELECT ROUND(AVG(r.rating), 2)
+           FROM reviews r
+           WHERE r.product_id = p.id AND r.is_visible = 1
+         ), 0),
+         rating_count = (
+           SELECT COUNT(*)
+           FROM reviews r
+           WHERE r.product_id = p.id AND r.is_visible = 1
+         ),
+         updated_at = NOW()
+     WHERE p.id = ?`,
+    [productId],
+  )
+
+  if (!shopId) return
+
+  await connection.execute(
+    `UPDATE shops s
+     SET rating_avg = COALESCE((
+           SELECT ROUND(AVG(r.rating), 2)
+           FROM reviews r
+           JOIN products p ON p.id = r.product_id
+           WHERE p.shop_id = s.id AND r.is_visible = 1
+         ), 0),
+         rating_count = (
+           SELECT COUNT(*)
+           FROM reviews r
+           JOIN products p ON p.id = r.product_id
+           WHERE p.shop_id = s.id AND r.is_visible = 1
+         ),
+         updated_at = NOW()
+     WHERE s.id = ?`,
+    [shopId],
+  )
+}
+
+async function readAdminReviewsData() {
+  const rows = await query(
+    `SELECT r.id, r.product_id, r.user_id, r.order_id, r.rating, r.comment, r.is_visible,
+            r.created_at, r.updated_at,
+            u.name AS user_name, u.email AS user_email, u.avatar_url AS user_avatar_url,
+            p.name AS product_name, p.slug AS product_slug, p.thumbnail_url AS product_thumbnail_url,
+            s.id AS shop_id, s.name AS shop_name, s.slug AS shop_slug
+     FROM reviews r
+     JOIN users u ON u.id = r.user_id
+     JOIN products p ON p.id = r.product_id
+     JOIN shops s ON s.id = p.shop_id
+     ORDER BY r.created_at DESC, r.id DESC
+     LIMIT 300`,
+  )
+  const items = rows.map(toAdminReview)
+  const stats = {
+    total: items.length,
+    visible: items.filter((review) => review.isVisible).length,
+    hidden: items.filter((review) => !review.isVisible).length,
+    lowRating: items.filter((review) => review.rating <= 2).length,
+  }
+
+  return { stats, items }
+}
+
+async function updateAdminReview(reviewId, body) {
+  const id = Number(reviewId)
+  if (!Number.isSafeInteger(id) || id <= 0) {
+    const err = new Error('Binh luan khong hop le')
+    err.status = 400
+    throw err
+  }
+
+  const rows = await query('SELECT id, product_id FROM reviews WHERE id = ? LIMIT 1', [id])
+  const review = rows[0]
+  if (!review) {
+    const err = new Error('Khong tim thay binh luan')
+    err.status = 404
+    throw err
+  }
+
+  const isVisible = Boolean(body.isVisible)
+  await transaction(async (connection) => {
+    await connection.execute('UPDATE reviews SET is_visible = ?, updated_at = NOW() WHERE id = ?', [isVisible ? 1 : 0, id])
+    await recalculateProductAndShopRatings(connection, review.product_id)
+  })
+
+  return readAdminReviewsData()
+}
+
+async function deleteAdminReview(reviewId) {
+  const id = Number(reviewId)
+  if (!Number.isSafeInteger(id) || id <= 0) {
+    const err = new Error('Binh luan khong hop le')
+    err.status = 400
+    throw err
+  }
+
+  const rows = await query('SELECT id, product_id FROM reviews WHERE id = ? LIMIT 1', [id])
+  const review = rows[0]
+  if (!review) {
+    const err = new Error('Khong tim thay binh luan')
+    err.status = 404
+    throw err
+  }
+
+  await transaction(async (connection) => {
+    await connection.execute('DELETE FROM reviews WHERE id = ?', [id])
+    await recalculateProductAndShopRatings(connection, review.product_id)
+  })
+
+  return readAdminReviewsData()
 }
 
 function toDashboardNotification(row) {
@@ -335,7 +727,8 @@ async function readAdminUsersData() {
   }
 }
 
-async function readDashboardData() {
+async function readDashboardData(rangeOptions = {}) {
+  const revenueRange = normalizeRevenueRange(rangeOptions)
   const [
     currentRevenueRows,
     previousRevenueRows,
@@ -407,12 +800,14 @@ async function readDashboardData() {
     ),
     query("SELECT COUNT(*) AS count FROM shop_applications WHERE status = 'pending'"),
     query(
-      `SELECT DATE(created_at) AS date_key, COALESCE(SUM(grand_total), 0) AS total
+      `SELECT DATE(created_at) AS date_key, COALESCE(SUM(grand_total), 0) AS revenue
        FROM orders
-       WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+       WHERE created_at >= ?
+         AND created_at < DATE_ADD(?, INTERVAL 1 DAY)
          AND status NOT IN ('payment_pending', 'payment_expired', 'cancelled', 'refunded')
        GROUP BY DATE(created_at)
        ORDER BY date_key ASC`,
+      [revenueRange.startDate, revenueRange.endDate],
     ),
     query(
       `SELECT sa.id, sa.shop_name, sa.shop_slug, sa.contact_phone, sa.contact_email,
@@ -472,19 +867,7 @@ async function readDashboardData() {
     ),
   ])
 
-  const trendByDate = new Map(trendRows.map((row) => [formatDateKey(row.date_key), Number(row.total || 0)]))
-  const today = new Date()
-  const startDate = addDays(today, -6)
-  const revenueTrend = Array.from({ length: 7 }, (_, index) => {
-    const date = addDays(startDate, index)
-    const dateKey = formatDateKey(date)
-
-    return {
-      day: formatTrendLabel(date, index),
-      date: dateKey,
-      value: trendByDate.get(dateKey) || 0,
-    }
-  })
+  const revenueTrend = buildDailyRevenueTrend(trendRows, revenueRange)
 
   const statusCounts = new Map(statusRows.map((row) => [row.status, Number(row.count || 0)]))
   const totalOrders = [...statusCounts.values()].reduce((sum, count) => sum + count, 0)
@@ -521,6 +904,7 @@ async function readDashboardData() {
       pendingActions: pendingShopsCount,
     },
     revenueTrend,
+    revenueRange,
     platformFeeShops: platformFeeShopRows.map(toPlatformFeeShop),
     pendingShops: pendingShopRows.map(toPendingShop),
     notifications: notificationRows.map(toDashboardNotification),
@@ -575,9 +959,16 @@ module.exports = {
   transaction,
   asyncHandler,
   allowedUserRoles,
+  createAdminCategory,
+  deleteAdminCategory,
+  deleteAdminReview,
+  readAdminCategoriesData,
+  readAdminReviewsData,
   readAdminShopsData,
   readAdminUsersData,
   readDashboardData,
+  updateAdminReview,
+  updateAdminCategory,
   makeUniqueShopSlug,
   readApplications,
 }

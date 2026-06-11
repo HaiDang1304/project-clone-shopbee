@@ -7,7 +7,7 @@ function registerDashboardRoutes(router, context) {
   router.get(
     '/dashboard',
     asyncHandler(async (req, res) => {
-      const dashboard = await readDashboardData()
+      const dashboard = await readDashboardData(req.query)
       return res.json({ ok: true, data: dashboard })
     }),
   )

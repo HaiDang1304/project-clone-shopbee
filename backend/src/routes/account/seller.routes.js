@@ -139,7 +139,7 @@ function registerSellerRoutes(router, context) {
   router.get(
     '/seller/dashboard',
     asyncHandler(async (req, res) => {
-      const dashboard = await readSellerDashboard(Number(req.user.sub))
+      const dashboard = await readSellerDashboard(Number(req.user.sub), req.query)
       return res.json({ ok: true, data: dashboard })
     }),
   )

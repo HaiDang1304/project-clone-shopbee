@@ -70,6 +70,15 @@ function throwStatus(message, status = 400) {
   throw err
 }
 
+function normalizePhoneNumber(value, message = 'Số điện thoại phải gồm đúng 10 chữ số') {
+  const phone = String(value || '').trim()
+  if (!/^[0-9]{10}$/.test(phone)) {
+    throwStatus(message)
+  }
+
+  return phone
+}
+
 function toPositiveId(value) {
   const id = Number(value)
   return Number.isSafeInteger(id) && id > 0 ? id : null
@@ -148,6 +157,7 @@ module.exports = {
   addDays,
   formatTrendLabel,
   throwStatus,
+  normalizePhoneNumber,
   toPositiveId,
   safeParseJson,
   normalizeProductOptionValues,

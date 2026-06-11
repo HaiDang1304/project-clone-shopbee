@@ -2,6 +2,7 @@ import { BrowserRouter, Route, Routes, useLocation, useNavigate } from 'react-ro
 import { ToastContainer } from 'react-toastify'
 
 import AuthModal from './components/Auth/AuthModal'
+import FloatingChatButton from './components/FloatingChatButton/FloatingChatButton'
 import { CartProvider } from './context/CartContext'
 import AdminDashboardPage from './pages/Admin/AdminDashboardPage'
 import CartPage from './pages/Cart/CartPage'
@@ -36,6 +37,13 @@ function AuthModalRoute({ mode }) {
 	)
 }
 
+function ChatboxGate() {
+	const { pathname } = useLocation()
+	const hiddenOnDashboard = pathname === '/admin' || pathname.startsWith('/admin/dashboard') || pathname.startsWith('/seller/dashboard')
+
+	return hiddenOnDashboard ? null : <FloatingChatButton />
+}
+
 export default function App() {
 	return (
 		<>
@@ -61,6 +69,7 @@ export default function App() {
 						<Route path="/register" element={<AuthModalRoute mode="register" />} />
 						<Route path="/verify-email" element={<AuthModalRoute mode="verify" />} />
 					</Routes>
+					<ChatboxGate />
 				</CartProvider>
 			</BrowserRouter>
 			<ToastContainer position="top-right" autoClose={2500} closeOnClick pauseOnFocusLoss={false} />

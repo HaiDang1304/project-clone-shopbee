@@ -83,8 +83,19 @@ export async function getSellerProducts() {
   return data.data || { shop: null, products: [] }
 }
 
-export async function getSellerDashboard() {
-  const data = await apiGet('/api/account/seller/dashboard')
+function toQueryString(params = {}) {
+  const query = new URLSearchParams()
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') query.set(key, value)
+  })
+
+  const value = query.toString()
+  return value ? `?${value}` : ''
+}
+
+export async function getSellerDashboard(params = {}) {
+  const data = await apiGet(`/api/account/seller/dashboard${toQueryString(params)}`)
   return data.data || { shop: null, stats: {}, revenueTrend: [], products: [], orders: [] }
 }
 
@@ -123,13 +134,48 @@ export async function getAdminSellerApplications(status = 'pending') {
   return data.data || []
 }
 
-export async function getAdminDashboardData() {
-  const data = await apiGet('/api/admin/dashboard')
+export async function getAdminDashboardData(params = {}) {
+  const data = await apiGet(`/api/admin/dashboard${toQueryString(params)}`)
   return data.data || null
 }
 
 export async function getAdminUsersData() {
   const data = await apiGet('/api/admin/users')
+  return data.data || { stats: {}, items: [] }
+}
+
+export async function getAdminCategoriesData() {
+  const data = await apiGet('/api/admin/categories')
+  return data.data || { stats: {}, items: [] }
+}
+
+export async function createAdminCategory(payload) {
+  const data = await apiPost('/api/admin/categories', payload)
+  return data.data || { stats: {}, items: [] }
+}
+
+export async function updateAdminCategory(categoryId, payload) {
+  const data = await apiPatch(`/api/admin/categories/${categoryId}`, payload)
+  return data.data || { stats: {}, items: [] }
+}
+
+export async function deleteAdminCategory(categoryId) {
+  const data = await apiDelete(`/api/admin/categories/${categoryId}`)
+  return data.data || { stats: {}, items: [] }
+}
+
+export async function getAdminCommentsData() {
+  const data = await apiGet('/api/admin/comments')
+  return data.data || { stats: {}, items: [] }
+}
+
+export async function updateAdminComment(commentId, payload) {
+  const data = await apiPatch(`/api/admin/comments/${commentId}`, payload)
+  return data.data || { stats: {}, items: [] }
+}
+
+export async function deleteAdminComment(commentId) {
+  const data = await apiDelete(`/api/admin/comments/${commentId}`)
   return data.data || { stats: {}, items: [] }
 }
 

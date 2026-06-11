@@ -22,6 +22,12 @@ const emptyAddressForm = {
   isDefault: false,
 };
 
+const phonePattern = "[0-9]{10}";
+
+function normalizePhoneInput(value) {
+  return String(value || "").replace(/\D/g, "").slice(0, 10);
+}
+
 function formatAddress(address) {
   return [address.line1, address.ward, address.province]
     .filter(Boolean)
@@ -52,7 +58,7 @@ function getProfileContactForm(profile) {
 
 function hasProfileContact(profile) {
   const profileContact = getProfileContactForm(profile);
-  return Boolean(profileContact.fullName && profileContact.phone);
+  return Boolean(profileContact.fullName && new RegExp(`^${phonePattern}$`).test(profileContact.phone));
 }
 
 function addressUsesProfileContact(address, profile) {
@@ -418,8 +424,13 @@ export default function AddressesPage() {
                 </span>
                 <input
                   className="h-10 rounded-lg border-outline-variant bg-surface-container-low text-body-sm focus:border-primary focus:ring-primary disabled:text-on-surface-variant"
+                  type="tel"
+                  inputMode="numeric"
+                  pattern={phonePattern}
+                  maxLength={10}
+                  title="Số điện thoại phải gồm đúng 10 chữ số"
                   value={form.phone}
-                  onChange={(event) => updateField("phone", event.target.value)}
+                  onChange={(event) => updateField("phone", normalizePhoneInput(event.target.value))}
                   disabled={saving || contactMode === "profile"}
                   required
                 />

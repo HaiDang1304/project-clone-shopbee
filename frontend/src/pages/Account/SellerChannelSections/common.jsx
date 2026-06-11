@@ -1,5 +1,7 @@
 import { applicationStatuses } from '../sellerChannel.constants'
 import { formatCurrency } from '../sellerChannel.utils'
+import RevenueRangeControls from '../../../components/Charts/RevenueRangeControls'
+import RevenueTrendChart from '../../../components/Charts/RevenueTrendChart'
 
 export function StatusBadge({ status }) {
   const item = applicationStatuses[status] || applicationStatuses.pending
@@ -38,10 +40,9 @@ export function MetricCard({ icon, label, value, note }) {
   )
 }
 
-export function RevenueChart({ trend }) {
+export function RevenueChart({ trend, revenueRange, revenueFilter, onRevenueFilterChange }) {
   const points = trend?.length ? trend : []
   const totalRevenue = points.reduce((sum, point) => sum + Number(point.value || 0), 0)
-  const maxValue = Math.max(1, ...points.map((point) => Number(point.value || 0)))
   const hasRevenue = totalRevenue > 0
   const averageRevenue = points.length ? totalRevenue / points.length : 0
 
@@ -49,35 +50,31 @@ export function RevenueChart({ trend }) {
     <div className="rounded-lg border border-outline-variant bg-surface-container-lowest px-4 py-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 className="text-title-sm font-title-sm text-on-surface">Doanh thu 7 ngày</h3>
+          <h3 className="text-title-sm font-title-sm text-on-surface">Doanh thu theo khoang thoi gian</h3>
           <p className="mt-1 text-body-sm text-on-surface-variant">Theo đơn không hủy</p>
         </div>
         <div className="rounded-lg bg-gray-200 px-3 py-2 text-right text-on-primary-container">
-          <p className="text-[11px] font-semibold">Tổng 7 ngày</p>
+          <p className="text-[11px] font-semibold">Tong doanh thu</p>
           <p className="mt-0.5 text-title-sm font-title-sm">{formatCurrency(totalRevenue)}</p>
         </div>
       </div>
 
-      <div className="mt-4 flex h-[132px] items-end gap-3 rounded-lg bg-surface-container px-3 pb-3 pt-4">
-        {points.map((point) => {
-          const value = Number(point.value || 0)
-          const barHeight = hasRevenue ? Math.max(8, Math.round((value / maxValue) * 100)) : 4
+      <RevenueRangeControls
+        className="mt-4"
+        value={revenueFilter}
+        revenueRange={revenueRange}
+        onChange={onRevenueFilterChange}
+      />
 
-          return (
-            <div key={`${point.date || point.day}-${value}`} className="flex h-full flex-1 flex-col items-center justify-end gap-2">
-              <div className="flex h-[96px] w-full items-end">
-                <div
-                  className={`mx-auto w-full max-w-[32px] rounded-t-md transition-all ${
-                    value > 0 ? 'bg-primary' : 'bg-outline-variant'
-                  }`}
-                  style={{ height: `${barHeight}%` }}
-                  title={`${point.day}: ${formatCurrency(value)}`}
-                />
-              </div>
-              <span className="h-4 text-[10px] font-semibold text-on-surface-variant">{point.day}</span>
-            </div>
-          )
-        })}
+      <div className="mt-4 h-[192px] rounded-lg bg-surface-container px-2 pb-2 pt-4">
+        <RevenueTrendChart
+          trend={points}
+          lineColor="#ff5722"
+          fillStart="rgba(255, 87, 34, 0.28)"
+          fillEnd="rgba(255, 87, 34, 0.03)"
+          gridColor="rgba(120, 113, 108, 0.16)"
+          tickColor="#6b625c"
+        />
       </div>
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-body-sm text-on-surface-variant">

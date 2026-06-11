@@ -2,7 +2,7 @@ import { MetricCard, RevenueChart } from './common'
 import { orderStatusLabels } from '../sellerChannel.constants'
 import { formatCount, formatCurrency, formatDateTime } from '../sellerChannel.utils'
 
-export function SellerOverview({ stats, orders, products, revenueTrend }) {
+export function SellerOverview({ stats, orders, products, revenueTrend, revenueRange, revenueFilter, onRevenueFilterChange }) {
   const recentOrders = orders.slice(0, 5)
   const attentionProducts = products.filter((product) => Number(product.stock || 0) <= 0 || !product.isActive).slice(0, 5)
   const platformFeePercent = Math.round(Number(stats.platformFeeRate || 0.05) * 100)
@@ -19,7 +19,12 @@ export function SellerOverview({ stats, orders, products, revenueTrend }) {
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
-        <RevenueChart trend={revenueTrend} />
+        <RevenueChart
+          trend={revenueTrend}
+          revenueRange={revenueRange}
+          revenueFilter={revenueFilter}
+          onRevenueFilterChange={onRevenueFilterChange}
+        />
         <div className="rounded-lg border border-outline-variant bg-surface-container-lowest px-4 py-4">
           <h3 className="text-title-sm font-title-sm text-on-surface">Sản phẩm cần chú ý</h3>
           <div className="mt-3 space-y-3">

@@ -1,16 +1,22 @@
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { toast } from 'react-toastify'
 
 import {
   getAccountProfile,
+  getAdminCategoriesData,
+  getAdminCommentsData,
   getAdminDashboardData,
   getAdminShopsData,
   getAdminUsersData,
 } from '../../lib/account'
 import { getAuthUser } from '../../lib/auth'
+import { defaultRevenueFilter, revenueFilterParams } from '../../lib/revenueFilters'
 import { adminNavItems } from './adminDashboard.constants'
 import {
   AdminAvatar,
+  CategoriesDashboard,
+  CommentsDashboard,
   OrdersDashboard,
   OverviewDashboard,
   PlaceholderModule,
@@ -26,6 +32,9 @@ export default function AdminDashboardPage() {
   const [dashboardData, setDashboardData] = useState(null)
   const [usersData, setUsersData] = useState(null)
   const [shopsData, setShopsData] = useState(null)
+  const [categoriesData, setCategoriesData] = useState(null)
+  const [commentsData, setCommentsData] = useState(null)
+  const [revenueFilter, setRevenueFilter] = useState(defaultRevenueFilter)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const navigate = useNavigate()
@@ -52,16 +61,20 @@ export default function AdminDashboardPage() {
           return
         }
 
-        const [nextDashboardData, nextUsersData, nextShopsData] = await Promise.all([
-          getAdminDashboardData(),
+        const [nextDashboardData, nextUsersData, nextShopsData, nextCategoriesData, nextCommentsData] = await Promise.all([
+          getAdminDashboardData(revenueFilterParams(defaultRevenueFilter)),
           getAdminUsersData(),
           getAdminShopsData(),
+          getAdminCategoriesData(),
+          getAdminCommentsData(),
         ])
         if (!active) return
 
         setDashboardData(nextDashboardData)
         setUsersData(nextUsersData)
         setShopsData(nextShopsData)
+        setCategoriesData(nextCategoriesData)
+        setCommentsData(nextCommentsData)
         setError('')
       } catch (err) {
         if (active) setError(err.message || 'Không tải được dashboard admin.')
@@ -80,8 +93,20 @@ export default function AdminDashboardPage() {
   const activeNav = adminNavItems.find((item) => item.value === activeModule)
 
   async function refreshDashboardData() {
-    const nextDashboardData = await getAdminDashboardData()
+    const nextDashboardData = await getAdminDashboardData(revenueFilterParams(revenueFilter))
     setDashboardData(nextDashboardData)
+  }
+
+  async function handleRevenueFilterChange(nextFilter, options = {}) {
+    setRevenueFilter(nextFilter)
+    if (options.deferLoad) return
+
+    try {
+      const nextDashboardData = await getAdminDashboardData(revenueFilterParams(nextFilter))
+      setDashboardData(nextDashboardData)
+    } catch (err) {
+      toast.error(err.message || 'Khong tai duoc doanh thu theo khoang ngay')
+    }
   }
 
   return (
@@ -179,7 +204,12 @@ export default function AdminDashboardPage() {
             ) : null}
 
             {!loading && !error && activeModule === 'dashboard' ? (
-              <OverviewDashboard dashboardData={dashboardData} onDashboardRefresh={refreshDashboardData} />
+              <OverviewDashboard
+                dashboardData={dashboardData}
+                revenueFilter={revenueFilter}
+                onDashboardRefresh={refreshDashboardData}
+                onRevenueFilterChange={handleRevenueFilterChange}
+              />
             ) : null}
             {!loading && !error && activeModule === 'users' ? (
               <UsersDashboard
@@ -192,15 +222,31 @@ export default function AdminDashboardPage() {
             {!loading && !error && activeModule === 'shops' ? (
               <ShopsDashboard searchTerm={searchTerm} shopsData={shopsData} />
             ) : null}
+            {!loading && !error && activeModule === 'categories' ? (
+              <CategoriesDashboard
+                searchTerm={searchTerm}
+                categoriesData={categoriesData}
+                onCategoriesDataChange={setCategoriesData}
+              />
+            ) : null}
             {!loading && !error && activeModule === 'orders' ? (
               <OrdersDashboard searchTerm={searchTerm} dashboardData={dashboardData} />
+            ) : null}
+            {!loading && !error && activeModule === 'comments' ? (
+              <CommentsDashboard
+                searchTerm={searchTerm}
+                commentsData={commentsData}
+                onCommentsDataChange={setCommentsData}
+              />
             ) : null}
             {!loading &&
             !error &&
             activeModule !== 'dashboard' &&
             activeModule !== 'users' &&
             activeModule !== 'shops' &&
-            activeModule !== 'orders' ? (
+            activeModule !== 'categories' &&
+            activeModule !== 'orders' &&
+            activeModule !== 'comments' ? (
               <PlaceholderModule activeModule={activeModule} />
             ) : null}
           </div>

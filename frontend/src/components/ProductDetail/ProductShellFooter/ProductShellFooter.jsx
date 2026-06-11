@@ -5,7 +5,7 @@ export default function ProductShellFooter() {
         <div className="space-y-4">
           <span className="font-headline-md text-on-surface">ShopBee</span>
           <p className="text-on-surface-variant font-body-md">
-            © 2024 ShopBee. Nền tảng thương mại điện tử hàng đầu tích hợp AI
+            © 2026 ShopBee. Nền tảng thương mại điện tử hàng đầu tích hợp AI
             thông minh.
           </p>
         </div>

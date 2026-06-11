@@ -5,6 +5,7 @@ function registerProfileRoutes(router, context) {
     signUserToken,
     allowedGenders,
     saveAvatarDataUrl,
+    normalizePhoneNumber,
     normalizeDateOfBirth,
     readProfile,
   } = context
@@ -37,9 +38,9 @@ function registerProfileRoutes(router, context) {
       }
 
       if (Object.prototype.hasOwnProperty.call(req.body || {}, 'phone')) {
-        const phone = String(req.body.phone || '').trim()
+        const phone = normalizePhoneNumber(req.body.phone)
         fields.push('phone = ?')
-        params.push(phone || null)
+        params.push(phone)
       }
 
       if (Object.prototype.hasOwnProperty.call(req.body || {}, 'gender')) {

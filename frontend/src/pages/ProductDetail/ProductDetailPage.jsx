@@ -8,7 +8,6 @@ import ProductPurchaseCard from '../../components/ProductDetail/ProductPurchaseC
 import ShopInfoCard from '../../components/ProductDetail/ShopInfoCard/ShopInfoCard'
 import ProductDescription from '../../components/ProductDetail/ProductDescription/ProductDescription'
 import ProductReviews from '../../components/ProductDetail/ProductReviews/ProductReviews'
-import AIConsultationWidget from '../../components/ProductDetail/AIConsultationWidget/AIConsultationWidget'
 import ProductShellFooter from '../../components/ProductDetail/ProductShellFooter/ProductShellFooter'
 import { apiGet } from '../../lib/api'
 
@@ -92,7 +91,6 @@ export default function ProductDetailPage() {
           </div>
         )}
       </main>
-      <AIConsultationWidget />
       <ProductShellFooter />
     </>
   )
