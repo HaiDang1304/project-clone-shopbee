@@ -41,12 +41,12 @@ function Countdown({ products }) {
   }, [secondsLeft])
 
   return (
-    <div className="flex gap-1" aria-label="Đếm ngược flash sale">
-      <span className="bg-black/20 px-2 py-1 rounded font-bold">{pad2(h)}</span>
-      <span>:</span>
-      <span className="bg-black/20 px-2 py-1 rounded font-bold">{pad2(m)}</span>
-      <span>:</span>
-      <span className="bg-black/20 px-2 py-1 rounded font-bold">{pad2(s)}</span>
+    <div className="flex items-center gap-1" aria-label="Đếm ngược flash sale">
+      {[h, m, s].map((value, index) => (
+        <span key={index} className="rounded-md bg-white px-2 py-1 text-[13px] font-bold text-[#b42318]">
+          {pad2(value)}
+        </span>
+      ))}
     </div>
   )
 }
@@ -60,38 +60,36 @@ function FlashSaleProductCard({ product }) {
   const progress = eventStock > 0 ? Math.min(100, Math.round((soldInEvent / eventStock) * 100)) : 0
 
   return (
-    <Link className="w-48 group cursor-pointer" to={productPath(product)} aria-label={product.name}>
-      <div className="relative aspect-square rounded-lg overflow-hidden bg-surface-container mb-3">
+    <Link className="group w-[184px] shrink-0 rounded-xl border border-[#f0e0d4] bg-white p-3 transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(60,42,22,0.12)]" to={productPath(product)} aria-label={product.name}>
+      <div className="relative aspect-square overflow-hidden rounded-lg bg-[#f6f1ec]">
         <img
-          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
           alt={product.name}
           src={imageSrc}
         />
-        <div className="absolute top-0 right-0 bg-error text-white font-bold text-label-md px-2 py-1 rounded-bl-lg">
-          -{discount}%
-        </div>
-      </div>
-      <h4 className="font-body-md text-body-md line-clamp-2 mb-2 text-on-surface">
-        {product.name}
-      </h4>
-      <div className="flex items-baseline gap-2">
-        <span className="text-primary font-bold font-title-lg text-title-lg">
-          {formatCurrency(product.price)}
-        </span>
-        {product.originalPrice ? (
-          <span className="text-secondary text-label-md line-through">
-            {formatCurrency(product.originalPrice)}
-          </span>
+        {discount ? (
+          <div className="absolute right-2 top-2 rounded-md bg-[#ff5722] px-2 py-1 text-[11px] font-bold text-white">
+            -{discount}%
+          </div>
         ) : null}
       </div>
-      <div className="mt-2 h-3 bg-surface-container-high rounded-full relative overflow-hidden">
-        <div
-          className="absolute inset-y-0 left-0 bg-primary rounded-full"
-          style={{ width: `${progress}%` }}
-        />
-        <span className="absolute inset-0 flex items-center justify-center text-[8px] font-bold text-on-primary">
-          Đã bán {soldInEvent}
+      <h4 className="mt-3 line-clamp-2 min-h-10 text-[13px] font-semibold leading-5 text-[#1d1712]">
+        {product.name}
+      </h4>
+      <div className="mt-2 flex items-baseline gap-2">
+        <span className="text-[18px] font-bold text-[#c21d0b]">
+          {formatCurrency(product.price)}
         </span>
+      </div>
+      {product.originalPrice ? (
+        <span className="mt-0.5 block text-[11px] text-[#8a7567] line-through">
+          {formatCurrency(product.originalPrice)}
+        </span>
+      ) : null}
+      <div className="mt-3 h-4 overflow-hidden rounded-full bg-[#ffe4da]">
+        <div className="flex h-full items-center justify-center rounded-full bg-gradient-to-r from-[#ff5722] to-[#c21d0b] text-[9px] font-bold text-white" style={{ width: `${Math.max(18, progress)}%` }}>
+          Đã bán {soldInEvent}
+        </div>
       </div>
     </Link>
   )
@@ -126,42 +124,37 @@ export default function FlashSaleSection() {
   if (!loading && !products.length && !error) return null
 
   return (
-    <section className="max-w-container-max mx-auto px-margin-desktop mb-12">
-      <div className="bg-surface-container-lowest rounded-xl shadow-[0px_4px_20px_rgba(0,0,0,0.05)] overflow-hidden">
-        <div className="flash-sale-gradient p-4 flex items-center justify-between text-white">
-          <div className="flex items-center gap-6">
+    <section className="mx-auto mb-10 max-w-container-max px-margin-mobile md:px-margin-desktop">
+      <div className="overflow-hidden rounded-xl border border-[#ffd0c2] bg-white shadow-[0_12px_30px_rgba(178,47,0,0.08)]">
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-[#c21d0b] via-[#ff5722] to-[#ff8a00] px-4 py-3 text-white">
+          <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2">
-              <span
-                className="material-symbols-outlined text-3xl"
-                style={{ fontVariationSettings: "'FILL' 1" }}
-              >
+              <span className="material-symbols-outlined text-[28px]" style={{ fontVariationSettings: "'FILL' 1" }}>
                 bolt
               </span>
-              <h2 className="font-headline-md text-headline-md italic uppercase">
-                Flash Sale
-              </h2>
+              <h2 className="text-[24px] font-black uppercase italic leading-7">Flash Sale</h2>
             </div>
-            <div className="hidden sm:flex items-center gap-2">
-              <span className="text-body-md opacity-80">Kết thúc sau:</span>
+            <div className="flex items-center gap-2 rounded-lg bg-black/18 px-3 py-2">
+              <span className="text-[12px] font-semibold">Kết thúc sau</span>
               <Countdown products={products} />
             </div>
           </div>
-          <a className="text-white hover:underline font-label-md text-label-md" href="#flash-sale">
+          <a className="rounded-lg bg-white px-4 py-2 text-[12px] font-bold text-[#b42318] hover:bg-[#fff4ef]" href="#flash-sale">
             Xem tất cả
           </a>
         </div>
 
         {error ? (
-          <div className="m-6 rounded-lg border border-error/30 bg-error-container/40 px-4 py-3 text-body-sm text-on-error-container">
+          <div className="m-4 rounded-lg border border-error/30 bg-error-container/40 px-4 py-3 text-body-sm text-on-error-container">
             {error}
           </div>
         ) : null}
 
-        <div id="flash-sale" className="p-6 overflow-x-auto custom-scrollbar">
-          <div className="flex gap-gutter min-w-max">
+        <div id="flash-sale" className="overflow-x-auto p-4 custom-scrollbar">
+          <div className="flex min-w-max gap-3">
             {loading
-              ? Array.from({ length: 5 }).map((_, index) => (
-                  <div key={index} className="w-48 h-[288px] rounded-lg bg-surface-container animate-pulse" />
+              ? Array.from({ length: 6 }).map((_, index) => (
+                  <div key={index} className="h-[300px] w-[184px] shrink-0 animate-pulse rounded-xl border border-[#f0e0d4] bg-white" />
                 ))
               : products.map((product) => (
                   <FlashSaleProductCard key={product.id || product.slug} product={product} />

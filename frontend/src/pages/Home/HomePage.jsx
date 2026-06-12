@@ -9,7 +9,7 @@ export default function HomePage() {
   return (
     <>
       <Header />
-      <main className="pt-20 pb-12">
+      <main className="bg-[#f7f4f1] pb-12 pt-20">
         <HeroSection />
         <FlashSaleSection />
         <CategoriesGrid />

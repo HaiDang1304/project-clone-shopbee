@@ -10,8 +10,9 @@ import { useCart } from '../../context/useCart'
 import { getAccountAddresses } from '../../lib/account'
 import { apiAssetUrl } from '../../lib/api'
 import { getAuthUser, subscribeAuth } from '../../lib/auth'
-import { calculateShippingFee, createOrder } from '../../lib/orders'
+import { applyOrderVouchers, calculateShippingFee, createOrder } from '../../lib/orders'
 import { formatCount, formatCurrency, productPath } from '../../lib/format'
+import { getMyVouchers } from '../../lib/vouchers'
 
 const CHECKOUT_STORAGE_KEY = 'shopbee_checkout'
 const LAST_ORDER_STORAGE_KEY = 'shopbee_last_order'
@@ -41,6 +42,116 @@ function optionText(options) {
   return entries.map(([name, value]) => `${name}: ${value}`).join(' / ')
 }
 
+function voucherDiscountText(voucher) {
+  if (voucher.discountType === 'free_shipping') {
+    return voucher.maxDiscountAmount ? `Miễn phí vận chuyển tối đa ${formatCurrency(voucher.maxDiscountAmount)}` : 'Miễn phí vận chuyển'
+  }
+  if (voucher.discountType === 'percent') {
+    return `Giảm ${Number(voucher.discountValue || 0)}%${voucher.maxDiscountAmount ? ` tối đa ${formatCurrency(voucher.maxDiscountAmount)}` : ''}`
+  }
+  return `Giảm ${formatCurrency(voucher.discountValue)}`
+}
+
+function voucherConditionText(voucher) {
+  return Number(voucher.minOrderAmount || 0) > 0
+    ? `Đơn tối thiểu ${formatCurrency(voucher.minOrderAmount)}`
+    : 'Không yêu cầu giá trị tối thiểu'
+}
+
+function VoucherPickerModal({
+  open,
+  voucherData,
+  selectedCodes,
+  loading,
+  applying,
+  onClose,
+  onToggle,
+  onApply,
+}) {
+  if (!open) return null
+
+  const groups = [
+    { key: 'platform', title: 'Voucher ShopBee', items: voucherData.platform || [] },
+    { key: 'shop', title: 'Voucher cửa hàng', items: voucherData.shop || [] },
+  ]
+
+  return (
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/45 px-4 py-6">
+      <div className="max-h-[88vh] w-full max-w-3xl overflow-hidden rounded-xl bg-white shadow-2xl">
+        <div className="flex items-start justify-between gap-3 border-b border-outline-variant px-5 py-4">
+          <div>
+            <h2 className="text-title-md font-title-md text-on-surface">Chọn voucher</h2>
+            <p className="mt-1 text-body-sm text-on-surface-variant">Chọn voucher đã lưu để áp dụng cho đơn hàng hiện tại.</p>
+          </div>
+          <button className="flex h-9 w-9 items-center justify-center rounded-lg hover:bg-surface-container" type="button" onClick={onClose} aria-label="Đóng">
+            <span className="material-symbols-outlined">close</span>
+          </button>
+        </div>
+
+        <div className="max-h-[58vh] overflow-y-auto px-5 py-4">
+          {loading ? (
+            <div className="space-y-3">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <div key={index} className="h-[104px] animate-pulse rounded-lg bg-surface-container-low" />
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {groups.map((group) => (
+                <section key={group.key}>
+                  <h3 className="text-title-sm font-title-sm text-on-surface">{group.title}</h3>
+                  <div className="mt-3 space-y-3">
+                    {group.items.map((voucher) => {
+                      const checked = selectedCodes.includes(voucher.code)
+                      return (
+                        <label key={voucher.id} className={`flex cursor-pointer gap-3 rounded-lg border px-4 py-3 ${checked ? 'border-primary bg-primary-fixed' : 'border-outline-variant hover:border-primary'}`}>
+                          <input
+                            className="mt-1 rounded border-outline-variant text-primary focus:ring-primary"
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => onToggle(voucher.code)}
+                          />
+                          <span className="min-w-0 flex-1">
+                            <span className="flex flex-wrap items-center gap-2">
+                              <span className="text-body-md font-semibold text-on-surface">{voucher.title}</span>
+                              <span className="rounded bg-surface-container px-2 py-0.5 text-label-sm font-label-sm text-on-surface-variant">{voucher.code}</span>
+                            </span>
+                            <span className="mt-1 block text-body-sm font-semibold text-primary">{voucherDiscountText(voucher)}</span>
+                            <span className="mt-1 block text-body-sm text-on-surface-variant">
+                              {voucherConditionText(voucher)}{voucher.shopName ? ` · ${voucher.shopName}` : ''}
+                            </span>
+                          </span>
+                        </label>
+                      )
+                    })}
+                    {!group.items.length ? (
+                      <p className="rounded-lg border border-dashed border-outline-variant px-4 py-5 text-center text-body-sm text-on-surface-variant">
+                        Chưa có voucher đã lưu.
+                      </p>
+                    ) : null}
+                  </div>
+                </section>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-outline-variant px-5 py-4">
+          <span className="text-body-sm text-on-surface-variant">Đã chọn {selectedCodes.length} voucher</span>
+          <div className="flex gap-2">
+            <button className="h-10 rounded-lg border border-outline-variant px-4 text-label-md font-label-md text-on-surface-variant hover:border-primary hover:text-primary" type="button" onClick={onClose}>
+              Hủy
+            </button>
+            <button className="h-10 rounded-lg bg-primary px-4 text-label-md font-label-md text-on-primary disabled:opacity-60" type="button" disabled={applying || loading} onClick={onApply}>
+              {applying ? 'Đang áp dụng...' : 'Áp dụng voucher'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function CheckoutPage() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -50,7 +161,12 @@ export default function CheckoutPage() {
   const [addresses, setAddresses] = useState([])
   const [selectedAddressId, setSelectedAddressId] = useState('')
   const [paymentMethod, setPaymentMethod] = useState('cod')
-  const [voucherCode, setVoucherCode] = useState('')
+  const [voucherQuote, setVoucherQuote] = useState(null)
+  const [voucherLoading, setVoucherLoading] = useState(false)
+  const [voucherModalOpen, setVoucherModalOpen] = useState(false)
+  const [myVoucherData, setMyVoucherData] = useState({ platform: [], shop: [], items: [] })
+  const [voucherFetchLoading, setVoucherFetchLoading] = useState(false)
+  const [selectedVoucherCodes, setSelectedVoucherCodes] = useState([])
   const [note, setNote] = useState('')
   const [loading, setLoading] = useState(true)
   const [placingOrder, setPlacingOrder] = useState(false)
@@ -109,8 +225,8 @@ export default function CheckoutPage() {
   const shippingWeightGrams = useMemo(() => {
     return (shippingQuote?.shops || []).reduce((sum, shop) => sum + Number(shop.totalWeightGrams || 0), 0)
   }, [shippingQuote])
-  const discountTotal = 0
-  const grandTotal = itemsTotal + shippingFee - discountTotal
+  const discountTotal = Number(voucherQuote?.discountTotal || 0)
+  const grandTotal = Math.max(0, itemsTotal + shippingFee - discountTotal)
   const selectedAddress = addresses.find((address) => String(address.id) === String(selectedAddressId))
 
   const buildCheckoutPayload = useCallback((addressId = selectedAddressId) => {
@@ -133,6 +249,10 @@ export default function CheckoutPage() {
     return payload
   }, [checkoutData, items, selectedAddressId])
 
+  const voucherCodes = useMemo(() => {
+    return (voucherQuote?.applied || []).map((voucher) => voucher.code)
+  }, [voucherQuote])
+
   useEffect(() => {
     if (!checkoutData?.items?.length || !selectedAddressId) {
       return undefined
@@ -144,7 +264,11 @@ export default function CheckoutPage() {
       setShippingError('')
       try {
         const quote = await calculateShippingFee(buildCheckoutPayload(selectedAddressId))
-        if (active) setShippingQuote(quote)
+        if (active) {
+          setShippingQuote(quote)
+          setVoucherQuote(null)
+          setSelectedVoucherCodes([])
+        }
       } catch (err) {
         if (active) {
           setShippingQuote(null)
@@ -160,6 +284,73 @@ export default function CheckoutPage() {
       active = false
     }
   }, [buildCheckoutPayload, checkoutData?.items?.length, selectedAddressId])
+
+  async function loadMySavedVouchers() {
+    setVoucherFetchLoading(true)
+    try {
+      const data = await getMyVouchers()
+      setMyVoucherData(data)
+    } catch (err) {
+      toast.error(err.message || 'Không tải được voucher đã lưu')
+    } finally {
+      setVoucherFetchLoading(false)
+    }
+  }
+
+  async function openVoucherModal() {
+    if (!selectedAddressId || !shippingQuote) {
+      toast.error('Vui lòng chọn địa chỉ và tính phí vận chuyển trước')
+      return
+    }
+
+    setVoucherModalOpen(true)
+    await loadMySavedVouchers()
+  }
+
+  function toggleSelectedVoucher(code) {
+    setSelectedVoucherCodes((current) => {
+      if (current.includes(code)) return current.filter((item) => item !== code)
+      if (current.length >= 5) {
+        toast.info('Bạn chỉ có thể áp dụng tối đa 5 voucher cho một đơn hàng')
+        return current
+      }
+      return [...current, code]
+    })
+  }
+
+  async function handleApplySelectedVouchers() {
+    const codes = selectedVoucherCodes
+    if (!codes.length) {
+      setVoucherQuote(null)
+      setVoucherModalOpen(false)
+      return
+    }
+    if (!selectedAddressId || !shippingQuote) {
+      toast.error('Vui lòng chọn địa chỉ và tính phí vận chuyển trước')
+      return
+    }
+
+    setVoucherLoading(true)
+    try {
+      const quote = await applyOrderVouchers({
+        ...buildCheckoutPayload(selectedAddressId),
+        voucherCodes: codes,
+      })
+      setVoucherQuote(quote)
+      setSelectedVoucherCodes((quote.applied || []).map((voucher) => voucher.code))
+      setVoucherModalOpen(false)
+      if (quote.applied?.length) toast.success(`Đã áp dụng ${quote.applied.length} voucher`)
+      if (quote.rejected?.length) {
+        quote.rejected.forEach((item) => toast.info(`${item.code}: ${item.reason}`))
+      }
+    } catch (err) {
+      setVoucherQuote(null)
+      setSelectedVoucherCodes([])
+      toast.error(err.message || 'Không áp dụng được voucher')
+    } finally {
+      setVoucherLoading(false)
+    }
+  }
 
   async function handlePlaceOrder() {
     if (!checkoutData?.items?.length) {
@@ -193,6 +384,7 @@ export default function CheckoutPage() {
         ...buildCheckoutPayload(selectedAddressId),
         paymentMethod,
         note,
+        voucherCodes,
       }
 
       const order = await createOrder(payload)
@@ -350,24 +542,39 @@ export default function CheckoutPage() {
                   </label>
                 </div>
 
-                <label className="grid gap-2">
+                <div className="grid gap-2">
                   <span className="text-title-sm font-title-sm text-on-surface">Voucher</span>
-                  <div className="flex gap-2">
-                    <input
-                      className="h-11 min-w-0 flex-1 rounded-lg border-outline-variant bg-surface-container-low text-body-sm focus:border-primary focus:ring-primary"
-                      value={voucherCode}
-                      onChange={(event) => setVoucherCode(event.target.value)}
-                      placeholder="Nhập mã voucher"
-                    />
-                    <button
-                      className="h-11 rounded-lg border border-outline-variant px-4 text-label-md font-label-md text-on-surface-variant"
-                      type="button"
-                      onClick={() => toast.info('Hệ thống hiện chưa có bảng voucher')}
-                    >
-                      Áp dụng
-                    </button>
-                  </div>
-                </label>
+                  <button
+                    className="flex h-11 items-center justify-between gap-3 rounded-lg border border-outline-variant bg-surface-container-low px-4 text-left text-body-sm text-on-surface hover:border-primary disabled:opacity-60"
+                    type="button"
+                    disabled={voucherLoading || shippingLoading || !shippingQuote}
+                    onClick={openVoucherModal}
+                  >
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className="material-symbols-outlined text-primary">confirmation_number</span>
+                      <span className="truncate">
+                        {voucherQuote?.applied?.length ? `Đã chọn ${voucherQuote.applied.length} voucher` : 'Chọn voucher đã lưu'}
+                      </span>
+                    </span>
+                    <span className="material-symbols-outlined text-[18px] text-on-surface-variant">chevron_right</span>
+                  </button>
+                  {voucherQuote?.applied?.length ? (
+                    <div className="mt-2 space-y-1 text-body-sm">
+                      {voucherQuote.applied.map((voucher) => (
+                        <p key={voucher.code} className="text-primary">
+                          {voucher.code}: -{formatCurrency(voucher.discountAmount)}
+                        </p>
+                      ))}
+                    </div>
+                  ) : null}
+                  {voucherQuote?.rejected?.length ? (
+                    <div className="mt-2 space-y-1 text-body-sm text-error">
+                      {voucherQuote.rejected.map((voucher) => (
+                        <p key={voucher.code}>{voucher.code}: {voucher.reason}</p>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
               </section>
 
               <section className="rounded-lg bg-surface-container-lowest px-5 py-5 shadow-sm">
@@ -450,6 +657,16 @@ export default function CheckoutPage() {
           </div>
         </div>
       </main>
+      <VoucherPickerModal
+        open={voucherModalOpen}
+        voucherData={myVoucherData}
+        selectedCodes={selectedVoucherCodes}
+        loading={voucherFetchLoading}
+        applying={voucherLoading}
+        onClose={() => setVoucherModalOpen(false)}
+        onToggle={toggleSelectedVoucher}
+        onApply={handleApplySelectedVouchers}
+      />
       <Footer />
     </>
   )

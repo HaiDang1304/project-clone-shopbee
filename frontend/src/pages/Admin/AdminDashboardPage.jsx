@@ -7,6 +7,8 @@ import {
   getAdminCategoriesData,
   getAdminCommentsData,
   getAdminDashboardData,
+  getAdminFlashSalesData,
+  getAdminPromotionsData,
   getAdminShopsData,
   getAdminUsersData,
 } from '../../lib/account'
@@ -20,6 +22,8 @@ import {
   OrdersDashboard,
   OverviewDashboard,
   PlaceholderModule,
+  PromotionsDashboard,
+  ReportsDashboard,
   ShopsDashboard,
   SidebarItem,
   UsersDashboard,
@@ -34,6 +38,8 @@ export default function AdminDashboardPage() {
   const [shopsData, setShopsData] = useState(null)
   const [categoriesData, setCategoriesData] = useState(null)
   const [commentsData, setCommentsData] = useState(null)
+  const [promotionsData, setPromotionsData] = useState(null)
+  const [flashSalesData, setFlashSalesData] = useState(null)
   const [revenueFilter, setRevenueFilter] = useState(defaultRevenueFilter)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -61,12 +67,14 @@ export default function AdminDashboardPage() {
           return
         }
 
-        const [nextDashboardData, nextUsersData, nextShopsData, nextCategoriesData, nextCommentsData] = await Promise.all([
+        const [nextDashboardData, nextUsersData, nextShopsData, nextCategoriesData, nextCommentsData, nextPromotionsData, nextFlashSalesData] = await Promise.all([
           getAdminDashboardData(revenueFilterParams(defaultRevenueFilter)),
           getAdminUsersData(),
           getAdminShopsData(),
           getAdminCategoriesData(),
           getAdminCommentsData(),
+          getAdminPromotionsData(),
+          getAdminFlashSalesData(),
         ])
         if (!active) return
 
@@ -75,6 +83,8 @@ export default function AdminDashboardPage() {
         setShopsData(nextShopsData)
         setCategoriesData(nextCategoriesData)
         setCommentsData(nextCommentsData)
+        setPromotionsData(nextPromotionsData)
+        setFlashSalesData(nextFlashSalesData)
         setError('')
       } catch (err) {
         if (active) setError(err.message || 'Không tải được dashboard admin.')
@@ -239,6 +249,23 @@ export default function AdminDashboardPage() {
                 onCommentsDataChange={setCommentsData}
               />
             ) : null}
+            {!loading && !error && activeModule === 'promotions' ? (
+              <PromotionsDashboard
+                searchTerm={searchTerm}
+                promotionsData={promotionsData}
+                flashSalesData={flashSalesData}
+                onPromotionsDataChange={setPromotionsData}
+                onFlashSalesDataChange={setFlashSalesData}
+              />
+            ) : null}
+            {!loading && !error && activeModule === 'reports' ? (
+              <ReportsDashboard
+                dashboardData={dashboardData}
+                shopsData={shopsData}
+                revenueFilter={revenueFilter}
+                onRevenueFilterChange={handleRevenueFilterChange}
+              />
+            ) : null}
             {!loading &&
             !error &&
             activeModule !== 'dashboard' &&
@@ -246,7 +273,9 @@ export default function AdminDashboardPage() {
             activeModule !== 'shops' &&
             activeModule !== 'categories' &&
             activeModule !== 'orders' &&
-            activeModule !== 'comments' ? (
+            activeModule !== 'comments' &&
+            activeModule !== 'promotions' &&
+            activeModule !== 'reports' ? (
               <PlaceholderModule activeModule={activeModule} />
             ) : null}
           </div>

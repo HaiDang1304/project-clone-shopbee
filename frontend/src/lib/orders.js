@@ -10,6 +10,11 @@ export async function calculateShippingFee(payload) {
   return data.data
 }
 
+export async function applyOrderVouchers(payload) {
+  const data = await apiPost('/api/orders/vouchers/apply', payload)
+  return data.data
+}
+
 export async function getMyOrders() {
   const data = await apiGet('/api/account/orders')
   return data.data || []

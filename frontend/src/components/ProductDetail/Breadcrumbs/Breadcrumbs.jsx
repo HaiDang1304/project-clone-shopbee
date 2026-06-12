@@ -9,9 +9,9 @@ export default function Breadcrumbs({ product }) {
       <span className="material-symbols-outlined text-[16px]">chevron_right</span>
       {product?.category ? (
         <>
-          <a className="hover:text-primary" href={`#category-${product.category.slug}`}>
+          <Link className="hover:text-primary" to={`/category/${product.category.slug}`}>
             {product.category.name}
-          </a>
+          </Link>
           <span className="material-symbols-outlined text-[16px]">chevron_right</span>
         </>
       ) : null}

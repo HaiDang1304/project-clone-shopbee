@@ -6,6 +6,7 @@ const { asyncHandler } = require('../middleware/error')
 const { createNotification } = require('../utils/notifications')
 const { calculateShippingForCart } = require('../services/shipping.service')
 const { createPayosPaymentLink, verifyPayosWebhook } = require('../services/payos.service')
+const { calculateVoucherDiscounts, normalizeVoucherCodes } = require('../services/voucher.service')
 
 const router = express.Router()
 const allowedPaymentMethods = new Set(['cod', 'bank'])
@@ -60,7 +61,14 @@ function getAggregateDistanceType(shops = []) {
 function toCheckoutLine(row, quantity, selectedOptions) {
   const finalSelectedOptions = normalizeSelectedOptions(selectedOptions)
   const stock = Number(row.productStock)
-  const unitPrice = Number(row.productPrice)
+  const now = new Date()
+  const flashSaleRunning =
+    Number(row.flashSaleActive || 0) === 1 &&
+    (!row.flashSaleStartAt || new Date(row.flashSaleStartAt) <= now) &&
+    (!row.flashSaleEndAt || new Date(row.flashSaleEndAt) >= now) &&
+    Number(row.flashSalePrice || 0) > 0
+  const flashRemaining = Math.max(0, Number(row.flashSaleStock || 0) - Number(row.flashSaleSold || 0))
+  const unitPrice = flashSaleRunning ? Number(row.flashSalePrice) : Number(row.productPrice)
   const lineQuantity = Number(quantity)
   const weightGrams = Number(row.weightGrams || 0)
 
@@ -74,6 +82,10 @@ function toCheckoutLine(row, quantity, selectedOptions) {
 
   if (lineQuantity > stock) {
     throwStatus(`Số lượng "${row.name}" vượt quá tồn kho`)
+  }
+
+  if (flashSaleRunning && lineQuantity > flashRemaining) {
+    throwStatus(`So luong flash sale cua "${row.name}" khong du`)
   }
 
   if (!Number.isFinite(weightGrams) || weightGrams <= 0) {
@@ -93,6 +105,7 @@ function toCheckoutLine(row, quantity, selectedOptions) {
     quantity: lineQuantity,
     weightGrams,
     lineTotal: unitPrice * lineQuantity,
+    isFlashSale: flashSaleRunning,
     shopName: row.shopName || '',
     shopAddress: {
       provinceId: row.shopProvinceId == null ? null : Number(row.shopProvinceId),
@@ -147,6 +160,12 @@ async function readCartLines(connection, userId, cartItemIds) {
        sp.region AS shopRegion,
        sw.zone_type AS shopZoneType,
        p.price AS productPrice,
+       p.flash_sale_active AS flashSaleActive,
+       p.flash_sale_price AS flashSalePrice,
+       p.flash_sale_start_at AS flashSaleStartAt,
+       p.flash_sale_end_at AS flashSaleEndAt,
+       p.flash_sale_sold AS flashSaleSold,
+       p.flash_sale_stock AS flashSaleStock,
        p.stock AS productStock,
        p.weight_grams AS weightGrams,
        p.is_active AS isActive,
@@ -200,6 +219,12 @@ async function readDirectLines(connection, items) {
          sp.region AS shopRegion,
          sw.zone_type AS shopZoneType,
          p.price AS productPrice,
+         p.flash_sale_active AS flashSaleActive,
+         p.flash_sale_price AS flashSalePrice,
+         p.flash_sale_start_at AS flashSaleStartAt,
+         p.flash_sale_end_at AS flashSaleEndAt,
+         p.flash_sale_sold AS flashSaleSold,
+         p.flash_sale_stock AS flashSaleStock,
          p.stock AS productStock,
          p.weight_grams AS weightGrams,
          p.is_active AS isActive,
@@ -246,8 +271,9 @@ async function insertOrderItems(connection, orderId, lines) {
   }
 }
 
-async function insertOrderShopSnapshots(connection, orderId, shops) {
+async function insertOrderShopSnapshots(connection, orderId, shops, shopDiscounts = {}) {
   for (const shop of shops) {
+    const shopDiscount = Number(shopDiscounts[shop.shopId] || 0)
     await connection.execute(
       `INSERT INTO order_shops
          (order_id, shop_id, shop_name, shop_subtotal, total_weight_grams, distance_type, shipping_fee, shop_total)
@@ -260,9 +286,20 @@ async function insertOrderShopSnapshots(connection, orderId, shops) {
         shop.totalWeightGrams,
         shop.distanceType,
         shop.shippingFee,
-        shop.shopTotal,
+        Math.max(0, Number(shop.shopTotal || 0) - shopDiscount),
       ],
     )
+  }
+}
+
+async function insertVoucherRedemptions(connection, orderId, userId, voucherResult) {
+  for (const voucher of voucherResult.applied || []) {
+    await connection.execute(
+      `INSERT INTO voucher_redemptions (voucher_id, user_id, order_id, discount_amount)
+       VALUES (?, ?, ?, ?)`,
+      [voucher.id, userId, orderId, voucher.discountAmount],
+    )
+    await connection.execute('UPDATE vouchers SET used_count = used_count + 1, updated_at = NOW() WHERE id = ?', [voucher.id])
   }
 }
 
@@ -277,14 +314,37 @@ async function updateInventory(connection, lines) {
       line.quantity,
       line.productId,
     ])
+    if (line.isFlashSale) {
+      const [flashResult] = await connection.execute(
+        `UPDATE products
+         SET flash_sale_sold = flash_sale_sold + ?, updated_at = NOW()
+         WHERE id = ? AND flash_sale_active = 1 AND flash_sale_stock >= flash_sale_sold + ?`,
+        [line.quantity, line.productId, line.quantity],
+      )
+      if (!flashResult.affectedRows) throwStatus(`San pham "${line.name}" da het suat flash sale`)
+      await connection.execute(
+        `UPDATE flash_sale_registrations r
+         JOIN flash_sale_events e ON e.id = r.event_id
+         SET r.sold_count = r.sold_count + ?, r.updated_at = NOW()
+         WHERE r.product_id = ?
+           AND r.status = 'approved'
+           AND e.is_active = 1
+           AND e.starts_at <= NOW()
+           AND e.ends_at >= NOW()`,
+        [line.quantity, line.productId],
+      )
+    }
   }
 }
 
 async function restoreOrderInventory(connection, orderId) {
   const [items] = await connection.execute(
-    `SELECT product_id AS productId, quantity
-     FROM order_items
-     WHERE order_id = ?`,
+    `SELECT oi.product_id AS productId, oi.quantity, oi.unit_price AS unitPrice,
+            p.flash_sale_price AS flashSalePrice, p.flash_sale_start_at AS flashSaleStartAt,
+            p.flash_sale_end_at AS flashSaleEndAt
+     FROM order_items oi
+     JOIN products p ON p.id = oi.product_id
+     WHERE oi.order_id = ?`,
     [orderId],
   )
 
@@ -293,6 +353,21 @@ async function restoreOrderInventory(connection, orderId) {
       'UPDATE products SET stock = stock + ?, sold_count = GREATEST(0, sold_count - ?), updated_at = NOW() WHERE id = ?',
       [Number(item.quantity || 0), Number(item.quantity || 0), Number(item.productId)],
     )
+    if (
+      Number(item.flashSalePrice || 0) > 0 &&
+      Number(item.unitPrice || 0) === Number(item.flashSalePrice || 0)
+    ) {
+      await connection.execute(
+        'UPDATE products SET flash_sale_sold = GREATEST(0, flash_sale_sold - ?), updated_at = NOW() WHERE id = ?',
+        [Number(item.quantity || 0), Number(item.productId)],
+      )
+      await connection.execute(
+        `UPDATE flash_sale_registrations
+         SET sold_count = GREATEST(0, sold_count - ?), updated_at = NOW()
+         WHERE product_id = ? AND status = 'approved'`,
+        [Number(item.quantity || 0), Number(item.productId)],
+      )
+    }
   }
 }
 
@@ -595,6 +670,49 @@ router.post(
 )
 
 router.post(
+  '/vouchers/apply',
+  asyncHandler(async (req, res) => {
+    const userId = Number(req.user.sub)
+    const source = req.body?.source === 'cart' ? 'cart' : 'buyNow'
+    const addressId = toPositiveId(req.body?.addressId)
+    const codes = normalizeVoucherCodes(req.body?.voucherCodes || req.body?.voucherCode)
+
+    if (!addressId) return res.status(400).json({ ok: false, message: 'Vui lòng chọn địa chỉ nhận hàng' })
+    if (!codes.length) return res.status(400).json({ ok: false, message: 'Vui lòng nhập mã voucher' })
+
+    const quote = await transaction(async (connection) => {
+      const address = await readAddress(connection, userId, addressId)
+      if (!address) throwStatus('Không tìm thấy địa chỉ nhận hàng', 404)
+
+      const lines =
+        source === 'cart'
+          ? await readCartLines(connection, userId, req.body?.cartItemIds || [])
+          : await readDirectLines(connection, req.body?.items || [])
+      if (!lines.length) throwStatus('Không có sản phẩm để áp dụng voucher')
+
+      const shippingQuote = await calculateShippingForLines(address, lines)
+      const voucherResult = await calculateVoucherDiscounts(connection, {
+        userId,
+        codes,
+        lines,
+        shippingQuote,
+      })
+      const itemsTotal = lines.reduce((sum, line) => sum + line.lineTotal, 0)
+      const shippingFee = Number(shippingQuote.totalShippingFee || 0)
+
+      return {
+        ...voucherResult,
+        itemsTotal,
+        shippingFee,
+        grandTotal: Math.max(0, itemsTotal + shippingFee - voucherResult.discountTotal),
+      }
+    })
+
+    return res.json({ ok: true, data: quote })
+  }),
+)
+
+router.post(
   '/',
   asyncHandler(async (req, res) => {
     const userId = Number(req.user.sub)
@@ -602,6 +720,7 @@ router.post(
     const addressId = toPositiveId(req.body?.addressId)
     const paymentMethod = String(req.body?.paymentMethod || 'cod').trim()
     const note = String(req.body?.note || '').trim()
+    const voucherCodes = normalizeVoucherCodes(req.body?.voucherCodes || req.body?.voucherCode)
 
     if (!addressId) return res.status(400).json({ ok: false, message: 'Vui lòng chọn địa chỉ nhận hàng' })
     if (!allowedPaymentMethods.has(paymentMethod)) {
@@ -621,8 +740,14 @@ router.post(
       const itemsTotal = lines.reduce((sum, line) => sum + line.lineTotal, 0)
       const shippingQuote = await calculateShippingForLines(address, lines)
       const shippingFee = shippingQuote.totalShippingFee
-      const discountTotal = 0
-      const grandTotal = itemsTotal + shippingFee - discountTotal
+      const voucherResult = await calculateVoucherDiscounts(connection, {
+        userId,
+        codes: voucherCodes,
+        lines,
+        shippingQuote,
+      })
+      const discountTotal = voucherResult.discountTotal
+      const grandTotal = Math.max(0, itemsTotal + shippingFee - discountTotal)
       const shippingWeightGrams = (shippingQuote.shops || []).reduce(
         (sum, shop) => sum + Number(shop.totalWeightGrams || 0),
         0,
@@ -676,7 +801,8 @@ router.post(
       )
 
       await insertOrderItems(connection, createdOrder.insertId, lines)
-      await insertOrderShopSnapshots(connection, createdOrder.insertId, shippingQuote.shops || [])
+      await insertOrderShopSnapshots(connection, createdOrder.insertId, shippingQuote.shops || [], voucherResult.shopDiscounts)
+      await insertVoucherRedemptions(connection, createdOrder.insertId, userId, voucherResult)
       if (source === 'cart') await deleteCheckedCartItems(connection, userId, lines)
 
       if (paymentMethod === 'cod') {

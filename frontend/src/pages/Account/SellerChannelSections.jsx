@@ -4,5 +4,6 @@ export { AdminApplicationsPanel } from './SellerChannelSections/AdminApplication
 export { SellerOverview } from './SellerChannelSections/SellerOverview'
 export { SellerShopProfilePanel } from './SellerChannelSections/SellerShopProfilePanel'
 export { SellerProductsPanel } from './SellerChannelSections/SellerProductsPanel'
+export { SellerFlashSalesPanel } from './SellerChannelSections/SellerFlashSalesPanel'
 export { SellerOrdersPanel, SellerReportsPanel } from './SellerChannelSections/SellerOrdersReports'
 export { SellerRegistrationPanel } from './SellerChannelSections/SellerRegistrationPanel'

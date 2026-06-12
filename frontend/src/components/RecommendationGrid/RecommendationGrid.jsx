@@ -8,14 +8,14 @@ const fallbackImage = '/logo_shop.png'
 
 function Rating({ value }) {
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-1 text-[#f59e0b]">
       <span
-        className="material-symbols-outlined text-[12px] text-yellow-500"
+        className="material-symbols-outlined text-[13px]"
         style={{ fontVariationSettings: "'FILL' 1" }}
       >
         star
       </span>
-      <span className="text-label-md font-label-md">{Number(value || 0).toFixed(1)}</span>
+      <span className="text-[12px] font-bold text-[#6b4d3e]">{Number(value || 0).toFixed(1)}</span>
     </div>
   )
 }
@@ -29,32 +29,42 @@ function RecommendationCard({ product }) {
 
   return (
     <Link
-      className="bg-surface-container-lowest rounded-xl p-4 shadow-none hover:shadow-[0px_8px_30px_rgba(0,0,0,0.1)] transition-all group flex flex-col h-full border border-surface-container"
+      className="group flex h-full flex-col rounded-xl border border-[#eaded2] bg-white p-3 shadow-[0_8px_22px_rgba(60,42,22,0.04)] transition-all hover:-translate-y-0.5 hover:border-[#c98225] hover:shadow-[0_14px_30px_rgba(60,42,22,0.12)]"
       to={productPath(product)}
       aria-label={product.name}
     >
-      <div className="aspect-square rounded-lg overflow-hidden bg-surface-container mb-4 relative">
+      <div className="relative mb-3 aspect-square overflow-hidden rounded-lg bg-[#f6f1ec]">
         <img
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
           alt={product.name}
           src={imageSrc}
         />
         {hasDiscount ? (
-          <span className="absolute top-2 left-2 text-white text-[10px] font-bold px-2 py-0.5 rounded bg-error">
+          <span className="absolute left-2 top-2 rounded-md bg-[#ff5722] px-2 py-1 text-[10px] font-bold text-white">
             -{discount}%
           </span>
         ) : null}
+        <span className="absolute bottom-2 left-2 rounded-md bg-white/92 px-2 py-1 text-[10px] font-bold text-[#7b4600]">
+          Mall
+        </span>
       </div>
-      <h3 className="font-body-md text-body-md line-clamp-2 mb-3 h-10">{product.name}</h3>
+      <h3 className="mb-3 line-clamp-2 min-h-10 text-[13px] font-semibold leading-5 text-[#1d1712]">{product.name}</h3>
       <div className="mt-auto space-y-2">
-        <div className="text-primary font-bold font-title-lg text-title-lg">
-          {formatCurrency(product.price)}
+        <div>
+          <div className="text-[18px] font-bold leading-6 text-[#c21d0b]">
+            {formatCurrency(product.price)}
+          </div>
+          {hasDiscount ? (
+            <div className="text-[11px] text-[#8a7567] line-through">
+              {formatCurrency(product.originalPrice)}
+            </div>
+          ) : null}
         </div>
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <Rating value={product.ratingAvg} />
-          <span className="text-secondary text-label-md">Đã bán {formatCompact(product.soldCount)}</span>
+          <span className="text-[12px] font-medium text-[#7b6556]">Đã bán {formatCompact(product.soldCount)}</span>
         </div>
-        <div className="text-secondary text-label-md overflow-hidden text-ellipsis whitespace-nowrap">
+        <div className="truncate border-t border-[#f0e7df] pt-2 text-[11px] font-medium text-[#7b6556]">
           {product.shop?.name || product.category?.name || 'ShopBee'}
         </div>
       </div>
@@ -89,26 +99,21 @@ export default function RecommendationGrid() {
   }, [])
 
   return (
-    <section className="max-w-container-max mx-auto px-margin-desktop">
-      <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center gap-3">
-          <span
-            className="material-symbols-outlined text-primary"
-            style={{ fontVariationSettings: "'FILL' 1" }}
-          >
-            auto_awesome
-          </span>
-          <h2 className="font-headline-md text-headline-md">Gợi ý hôm nay</h2>
+    <section id="recommendations" className="mx-auto max-w-container-max px-margin-mobile md:px-margin-desktop">
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="text-[12px] font-bold uppercase text-[#c57900]">Dành riêng cho bạn</p>
+          <h2 className="mt-1 text-[24px] font-bold leading-8 text-[#15110d]">Gợi ý hôm nay</h2>
         </div>
-        <div className="hidden sm:flex gap-2">
+        <div className="flex gap-2">
           <button
-            className="bg-primary px-4 py-2 text-white rounded-lg font-title-md text-title-md"
+            className="rounded-lg bg-[#995900] px-4 py-2 text-[12px] font-bold text-white"
             type="button"
           >
             Cho bạn
           </button>
           <button
-            className="bg-surface-container-high px-4 py-2 text-on-surface rounded-lg font-title-md text-title-md hover:bg-surface-container-highest transition-colors"
+            className="rounded-lg border border-[#dfc8b5] bg-white px-4 py-2 text-[12px] font-bold text-[#4b3527] hover:border-[#9a5700]"
             type="button"
           >
             Bán chạy
@@ -122,12 +127,12 @@ export default function RecommendationGrid() {
         </div>
       ) : null}
 
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-gutter">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-6">
         {loading
-          ? Array.from({ length: 6 }).map((_, index) => (
+          ? Array.from({ length: 12 }).map((_, index) => (
               <div
                 key={index}
-                className="h-[292px] rounded-xl bg-surface-container-lowest border border-surface-container animate-pulse"
+                className="h-[304px] animate-pulse rounded-xl border border-[#eaded2] bg-white"
               />
             ))
           : products.map((product) => (
@@ -136,7 +141,7 @@ export default function RecommendationGrid() {
       </div>
 
       {!loading && !products.length ? (
-        <div className="rounded-xl border border-surface-container bg-surface-container-lowest p-8 text-center text-on-surface-variant">
+        <div className="rounded-xl border border-[#eaded2] bg-white p-8 text-center text-[13px] text-[#7b6556]">
           Chưa có sản phẩm.
         </div>
       ) : null}

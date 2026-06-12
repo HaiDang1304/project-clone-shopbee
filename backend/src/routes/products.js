@@ -48,13 +48,20 @@ function normalizeProductOptions(value) {
 }
 
 function mapProduct(row) {
+  const flashSaleRunning =
+    Number(row.flash_sale_active) === 1 &&
+    (!row.flash_sale_start_at || new Date(row.flash_sale_start_at) <= new Date()) &&
+    (!row.flash_sale_end_at || new Date(row.flash_sale_end_at) >= new Date()) &&
+    Number(row.flash_sale_stock || 0) > Number(row.flash_sale_sold || 0) &&
+    Number(row.flash_sale_price || 0) > 0
+  const basePrice = Number(row.price)
   return {
     id: row.id,
     slug: row.slug,
     name: row.name,
     description: row.description,
-    price: Number(row.price),
-    originalPrice: row.original_price == null ? null : Number(row.original_price),
+    price: flashSaleRunning ? Number(row.flash_sale_price) : basePrice,
+    originalPrice: flashSaleRunning ? basePrice : row.original_price == null ? null : Number(row.original_price),
     stock: row.stock,
     weightGrams: row.weight_grams == null ? null : Number(row.weight_grams),
     thumbnailUrl: row.thumbnail_url || row.image_url || null,
@@ -71,6 +78,7 @@ function mapProduct(row) {
       endAt: row.flash_sale_end_at,
       soldInEvent: row.flash_sale_sold,
       eventStock: row.flash_sale_stock,
+      salePrice: row.flash_sale_price == null ? null : Number(row.flash_sale_price),
     },
     category: row.category_id
       ? {
@@ -99,6 +107,92 @@ function toPositiveInt(value, fallback, max) {
   return Math.min(number, max)
 }
 
+function toNumberFilter(value) {
+  const number = Number(value)
+  return Number.isFinite(number) && number >= 0 ? number : null
+}
+
+function toIdList(value) {
+  const source = Array.isArray(value) ? value : String(value || '').split(',')
+  return [...new Set(source.map((item) => Number(item)).filter((item) => Number.isSafeInteger(item) && item > 0))]
+}
+
+function productSaleActiveSql() {
+  return `(p.flash_sale_active = 1
+    AND (p.flash_sale_start_at IS NULL OR p.flash_sale_start_at <= NOW())
+    AND (p.flash_sale_end_at IS NULL OR p.flash_sale_end_at >= NOW())
+    AND p.flash_sale_stock > p.flash_sale_sold
+    AND p.flash_sale_price IS NOT NULL
+    AND p.flash_sale_price > 0)`
+}
+
+function productEffectivePriceSql() {
+  const saleActive = productSaleActiveSql()
+  return `(CASE WHEN ${saleActive} THEN p.flash_sale_price ELSE p.price END)`
+}
+
+function buildProductFilters(queryParams, { includeShop = true } = {}) {
+  const where = ['p.is_active = 1', 's.is_active = 1', "u.role = 'seller'", 'u.is_active = 1']
+  const params = []
+  const effectivePrice = productEffectivePriceSql()
+
+  if (queryParams.search) {
+    where.push('(p.name LIKE ? OR p.description LIKE ?)')
+    const term = `%${String(queryParams.search).trim()}%`
+    params.push(term, term)
+  }
+
+  if (queryParams.category) {
+    where.push('(c.slug = ? OR c.id = ?)')
+    params.push(String(queryParams.category), Number(queryParams.category) || 0)
+  }
+
+  const minRating = toNumberFilter(queryParams.minRating || queryParams.rating)
+  if (minRating !== null) {
+    where.push('p.rating_avg >= ?')
+    params.push(Math.min(5, minRating))
+  }
+
+  const minPrice = toNumberFilter(queryParams.minPrice)
+  if (minPrice !== null) {
+    where.push(`${effectivePrice} >= ?`)
+    params.push(minPrice)
+  }
+
+  const maxPrice = toNumberFilter(queryParams.maxPrice)
+  if (maxPrice !== null) {
+    where.push(`${effectivePrice} <= ?`)
+    params.push(maxPrice)
+  }
+
+  const promotionOnly = ['true', '1', 'yes'].includes(String(queryParams.promotion || queryParams.onSale || '').toLowerCase())
+  if (promotionOnly) {
+    where.push(`(${productSaleActiveSql()} OR (p.original_price IS NOT NULL AND p.original_price > p.price))`)
+  }
+
+  if (String(queryParams.flashSale || '').toLowerCase() === 'true') {
+    where.push(productSaleActiveSql())
+  }
+
+  if (includeShop) {
+    const shopIds = toIdList(queryParams.shopId || queryParams.shopIds || queryParams.brand)
+    if (shopIds.length) {
+      where.push(`s.id IN (${shopIds.map(() => '?').join(', ')})`)
+      params.push(...shopIds)
+    }
+  }
+
+  return { where, params }
+}
+
+function orderBySql(sort) {
+  if (sort === 'sold' || sort === 'best_selling') return 'p.sold_count DESC, p.created_at DESC'
+  if (sort === 'rating') return 'p.rating_avg DESC, p.rating_count DESC, p.created_at DESC'
+  if (sort === 'price_asc') return `${productEffectivePriceSql()} ASC, p.created_at DESC`
+  if (sort === 'price_desc') return `${productEffectivePriceSql()} DESC, p.created_at DESC`
+  return 'p.created_at DESC'
+}
+
 router.get(
   '/',
   asyncHandler(async (req, res) => {
@@ -106,27 +200,11 @@ router.get(
     const limit = toPositiveInt(req.query.limit, 24, 100)
     const offset = (page - 1) * limit
 
-    const where = ['p.is_active = 1', 's.is_active = 1', "u.role = 'seller'", 'u.is_active = 1']
-    const params = []
+    const { where, params } = buildProductFilters(req.query)
+    const facetFilters = buildProductFilters(req.query, { includeShop: false })
 
-    if (req.query.search) {
-      where.push('(p.name LIKE ? OR p.description LIKE ?)')
-      const term = `%${String(req.query.search).trim()}%`
-      params.push(term, term)
-    }
-
-    if (req.query.category) {
-      where.push('(c.slug = ? OR c.id = ?)')
-      params.push(String(req.query.category), Number(req.query.category) || 0)
-    }
-
-    if (String(req.query.flashSale || '').toLowerCase() === 'true') {
-      where.push('p.flash_sale_active = 1')
-      where.push('(p.flash_sale_start_at IS NULL OR p.flash_sale_start_at <= NOW())')
-      where.push('(p.flash_sale_end_at IS NULL OR p.flash_sale_end_at >= NOW())')
-    }
-
-    const rows = await query(
+    const [rows, countRows, shopRows] = await Promise.all([
+      query(
       `SELECT
          p.*,
          c.name AS category_name,
@@ -143,15 +221,45 @@ router.get(
        JOIN shops s ON s.id = p.shop_id
        JOIN users u ON u.id = s.owner_id
        WHERE ${where.join(' AND ')}
-       ORDER BY p.created_at DESC
+       ORDER BY ${orderBySql(String(req.query.sort || 'newest'))}
        LIMIT ? OFFSET ?`,
       [...params, limit, offset],
-    )
+      ),
+      query(
+        `SELECT COUNT(*) AS total
+         FROM products p
+         LEFT JOIN categories c ON c.id = p.category_id
+         JOIN shops s ON s.id = p.shop_id
+         JOIN users u ON u.id = s.owner_id
+         WHERE ${where.join(' AND ')}`,
+        params,
+      ),
+      query(
+        `SELECT s.id, s.name, s.slug, COUNT(*) AS product_count
+         FROM products p
+         LEFT JOIN categories c ON c.id = p.category_id
+         JOIN shops s ON s.id = p.shop_id
+         JOIN users u ON u.id = s.owner_id
+         WHERE ${facetFilters.where.join(' AND ')}
+         GROUP BY s.id, s.name, s.slug
+         ORDER BY product_count DESC, s.name ASC
+         LIMIT 20`,
+        facetFilters.params,
+      ),
+    ])
 
     res.json({
       ok: true,
       data: rows.map(mapProduct),
-      pagination: { page, limit },
+      pagination: { page, limit, total: Number(countRows[0]?.total || 0) },
+      filters: {
+        shops: shopRows.map((row) => ({
+          id: Number(row.id),
+          name: row.name,
+          slug: row.slug,
+          productCount: Number(row.product_count || 0),
+        })),
+      },
     })
   }),
 )

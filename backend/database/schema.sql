@@ -166,6 +166,7 @@ CREATE TABLE IF NOT EXISTS products (
   thumbnail_url VARCHAR(500) NULL,
   status ENUM('draft', 'active', 'hidden') NOT NULL DEFAULT 'active',
   product_options JSON NULL,
+  flash_sale_price DECIMAL(12,2) NULL,
   flash_sale_active TINYINT(1) NOT NULL DEFAULT 0,
   flash_sale_discount_percent TINYINT UNSIGNED NOT NULL DEFAULT 0,
   flash_sale_start_at DATETIME NULL,
@@ -188,6 +189,45 @@ CREATE TABLE IF NOT EXISTS products (
   CONSTRAINT fk_products_category FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS flash_sale_events (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  name VARCHAR(160) NOT NULL,
+  description TEXT NULL,
+  starts_at DATETIME NOT NULL,
+  ends_at DATETIME NOT NULL,
+  registration_starts_at DATETIME NULL,
+  registration_ends_at DATETIME NULL,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_flash_sale_events_time (is_active, starts_at, ends_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS flash_sale_registrations (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  event_id BIGINT UNSIGNED NOT NULL,
+  shop_id BIGINT UNSIGNED NOT NULL,
+  product_id BIGINT UNSIGNED NOT NULL,
+  sale_price DECIMAL(12,2) NOT NULL,
+  registered_stock INT UNSIGNED NOT NULL,
+  sold_count INT UNSIGNED NOT NULL DEFAULT 0,
+  status ENUM('pending', 'approved', 'rejected', 'cancelled') NOT NULL DEFAULT 'pending',
+  reject_reason VARCHAR(500) NULL,
+  reviewed_by BIGINT UNSIGNED NULL,
+  reviewed_at DATETIME NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_flash_sale_registration (event_id, product_id),
+  KEY idx_flash_sale_registrations_shop (shop_id, status),
+  KEY idx_flash_sale_registrations_status (status, created_at),
+  CONSTRAINT fk_flash_sale_registrations_event FOREIGN KEY (event_id) REFERENCES flash_sale_events(id) ON DELETE CASCADE,
+  CONSTRAINT fk_flash_sale_registrations_shop FOREIGN KEY (shop_id) REFERENCES shops(id) ON DELETE CASCADE,
+  CONSTRAINT fk_flash_sale_registrations_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+  CONSTRAINT fk_flash_sale_registrations_reviewer FOREIGN KEY (reviewed_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS product_images (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   product_id BIGINT UNSIGNED NOT NULL,
@@ -205,6 +245,43 @@ CREATE TABLE IF NOT EXISTS product_tags (
   tag VARCHAR(80) NOT NULL,
   PRIMARY KEY (product_id, tag),
   CONSTRAINT fk_product_tags_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS vouchers (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  code VARCHAR(40) NOT NULL,
+  title VARCHAR(160) NOT NULL,
+  scope ENUM('platform', 'shop') NOT NULL DEFAULT 'platform',
+  shop_id BIGINT UNSIGNED NULL,
+  discount_type ENUM('percent', 'fixed', 'free_shipping') NOT NULL DEFAULT 'fixed',
+  discount_value DECIMAL(12,2) NOT NULL DEFAULT 0,
+  max_discount_amount DECIMAL(12,2) NULL,
+  min_order_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+  usage_limit INT UNSIGNED NULL,
+  per_user_limit INT UNSIGNED NULL,
+  used_count INT UNSIGNED NOT NULL DEFAULT 0,
+  starts_at DATETIME NULL,
+  ends_at DATETIME NULL,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_vouchers_code (code),
+  KEY idx_vouchers_scope (scope, shop_id),
+  KEY idx_vouchers_active_time (is_active, starts_at, ends_at),
+  CONSTRAINT fk_vouchers_shop FOREIGN KEY (shop_id) REFERENCES shops(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS user_vouchers (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  voucher_id BIGINT UNSIGNED NOT NULL,
+  user_id BIGINT UNSIGNED NOT NULL,
+  claimed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_user_vouchers_user_voucher (user_id, voucher_id),
+  KEY idx_user_vouchers_voucher (voucher_id),
+  CONSTRAINT fk_user_vouchers_voucher FOREIGN KEY (voucher_id) REFERENCES vouchers(id) ON DELETE CASCADE,
+  CONSTRAINT fk_user_vouchers_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS reviews (
@@ -249,6 +326,21 @@ CREATE TABLE IF NOT EXISTS cart_items (
   KEY idx_cart_items_product (product_id),
   CONSTRAINT fk_cart_items_cart FOREIGN KEY (cart_id) REFERENCES carts(id) ON DELETE CASCADE,
   CONSTRAINT fk_cart_items_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS voucher_redemptions (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  voucher_id BIGINT UNSIGNED NOT NULL,
+  user_id BIGINT UNSIGNED NOT NULL,
+  order_id BIGINT UNSIGNED NOT NULL,
+  discount_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_voucher_redemptions_order (voucher_id, order_id),
+  KEY idx_voucher_redemptions_user (voucher_id, user_id),
+  CONSTRAINT fk_voucher_redemptions_voucher FOREIGN KEY (voucher_id) REFERENCES vouchers(id) ON DELETE CASCADE,
+  CONSTRAINT fk_voucher_redemptions_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT fk_voucher_redemptions_order FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS orders (

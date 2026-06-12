@@ -179,6 +179,55 @@ export async function deleteAdminComment(commentId) {
   return data.data || { stats: {}, items: [] }
 }
 
+export async function getAdminPromotionsData() {
+  const data = await apiGet('/api/admin/promotions')
+  return data.data || { stats: {}, shops: [], items: [] }
+}
+
+export async function createAdminVoucher(payload) {
+  const data = await apiPost('/api/admin/promotions', payload)
+  return data.data || { stats: {}, shops: [], items: [] }
+}
+
+export async function updateAdminVoucher(voucherId, payload) {
+  const data = await apiPatch(`/api/admin/promotions/${voucherId}`, payload)
+  return data.data || { stats: {}, shops: [], items: [] }
+}
+
+export async function deleteAdminVoucher(voucherId) {
+  const data = await apiDelete(`/api/admin/promotions/${voucherId}`)
+  return data.data || { stats: {}, shops: [], items: [] }
+}
+
+export async function getAdminFlashSalesData() {
+  const data = await apiGet('/api/admin/flash-sales')
+  return data.data || { stats: {}, events: [], registrations: [] }
+}
+
+export async function createAdminFlashSale(payload) {
+  const data = await apiPost('/api/admin/flash-sales', payload)
+  return data.data || { stats: {}, events: [], registrations: [] }
+}
+
+export async function updateAdminFlashSale(eventId, payload) {
+  const data = await apiPatch(`/api/admin/flash-sales/${eventId}`, payload)
+  return data.data || { stats: {}, events: [], registrations: [] }
+}
+
+export async function reviewAdminFlashSaleRegistration(registrationId, payload) {
+  const data = await apiPatch(`/api/admin/flash-sales/registrations/${registrationId}`, payload)
+  return data.data || { stats: {}, events: [], registrations: [] }
+}
+
+export async function getSellerFlashSales() {
+  const data = await apiGet('/api/account/seller/flash-sales')
+  return data.data || { events: [], registrations: [] }
+}
+
+export async function registerSellerFlashSale(payload) {
+  return apiPost('/api/account/seller/flash-sales/register', payload)
+}
+
 export async function getAdminShopsData() {
   const data = await apiGet('/api/admin/shops')
   return data.data || { stats: {}, items: [] }

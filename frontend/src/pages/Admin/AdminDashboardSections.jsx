@@ -3,15 +3,22 @@ import { toast } from 'react-toastify'
 
 import RevenueRangeControls from '../../components/Charts/RevenueRangeControls'
 import RevenueTrendChart from '../../components/Charts/RevenueTrendChart'
+import SummaryBarChart from '../../components/Charts/SummaryBarChart'
 import {
   createAdminCategory,
+  createAdminFlashSale,
+  createAdminVoucher,
   deleteAdminCategory,
   deleteAdminComment,
   deleteAdminUser,
+  deleteAdminVoucher,
   reviewSellerApplication,
+  reviewAdminFlashSaleRegistration,
   updateAdminCategory,
+  updateAdminFlashSale,
   updateAdminComment,
   updateAdminUser,
+  updateAdminVoucher,
 } from '../../lib/account'
 import { apiAssetUrl } from '../../lib/api'
 import {
@@ -616,6 +623,135 @@ export function OverviewDashboard({ dashboardData, revenueFilter, onDashboardRef
         totalCount={dashboardData?.stats?.pendingShops}
         onReviewed={onDashboardRefresh}
       />
+    </div>
+  )
+}
+
+export function ReportsDashboard({ dashboardData, shopsData, revenueFilter, onRevenueFilterChange }) {
+  const [selectedShopId, setSelectedShopId] = useState('')
+  const shops = shopsData?.items || []
+  const selectedShop = shops.find((shop) => String(shop.id) === String(selectedShopId))
+  const revenueTrend = dashboardData?.revenueTrend || []
+  const revenueTotal = revenueTrend.reduce((sum, point) => sum + Number(point.value || 0), 0)
+  const platformFeeShops = dashboardData?.platformFeeShops || []
+  const totalDeliveredRevenue = platformFeeShops.reduce((sum, shop) => sum + Number(shop.monthlyDeliveredRevenue || 0), 0)
+  const totalPlatformFee = platformFeeShops.reduce((sum, shop) => sum + Number(shop.monthlyPlatformFee || 0), 0)
+  const orders = dashboardData?.orders?.items || []
+  const orderTabs = dashboardData?.orders?.tabs || []
+  const topShops = [...shops].sort((a, b) => Number(b.revenue || 0) - Number(a.revenue || 0)).slice(0, 8)
+  const topShopChartItems = topShops.map((shop) => ({
+    label: shop.name,
+    value: Number(shop.revenue || 0),
+  }))
+  const statusChartItems = orderTabs
+    .filter((tab) => tab.value !== 'all')
+    .map((tab) => ({ label: tab.value, value: Number(tab.count || 0) }))
+    .filter((item) => item.value > 0)
+  const selectedShopFee = platformFeeShops.find((shop) => String(shop.id) === String(selectedShopId))
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-[24px] font-bold leading-8 text-[#15110d]">Thong ke bao cao</h1>
+          <p className="mt-1 text-[12px] text-[#6b4d3e]">
+            Tong hop doanh thu, phi san, don hang va hieu qua cua tung cua hang.
+          </p>
+        </div>
+        <label className="grid min-w-[260px] gap-1.5">
+          <span className="text-[11px] font-bold text-[#4b3527]">Xem chi tiet cua hang</span>
+          <select
+            className="h-10 rounded-lg border-[#dfc8b5] bg-white text-[13px] text-[#1d1712] focus:border-[#c98225] focus:ring-0"
+            value={selectedShopId}
+            onChange={(event) => setSelectedShopId(event.target.value)}
+          >
+            <option value="">Tong quan toan san</option>
+            {shops.map((shop) => (
+              <option key={shop.id} value={shop.id}>{shop.name}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <OverviewMetricCard stat={{ label: 'Doanh thu khoang chon', value: formatCurrency(revenueTotal), icon: 'payments', change: 'Theo bieu do', iconClass: 'bg-[#fff2df] text-[#d47b00]' }} />
+        <OverviewMetricCard stat={{ label: 'Doanh thu da giao thang', value: formatCurrency(totalDeliveredRevenue), icon: 'inventory', change: 'Da giao', iconClass: 'bg-[#e8fff5] text-[#047857]' }} />
+        <OverviewMetricCard stat={{ label: 'Don hang gan day', value: formatCount(orders.length), icon: 'shopping_bag', change: 'Moi nhat', iconClass: 'bg-[#e8f0ff] text-[#2f6bf2]' }} />
+        <OverviewMetricCard stat={{ label: 'Phi san thang', value: formatCurrency(totalPlatformFee), icon: 'receipt', change: `${formatCount(shopsData?.stats?.active || 0)} shop dang ban`, iconClass: 'bg-[#f3e8ff] text-[#8c38d8]' }} />
+      </div>
+
+      <section className="rounded-lg border border-[#eaded2] bg-white p-4 shadow-[0_8px_24px_rgba(60,42,22,0.05)]">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-[15px] font-bold text-[#15110d]">Doanh thu hoat dong cua san</h2>
+            <p className="mt-1 text-[11px] text-[#7c6657]">Tong doanh thu don hang hop le theo khoang ngay dang chon.</p>
+          </div>
+          <RevenueRangeControls value={revenueFilter} revenueRange={dashboardData?.revenueRange} onChange={onRevenueFilterChange} />
+        </div>
+        <div className="mt-5 h-[250px] rounded-lg bg-[#fbfaf9] px-3 pb-3 pt-4">
+          <RevenueTrendChart trend={revenueTrend} lineColor="#c57900" fillStart="rgba(197, 121, 0, 0.28)" fillEnd="rgba(197, 121, 0, 0.03)" gridColor="rgba(124, 102, 87, 0.16)" tickColor="#6f5b4d" />
+        </div>
+      </section>
+
+      <div className="grid gap-5 xl:grid-cols-2">
+        <section className="rounded-lg border border-[#eaded2] bg-white p-4 shadow-[0_8px_24px_rgba(60,42,22,0.05)]">
+          <h2 className="text-[15px] font-bold text-[#15110d]">Top cua hang theo doanh thu</h2>
+          <div className="mt-4 h-[240px] rounded-lg bg-[#fbfaf9] px-3 pb-3 pt-4">
+            <SummaryBarChart items={topShopChartItems} valueType="currency" color="#047857" />
+          </div>
+        </section>
+        <section className="rounded-lg border border-[#eaded2] bg-white p-4 shadow-[0_8px_24px_rgba(60,42,22,0.05)]">
+          <h2 className="text-[15px] font-bold text-[#15110d]">Trang thai don hang</h2>
+          <div className="mt-4 h-[240px] rounded-lg bg-[#fbfaf9] px-3 pb-3 pt-4">
+            <SummaryBarChart items={statusChartItems} color="#2f6bf2" />
+          </div>
+        </section>
+      </div>
+
+      {selectedShop ? (
+        <section className="rounded-lg border border-[#eaded2] bg-white p-4 shadow-[0_8px_24px_rgba(60,42,22,0.05)]">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-[18px] font-bold text-[#15110d]">{selectedShop.name}</h2>
+              <p className="mt-1 text-[12px] text-[#7c6657]">{selectedShop.owner?.name || 'Chu shop'} · {formatShopAddress(selectedShop)}</p>
+            </div>
+            <span className={`rounded-full px-3 py-1 text-[11px] font-bold ${selectedShop.isActive ? 'bg-[#d9f7df] text-[#087c32]' : 'bg-[#ffdcd6] text-[#b42318]'}`}>
+              {selectedShop.isActive ? 'Dang hoat dong' : 'Tam khoa'}
+            </span>
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-lg bg-[#fbfaf9] px-4 py-3">
+              <p className="text-[11px] font-bold uppercase text-[#7c6657]">Tong doanh thu</p>
+              <p className="mt-1 text-[18px] font-bold text-[#a15d00]">{formatCurrency(selectedShop.revenue)}</p>
+            </div>
+            <div className="rounded-lg bg-[#fbfaf9] px-4 py-3">
+              <p className="text-[11px] font-bold uppercase text-[#7c6657]">Phi san thang</p>
+              <p className="mt-1 text-[18px] font-bold text-[#047857]">{formatCurrency(selectedShop.monthlyPlatformFee)}</p>
+            </div>
+            <div className="rounded-lg bg-[#fbfaf9] px-4 py-3">
+              <p className="text-[11px] font-bold uppercase text-[#7c6657]">Don hang</p>
+              <p className="mt-1 text-[18px] font-bold text-[#15110d]">{formatCount(selectedShop.orderCount)}</p>
+            </div>
+            <div className="rounded-lg bg-[#fbfaf9] px-4 py-3">
+              <p className="text-[11px] font-bold uppercase text-[#7c6657]">Danh gia</p>
+              <p className="mt-1 text-[18px] font-bold text-[#15110d]">{Number(selectedShop.ratingAvg || 0).toFixed(1)}/5</p>
+            </div>
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <p className="rounded-lg border border-[#eaded2] px-4 py-3 text-[12px] text-[#4b3527]">
+              Doanh thu da giao thang: <span className="font-bold text-[#15110d]">{formatCurrency(selectedShopFee?.monthlyDeliveredRevenue || selectedShop.monthlyDeliveredRevenue || 0)}</span>
+            </p>
+            <p className="rounded-lg border border-[#eaded2] px-4 py-3 text-[12px] text-[#4b3527]">
+              Thuc nhan uoc tinh: <span className="font-bold text-[#15110d]">{formatCurrency(selectedShopFee?.monthlyPayout || Math.max(0, Number(selectedShop.monthlyDeliveredRevenue || 0) - Number(selectedShop.monthlyPlatformFee || 0)))}</span>
+            </p>
+            <p className="rounded-lg border border-[#eaded2] px-4 py-3 text-[12px] text-[#4b3527]">
+              San pham dang quan ly: <span className="font-bold text-[#15110d]">{formatCount(selectedShop.productCount)}</span>
+            </p>
+          </div>
+        </section>
+      ) : (
+        <PlatformFeeShopsTable shops={platformFeeShops} />
+      )}
     </div>
   )
 }
@@ -1310,6 +1446,638 @@ export function CommentsDashboard({ searchTerm, commentsData, onCommentsDataChan
   )
 }
 
+const emptyVoucherForm = {
+  code: '',
+  title: '',
+  scope: 'platform',
+  shopId: '',
+  discountType: 'fixed',
+  discountValue: '',
+  maxDiscountAmount: '',
+  minOrderAmount: '0',
+  usageLimit: '',
+  perUserLimit: '1',
+  startsAt: '',
+  endsAt: '',
+  isActive: true,
+}
+
+const emptyFlashSaleForm = {
+  name: '',
+  description: '',
+  startsAt: '',
+  endsAt: '',
+  registrationStartsAt: '',
+  registrationEndsAt: '',
+  isActive: true,
+}
+
+function toDateTimeLocal(value) {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+  return offsetDate.toISOString().slice(0, 16)
+}
+
+function normalizeVoucherCodeInput(value) {
+  return String(value || '').toUpperCase().replace(/\s+/g, '')
+}
+
+function voucherDiscountText(voucher) {
+  if (voucher.discountType === 'free_shipping') return 'Mien phi van chuyen'
+  if (voucher.discountType === 'percent') {
+    return `${Number(voucher.discountValue || 0)}%${voucher.maxDiscountAmount ? ` toi da ${formatCurrency(voucher.maxDiscountAmount)}` : ''}`
+  }
+  return formatCurrency(voucher.discountValue)
+}
+
+function getAdminFlashSaleEventMeta(eventItem) {
+  if (!eventItem?.isActive) {
+    return {
+      label: 'Tạm tắt',
+      className: 'bg-[#f1e8df] text-[#6b4d3e]',
+    }
+  }
+
+  const now = Date.now()
+  const startsAt = eventItem.startsAt ? new Date(eventItem.startsAt).getTime() : 0
+  const endsAt = eventItem.endsAt ? new Date(eventItem.endsAt).getTime() : 0
+
+  if (startsAt && now < startsAt) {
+    return {
+      label: 'Sắp diễn ra',
+      className: 'bg-[#e8f0ff] text-[#2f5fd0]',
+    }
+  }
+  if (endsAt && now > endsAt) {
+    return {
+      label: 'Đã kết thúc',
+      className: 'bg-[#eeeeed] text-[#5f5148]',
+    }
+  }
+
+  return {
+    label: 'Đang diễn ra',
+    className: 'bg-[#d9f7df] text-[#087c32]',
+  }
+}
+
+function getAdminFlashSaleRegistrationMeta(status) {
+  if (status === 'approved') {
+    return {
+      label: 'Đã duyệt',
+      className: 'bg-[#d9f7df] text-[#087c32]',
+    }
+  }
+  if (status === 'rejected') {
+    return {
+      label: 'Từ chối',
+      className: 'bg-[#ffdcd6] text-[#b42318]',
+    }
+  }
+  if (status === 'cancelled') {
+    return {
+      label: 'Đã hủy',
+      className: 'bg-[#eeeeed] text-[#5f5148]',
+    }
+  }
+  return {
+    label: 'Chờ duyệt',
+    className: 'bg-[#fff1cc] text-[#9a5a00]',
+  }
+}
+
+function AdminFlashSalesPanel({
+  flashSalesData,
+  flashSaleForm,
+  flashSaleEvents,
+  flashSaleRegistrations,
+  savingFlashSale,
+  workingRegistrationId,
+  onFlashSaleFormChange,
+  onFlashSaleSubmit,
+  onToggleFlashSale,
+  onReviewFlashSaleRegistration,
+}) {
+  const pendingRegistrations = flashSalesData?.stats?.pendingRegistrations || 0
+  const activeEvents = flashSalesData?.stats?.activeEvents || flashSaleEvents.filter((eventItem) => eventItem.isActive).length
+  const orderedRegistrations = [...flashSaleRegistrations].sort((left, right) => {
+    if (left.status === right.status) return 0
+    if (left.status === 'pending') return -1
+    if (right.status === 'pending') return 1
+    return 0
+  })
+
+  function updateField(field, value) {
+    onFlashSaleFormChange((current) => ({ ...current, [field]: value }))
+  }
+
+  return (
+    <section className="overflow-hidden rounded-lg border border-[#eaded2] bg-white shadow-[0_8px_24px_rgba(60,42,22,0.05)]">
+      <div className="border-b border-[#eaded2] bg-[#fffaf4] px-4 py-4">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h2 className="text-[18px] font-bold text-[#15110d]">Flash Sale của sàn</h2>
+            <p className="mt-1 max-w-3xl text-[12px] text-[#6b4d3e]">
+              Admin tạo khung giờ, seller đăng ký sản phẩm và số lượng bán, sản phẩm được duyệt sẽ tự hiển thị đúng thời gian.
+            </p>
+          </div>
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div className="rounded-lg bg-white px-3 py-2">
+              <p className="text-[18px] font-bold text-[#15110d]">{formatCount(flashSaleEvents.length)}</p>
+              <p className="text-[10px] font-bold uppercase text-[#7b6556]">Khung giờ</p>
+            </div>
+            <div className="rounded-lg bg-white px-3 py-2">
+              <p className="text-[18px] font-bold text-[#087c32]">{formatCount(activeEvents)}</p>
+              <p className="text-[10px] font-bold uppercase text-[#7b6556]">Đang bật</p>
+            </div>
+            <div className="rounded-lg bg-white px-3 py-2">
+              <p className="text-[18px] font-bold text-[#9a5700]">{formatCount(pendingRegistrations)}</p>
+              <p className="text-[10px] font-bold uppercase text-[#7b6556]">Chờ duyệt</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-5 p-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+        <form className="rounded-lg border border-[#eaded2] bg-[#fbfaf9] p-4" onSubmit={onFlashSaleSubmit}>
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-[20px] text-[#c57900]">edit_calendar</span>
+            <h3 className="text-[15px] font-bold text-[#15110d]">Tạo khung giờ</h3>
+          </div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <label className="grid gap-1.5 sm:col-span-2">
+              <span className="text-[11px] font-bold text-[#4b3527]">Tên chương trình</span>
+              <input className="h-10 rounded-lg border-[#dfc8b5] bg-white text-[13px] text-[#1d1712] focus:border-[#c98225] focus:ring-0" value={flashSaleForm.name} onChange={(event) => updateField('name', event.target.value)} placeholder="Flash Sale cuối tuần" required />
+            </label>
+            <label className="grid gap-1.5">
+              <span className="text-[11px] font-bold text-[#4b3527]">Bắt đầu bán</span>
+              <input className="h-10 rounded-lg border-[#dfc8b5] bg-white text-[13px] text-[#1d1712] focus:border-[#c98225] focus:ring-0" type="datetime-local" value={flashSaleForm.startsAt} onChange={(event) => updateField('startsAt', event.target.value)} required />
+            </label>
+            <label className="grid gap-1.5">
+              <span className="text-[11px] font-bold text-[#4b3527]">Kết thúc bán</span>
+              <input className="h-10 rounded-lg border-[#dfc8b5] bg-white text-[13px] text-[#1d1712] focus:border-[#c98225] focus:ring-0" type="datetime-local" value={flashSaleForm.endsAt} onChange={(event) => updateField('endsAt', event.target.value)} required />
+            </label>
+            <label className="grid gap-1.5">
+              <span className="text-[11px] font-bold text-[#4b3527]">Mở đăng ký</span>
+              <input className="h-10 rounded-lg border-[#dfc8b5] bg-white text-[13px] text-[#1d1712] focus:border-[#c98225] focus:ring-0" type="datetime-local" value={flashSaleForm.registrationStartsAt} onChange={(event) => updateField('registrationStartsAt', event.target.value)} />
+            </label>
+            <label className="grid gap-1.5">
+              <span className="text-[11px] font-bold text-[#4b3527]">Đóng đăng ký</span>
+              <input className="h-10 rounded-lg border-[#dfc8b5] bg-white text-[13px] text-[#1d1712] focus:border-[#c98225] focus:ring-0" type="datetime-local" value={flashSaleForm.registrationEndsAt} onChange={(event) => updateField('registrationEndsAt', event.target.value)} />
+            </label>
+            <label className="grid gap-1.5 sm:col-span-2">
+              <span className="text-[11px] font-bold text-[#4b3527]">Mô tả</span>
+              <textarea className="min-h-[78px] resize-y rounded-lg border-[#dfc8b5] bg-white text-[13px] text-[#1d1712] focus:border-[#c98225] focus:ring-0" value={flashSaleForm.description} onChange={(event) => updateField('description', event.target.value)} placeholder="Ghi chú ngắn cho seller khi đăng ký." />
+            </label>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+            <label className="flex h-10 items-center gap-2 rounded-lg border border-[#dfc8b5] bg-white px-3 text-[12px] font-semibold text-[#4b3527]">
+              <input className="rounded border-[#dfc8b5] text-[#c57900] focus:ring-[#c57900]" type="checkbox" checked={flashSaleForm.isActive} onChange={(event) => updateField('isActive', event.target.checked)} />
+              Đang bật
+            </label>
+            <button className="h-10 rounded-lg bg-[#995900] px-4 text-[12px] font-bold text-white hover:bg-[#7b4600] disabled:opacity-60" type="submit" disabled={savingFlashSale}>
+              {savingFlashSale ? 'Đang tạo...' : 'Tạo flash sale'}
+            </button>
+          </div>
+        </form>
+
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-[15px] font-bold text-[#15110d]">Khung giờ đã tạo</h3>
+            <span className="rounded-full bg-[#fff2df] px-3 py-1 text-[10px] font-bold text-[#9a5700]">{formatCount(flashSaleEvents.length)} khung giờ</span>
+          </div>
+          <div className="max-h-[425px] space-y-3 overflow-y-auto pr-1">
+            {flashSaleEvents.map((eventItem) => {
+              const eventMeta = getAdminFlashSaleEventMeta(eventItem)
+              const startsAt = formatDateTime(eventItem.startsAt)
+              const endsAt = formatDateTime(eventItem.endsAt)
+
+              return (
+                <article key={eventItem.id} className="rounded-lg border border-[#eaded2] bg-white px-3 py-3 text-[12px]">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="truncate font-bold text-[#1d1712]">{eventItem.name}</p>
+                        <span className={`rounded-full px-2 py-1 text-[10px] font-bold ${eventMeta.className}`}>{eventMeta.label}</span>
+                      </div>
+                      <p className="mt-1 text-[#7b6556]">
+                        {startsAt.date} {startsAt.time} - {endsAt.date} {endsAt.time}
+                      </p>
+                      <p className="mt-1 text-[#7b6556]">
+                        {formatCount(eventItem.approvedCount)} đã duyệt - {formatCount(eventItem.pendingCount)} chờ duyệt
+                      </p>
+                    </div>
+                    <button className="shrink-0 rounded-md border border-[#dfc8b5] px-3 py-1 text-[11px] font-bold text-[#4b3527] hover:border-[#9a5700]" type="button" onClick={() => onToggleFlashSale(eventItem)}>
+                      {eventItem.isActive ? 'Tắt' : 'Bật'}
+                    </button>
+                  </div>
+                  {eventItem.description ? <p className="mt-2 rounded-md bg-[#fbfaf9] px-2 py-2 text-[#6b4d3e]">{eventItem.description}</p> : null}
+                </article>
+              )
+            })}
+            {!flashSaleEvents.length ? <p className="rounded-lg border border-dashed border-[#eaded2] px-3 py-8 text-center text-[12px] text-[#7b6556]">Chưa có khung giờ flash sale.</p> : null}
+          </div>
+        </div>
+      </div>
+
+      <div className="border-t border-[#eaded2] px-4 pb-4 pt-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-[15px] font-bold text-[#15110d]">Sản phẩm seller đăng ký</h3>
+            <p className="mt-0.5 text-[11px] text-[#7b6556]">Ưu tiên xử lý sản phẩm đang chờ duyệt để kịp lên flash sale.</p>
+          </div>
+          <span className="rounded-full bg-[#fff2df] px-3 py-1 text-[10px] font-bold text-[#9a5700]">
+            {formatCount(orderedRegistrations.length)} đăng ký
+          </span>
+        </div>
+
+        <div className="mt-3 grid gap-3 xl:grid-cols-2">
+          {orderedRegistrations.map((item) => {
+            const statusMeta = getAdminFlashSaleRegistrationMeta(item.status)
+            const isWorking = workingRegistrationId === item.id
+
+            return (
+              <article key={item.id} className="rounded-lg border border-[#eaded2] bg-[#fbfaf9] px-3 py-3 text-[12px]">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate font-bold text-[#1d1712]">{item.product?.name || 'Sản phẩm không xác định'}</p>
+                    <p className="mt-1 text-[#7b6556]">{item.shop?.name || 'Shop'} - {item.eventName || `Khung giờ #${item.eventId}`}</p>
+                    <p className="mt-1 font-semibold text-[#a15d00]">
+                      {formatCurrency(item.salePrice)} - SL {formatCount(item.registeredStock)} - Đã bán {formatCount(item.soldCount)}
+                    </p>
+                    {item.rejectReason ? <p className="mt-1 text-[#b42318]">Lý do từ chối: {item.rejectReason}</p> : null}
+                  </div>
+                  <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-bold ${statusMeta.className}`}>{statusMeta.label}</span>
+                </div>
+                {item.status === 'pending' ? (
+                  <div className="mt-3 flex justify-end gap-2">
+                    <button className="rounded-md bg-[#087c32] px-3 py-1.5 text-[11px] font-bold text-white disabled:opacity-60" type="button" disabled={isWorking} onClick={() => onReviewFlashSaleRegistration(item, 'approve')}>
+                      Duyệt
+                    </button>
+                    <button className="rounded-md bg-[#b42318] px-3 py-1.5 text-[11px] font-bold text-white disabled:opacity-60" type="button" disabled={isWorking} onClick={() => onReviewFlashSaleRegistration(item, 'reject')}>
+                      Từ chối
+                    </button>
+                  </div>
+                ) : null}
+              </article>
+            )
+          })}
+        </div>
+
+        {!orderedRegistrations.length ? <p className="mt-3 rounded-lg border border-dashed border-[#eaded2] px-3 py-8 text-center text-[12px] text-[#7b6556]">Chưa có sản phẩm đăng ký flash sale.</p> : null}
+      </div>
+    </section>
+  )
+}
+
+export function PromotionsDashboard({ searchTerm, promotionsData, flashSalesData, onPromotionsDataChange, onFlashSalesDataChange }) {
+  const [activeScope, setActiveScope] = useState('all')
+  const [voucherForm, setVoucherForm] = useState(emptyVoucherForm)
+  const [editingVoucherId, setEditingVoucherId] = useState(null)
+  const [savingVoucher, setSavingVoucher] = useState(false)
+  const [workingVoucherId, setWorkingVoucherId] = useState(null)
+  const [flashSaleForm, setFlashSaleForm] = useState(emptyFlashSaleForm)
+  const [savingFlashSale, setSavingFlashSale] = useState(false)
+  const [workingRegistrationId, setWorkingRegistrationId] = useState(null)
+  const vouchers = useMemo(() => promotionsData?.items || [], [promotionsData])
+  const flashSaleEvents = flashSalesData?.events || []
+  const flashSaleRegistrations = flashSalesData?.registrations || []
+  const shops = promotionsData?.shops || []
+  const scopeTabs = [
+    { value: 'all', label: 'Tat ca', count: promotionsData?.stats?.total || 0 },
+    { value: 'platform', label: 'Voucher san', count: promotionsData?.stats?.platform || 0 },
+    { value: 'shop', label: 'Voucher shop', count: promotionsData?.stats?.shop || 0 },
+    { value: 'active', label: 'Dang bat', count: promotionsData?.stats?.active || 0 },
+    { value: 'inactive', label: 'Tam tat', count: promotionsData?.stats?.inactive || 0 },
+  ]
+
+  const filteredVouchers = useMemo(() => {
+    const keyword = searchTerm.trim().toLowerCase()
+
+    return vouchers.filter((voucher) => {
+      const matchesScope =
+        activeScope === 'all' ||
+        voucher.scope === activeScope ||
+        (activeScope === 'active' && voucher.isActive) ||
+        (activeScope === 'inactive' && !voucher.isActive)
+      const haystack = `${voucher.code} ${voucher.title} ${voucher.scope} ${voucher.shopName}`.toLowerCase()
+      const matchesSearch = !keyword || haystack.includes(keyword)
+
+      return matchesScope && matchesSearch
+    })
+  }, [activeScope, searchTerm, vouchers])
+
+  function resetVoucherForm() {
+    setEditingVoucherId(null)
+    setVoucherForm(emptyVoucherForm)
+  }
+
+  function updateVoucherField(field, value) {
+    setVoucherForm((current) => {
+      const next = { ...current, [field]: value }
+      if (field === 'scope' && value === 'platform') next.shopId = ''
+      if (field === 'discountType' && value === 'free_shipping' && !next.discountValue) next.discountValue = '0'
+      return next
+    })
+  }
+
+  function editVoucher(voucher) {
+    setEditingVoucherId(voucher.id)
+    setVoucherForm({
+      code: voucher.code || '',
+      title: voucher.title || '',
+      scope: voucher.scope || 'platform',
+      shopId: voucher.shopId ? String(voucher.shopId) : '',
+      discountType: voucher.discountType || 'fixed',
+      discountValue: String(voucher.discountValue ?? ''),
+      maxDiscountAmount: voucher.maxDiscountAmount === '' ? '' : String(voucher.maxDiscountAmount ?? ''),
+      minOrderAmount: String(voucher.minOrderAmount ?? 0),
+      usageLimit: voucher.usageLimit === '' ? '' : String(voucher.usageLimit ?? ''),
+      perUserLimit: voucher.perUserLimit === '' ? '' : String(voucher.perUserLimit ?? ''),
+      startsAt: toDateTimeLocal(voucher.startsAt),
+      endsAt: toDateTimeLocal(voucher.endsAt),
+      isActive: Boolean(voucher.isActive),
+    })
+  }
+
+  async function handleVoucherSubmit(event) {
+    event.preventDefault()
+    setSavingVoucher(true)
+
+    const payload = {
+      ...voucherForm,
+      code: normalizeVoucherCodeInput(voucherForm.code),
+      shopId: voucherForm.scope === 'shop' ? voucherForm.shopId : null,
+    }
+
+    try {
+      const nextData = editingVoucherId
+        ? await updateAdminVoucher(editingVoucherId, payload)
+        : await createAdminVoucher(payload)
+      onPromotionsDataChange(nextData)
+      resetVoucherForm()
+      toast.success(editingVoucherId ? 'Da cap nhat voucher.' : 'Da tao voucher.')
+    } catch (err) {
+      toast.error(err.message || 'Khong luu duoc voucher.')
+    } finally {
+      setSavingVoucher(false)
+    }
+  }
+
+  async function handleToggleVoucher(voucher) {
+    setWorkingVoucherId(voucher.id)
+
+    try {
+      const nextData = await updateAdminVoucher(voucher.id, { isActive: !voucher.isActive })
+      onPromotionsDataChange(nextData)
+      toast.success('Da cap nhat trang thai voucher.')
+    } catch (err) {
+      toast.error(err.message || 'Khong cap nhat duoc voucher.')
+    } finally {
+      setWorkingVoucherId(null)
+    }
+  }
+
+  async function handleDeleteVoucher(voucher) {
+    if (!window.confirm(`Ban co chac muon xoa voucher ${voucher.code}?`)) return
+    setWorkingVoucherId(voucher.id)
+
+    try {
+      const nextData = await deleteAdminVoucher(voucher.id)
+      onPromotionsDataChange(nextData)
+      if (Number(editingVoucherId) === Number(voucher.id)) resetVoucherForm()
+      toast.success('Da xoa voucher.')
+    } catch (err) {
+      toast.error(err.message || 'Khong xoa duoc voucher.')
+    } finally {
+      setWorkingVoucherId(null)
+    }
+  }
+
+  async function handleFlashSaleSubmit(event) {
+    event.preventDefault()
+    setSavingFlashSale(true)
+    try {
+      const nextData = await createAdminFlashSale(flashSaleForm)
+      onFlashSalesDataChange(nextData)
+      setFlashSaleForm(emptyFlashSaleForm)
+      toast.success('Đã tạo khung giờ flash sale.')
+    } catch (err) {
+      toast.error(err.message || 'Không tạo được flash sale.')
+    } finally {
+      setSavingFlashSale(false)
+    }
+  }
+
+  async function handleToggleFlashSale(eventItem) {
+    try {
+      const nextData = await updateAdminFlashSale(eventItem.id, { isActive: !eventItem.isActive })
+      onFlashSalesDataChange(nextData)
+      toast.success('Đã cập nhật flash sale.')
+    } catch (err) {
+      toast.error(err.message || 'Không cập nhật được flash sale.')
+    }
+  }
+
+  async function handleReviewFlashSaleRegistration(item, action) {
+    const rejectReason = action === 'reject' ? window.prompt('Lý do từ chối đăng ký flash sale?', 'Giá hoặc số lượng chưa phù hợp') : ''
+    if (action === 'reject' && rejectReason === null) return
+    setWorkingRegistrationId(item.id)
+    try {
+      const nextData = await reviewAdminFlashSaleRegistration(item.id, { action, rejectReason })
+      onFlashSalesDataChange(nextData)
+      toast.success(action === 'approve' ? 'Đã duyệt sản phẩm flash sale.' : 'Đã từ chối đăng ký.')
+    } catch (err) {
+      toast.error(err.message || 'Không xử lý được đăng ký.')
+    } finally {
+      setWorkingRegistrationId(null)
+    }
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-[24px] font-bold leading-8 text-[#15110d]">Khuyen mai va voucher</h1>
+          <p className="mt-1 text-[12px] text-[#6b4d3e]">
+            Quan ly voucher san va voucher cua tung shop. Voucher shop se tru vao doanh thu shop, voucher san chi tru tong thanh toan cua khach.
+          </p>
+        </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <OverviewMetricCard stat={{ label: 'Tong voucher', value: formatCount(promotionsData?.stats?.total || 0), icon: 'local_offer', change: 'Tat ca', iconClass: 'bg-[#fff2df] text-[#d47b00]' }} />
+        <OverviewMetricCard stat={{ label: 'Dang bat', value: formatCount(promotionsData?.stats?.active || 0), icon: 'toggle_on', change: 'Active', iconClass: 'bg-[#e8fff5] text-[#047857]' }} />
+        <OverviewMetricCard stat={{ label: 'Voucher san', value: formatCount(promotionsData?.stats?.platform || 0), icon: 'store', change: 'Platform', iconClass: 'bg-[#e8f0ff] text-[#2f6bf2]' }} />
+        <OverviewMetricCard stat={{ label: 'Voucher shop', value: formatCount(promotionsData?.stats?.shop || 0), icon: 'storefront', change: 'Shop', iconClass: 'bg-[#f3e8ff] text-[#8c38d8]' }} />
+      </div>
+
+      <section className="rounded-lg border border-[#eaded2] bg-white p-4 shadow-[0_8px_24px_rgba(60,42,22,0.05)]">
+        <form className="grid gap-3 xl:grid-cols-4" onSubmit={handleVoucherSubmit}>
+          <label className="grid gap-1.5">
+            <span className="text-[11px] font-bold text-[#4b3527]">Ma voucher</span>
+            <input className="h-10 rounded-lg border-[#dfc8b5] bg-[#fbfaf9] text-[13px] uppercase text-[#1d1712] focus:border-[#c98225] focus:ring-0" value={voucherForm.code} onChange={(event) => updateVoucherField('code', normalizeVoucherCodeInput(event.target.value))} placeholder="SHOPBEE50" required />
+          </label>
+          <label className="grid gap-1.5 xl:col-span-2">
+            <span className="text-[11px] font-bold text-[#4b3527]">Ten chuong trinh</span>
+            <input className="h-10 rounded-lg border-[#dfc8b5] bg-[#fbfaf9] text-[13px] text-[#1d1712] focus:border-[#c98225] focus:ring-0" value={voucherForm.title} onChange={(event) => updateVoucherField('title', event.target.value)} placeholder="Giam gia khai truong" required />
+          </label>
+          <label className="grid gap-1.5">
+            <span className="text-[11px] font-bold text-[#4b3527]">Pham vi</span>
+            <select className="h-10 rounded-lg border-[#dfc8b5] bg-[#fbfaf9] text-[13px] text-[#1d1712] focus:border-[#c98225] focus:ring-0" value={voucherForm.scope} onChange={(event) => updateVoucherField('scope', event.target.value)}>
+              <option value="platform">Voucher san</option>
+              <option value="shop">Voucher cua hang</option>
+            </select>
+          </label>
+          {voucherForm.scope === 'shop' ? (
+            <label className="grid gap-1.5 xl:col-span-2">
+              <span className="text-[11px] font-bold text-[#4b3527]">Shop ap dung</span>
+              <select className="h-10 rounded-lg border-[#dfc8b5] bg-[#fbfaf9] text-[13px] text-[#1d1712] focus:border-[#c98225] focus:ring-0" value={voucherForm.shopId} onChange={(event) => updateVoucherField('shopId', event.target.value)} required>
+                <option value="">Chon shop</option>
+                {shops.map((shop) => (
+                  <option key={shop.id} value={shop.id}>{shop.name}</option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          <label className="grid gap-1.5">
+            <span className="text-[11px] font-bold text-[#4b3527]">Kieu giam</span>
+            <select className="h-10 rounded-lg border-[#dfc8b5] bg-[#fbfaf9] text-[13px] text-[#1d1712] focus:border-[#c98225] focus:ring-0" value={voucherForm.discountType} onChange={(event) => updateVoucherField('discountType', event.target.value)}>
+              <option value="fixed">Giam tien</option>
+              <option value="percent">Giam %</option>
+              <option value="free_shipping">Mien phi ship</option>
+            </select>
+          </label>
+          <label className="grid gap-1.5">
+            <span className="text-[11px] font-bold text-[#4b3527]">Gia tri</span>
+            <input className="h-10 rounded-lg border-[#dfc8b5] bg-[#fbfaf9] text-[13px] text-[#1d1712] focus:border-[#c98225] focus:ring-0" type="number" min="0" value={voucherForm.discountValue} onChange={(event) => updateVoucherField('discountValue', event.target.value)} placeholder={voucherForm.discountType === 'percent' ? '10' : '50000'} />
+          </label>
+          <label className="grid gap-1.5">
+            <span className="text-[11px] font-bold text-[#4b3527]">Giam toi da</span>
+            <input className="h-10 rounded-lg border-[#dfc8b5] bg-[#fbfaf9] text-[13px] text-[#1d1712] focus:border-[#c98225] focus:ring-0" type="number" min="0" value={voucherForm.maxDiscountAmount} onChange={(event) => updateVoucherField('maxDiscountAmount', event.target.value)} placeholder="Bo trong neu khong gioi han" />
+          </label>
+          <label className="grid gap-1.5">
+            <span className="text-[11px] font-bold text-[#4b3527]">Don toi thieu</span>
+            <input className="h-10 rounded-lg border-[#dfc8b5] bg-[#fbfaf9] text-[13px] text-[#1d1712] focus:border-[#c98225] focus:ring-0" type="number" min="0" value={voucherForm.minOrderAmount} onChange={(event) => updateVoucherField('minOrderAmount', event.target.value)} />
+          </label>
+          <label className="grid gap-1.5">
+            <span className="text-[11px] font-bold text-[#4b3527]">Tong luot</span>
+            <input className="h-10 rounded-lg border-[#dfc8b5] bg-[#fbfaf9] text-[13px] text-[#1d1712] focus:border-[#c98225] focus:ring-0" type="number" min="1" value={voucherForm.usageLimit} onChange={(event) => updateVoucherField('usageLimit', event.target.value)} />
+          </label>
+          <label className="grid gap-1.5">
+            <span className="text-[11px] font-bold text-[#4b3527]">Moi nguoi</span>
+            <input className="h-10 rounded-lg border-[#dfc8b5] bg-[#fbfaf9] text-[13px] text-[#1d1712] focus:border-[#c98225] focus:ring-0" type="number" min="1" value={voucherForm.perUserLimit} onChange={(event) => updateVoucherField('perUserLimit', event.target.value)} />
+          </label>
+          <label className="grid gap-1.5">
+            <span className="text-[11px] font-bold text-[#4b3527]">Bat dau</span>
+            <input className="h-10 rounded-lg border-[#dfc8b5] bg-[#fbfaf9] text-[13px] text-[#1d1712] focus:border-[#c98225] focus:ring-0" type="datetime-local" value={voucherForm.startsAt} onChange={(event) => updateVoucherField('startsAt', event.target.value)} />
+          </label>
+          <label className="grid gap-1.5">
+            <span className="text-[11px] font-bold text-[#4b3527]">Ket thuc</span>
+            <input className="h-10 rounded-lg border-[#dfc8b5] bg-[#fbfaf9] text-[13px] text-[#1d1712] focus:border-[#c98225] focus:ring-0" type="datetime-local" value={voucherForm.endsAt} onChange={(event) => updateVoucherField('endsAt', event.target.value)} />
+          </label>
+          <div className="flex items-end gap-2">
+            <label className="flex h-10 items-center gap-2 rounded-lg border border-[#dfc8b5] bg-[#fbfaf9] px-3 text-[12px] font-semibold text-[#4b3527]">
+              <input className="rounded border-[#dfc8b5] text-[#c57900] focus:ring-[#c57900]" type="checkbox" checked={voucherForm.isActive} onChange={(event) => updateVoucherField('isActive', event.target.checked)} />
+              Bat
+            </label>
+            <button className="h-10 rounded-lg bg-[#995900] px-4 text-[12px] font-bold text-white hover:bg-[#7b4600] disabled:opacity-60" type="submit" disabled={savingVoucher}>
+              {savingVoucher ? 'Dang luu...' : editingVoucherId ? 'Cap nhat' : 'Them'}
+            </button>
+            {editingVoucherId ? (
+              <button className="h-10 rounded-lg border border-[#bba795] px-3 text-[12px] font-bold text-[#4e3d31] hover:border-[#9a5700]" type="button" onClick={resetVoucherForm}>
+                Huy
+              </button>
+            ) : null}
+          </div>
+        </form>
+      </section>
+
+      <section className="overflow-hidden rounded-lg border border-[#eaded2] bg-white shadow-[0_8px_24px_rgba(60,42,22,0.05)]">
+        <div className="flex min-h-12 overflow-x-auto border-b border-[#eaded2]">
+          {scopeTabs.map((tab) => (
+            <button key={tab.value} className={`relative min-w-max px-5 text-[12px] font-medium transition-colors ${activeScope === tab.value ? 'text-[#a15d00]' : 'text-[#34261b] hover:text-[#a15d00]'}`} type="button" onClick={() => setActiveScope(tab.value)}>
+              {tab.label} ({formatCount(tab.count)})
+              {activeScope === tab.value ? <span className="absolute inset-x-0 bottom-0 h-px bg-[#a15d00]" /> : null}
+            </button>
+          ))}
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[1080px] border-collapse text-left">
+            <thead>
+              <tr className="h-12 bg-[#eeeeed] text-[10px] font-bold uppercase text-[#4b3527]">
+                <th className="px-4">Voucher</th>
+                <th className="px-4">Pham vi</th>
+                <th className="px-4">Giam gia</th>
+                <th className="px-4">Dieu kien</th>
+                <th className="px-4">Luot dung</th>
+                <th className="px-4">Thoi gian</th>
+                <th className="px-4">Trang thai</th>
+                <th className="px-4 text-center">Thao tac</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredVouchers.map((voucher) => {
+                const isWorking = workingVoucherId === voucher.id
+                return (
+                  <tr key={voucher.id} className="border-t border-[#f0e7df] text-[12px] text-[#17120e]">
+                    <td className="px-4 py-4">
+                      <p className="font-bold text-[#1d1712]">{voucher.code}</p>
+                      <p className="mt-0.5 text-[10px] text-[#7b6556]">{voucher.title}</p>
+                    </td>
+                    <td className="px-4 py-4">{voucher.scope === 'shop' ? voucher.shopName || `Shop #${voucher.shopId}` : 'Toan san'}</td>
+                    <td className="px-4 py-4 font-semibold">{voucherDiscountText(voucher)}</td>
+                    <td className="px-4 py-4">Tu {formatCurrency(voucher.minOrderAmount)}</td>
+                    <td className="px-4 py-4">{formatCount(voucher.usedCount)} / {voucher.usageLimit || '∞'}</td>
+                    <td className="px-4 py-4">
+                      <p>{voucher.startsAt ? formatDateTime(voucher.startsAt).date : 'Khong gioi han'}</p>
+                      <p className="text-[10px] text-[#6e5c51]">{voucher.endsAt ? `den ${formatDateTime(voucher.endsAt).date}` : ''}</p>
+                    </td>
+                    <td className="px-4 py-4">
+                      <span className={`inline-flex rounded-full px-2 py-1 text-[10px] font-bold ${voucher.isActive ? 'bg-[#d9f7df] text-[#087c32]' : 'bg-[#ffdcd6] text-[#b42318]'}`}>
+                        {voucher.isActive ? 'Dang bat' : 'Tam tat'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="flex justify-center gap-1">
+                        <IconButton icon="edit" label="Sua voucher" disabled={isWorking} onClick={() => editVoucher(voucher)} />
+                        <IconButton icon={voucher.isActive ? 'toggle_off' : 'toggle_on'} label={voucher.isActive ? 'Tat voucher' : 'Bat voucher'} disabled={isWorking} onClick={() => handleToggleVoucher(voucher)} />
+                        <IconButton icon="delete" label="Xoa voucher" disabled={isWorking} onClick={() => handleDeleteVoucher(voucher)} />
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+        {!filteredVouchers.length ? (
+          <div className="border-t border-[#f0e7df] px-4 py-10 text-center text-[13px] text-[#6e5c51]">
+            Khong tim thay voucher phu hop.
+          </div>
+        ) : null}
+      </section>
+
+      <AdminFlashSalesPanel
+        flashSalesData={flashSalesData}
+        flashSaleForm={flashSaleForm}
+        flashSaleEvents={flashSaleEvents}
+        flashSaleRegistrations={flashSaleRegistrations}
+        savingFlashSale={savingFlashSale}
+        workingRegistrationId={workingRegistrationId}
+        onFlashSaleFormChange={setFlashSaleForm}
+        onFlashSaleSubmit={handleFlashSaleSubmit}
+        onToggleFlashSale={handleToggleFlashSale}
+        onReviewFlashSaleRegistration={handleReviewFlashSaleRegistration}
+      />
+    </div>
+  )
+}
+
 export function UsersDashboard({ searchTerm, usersData, currentUserId, onUsersDataChange }) {
   const [activeRole, setActiveRole] = useState('all')
   const [updatingUserId, setUpdatingUserId] = useState(null)
@@ -1717,4 +2485,3 @@ export function OrdersDashboard({ searchTerm, dashboardData }) {
     </div>
   )
 }
-

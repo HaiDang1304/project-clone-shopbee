@@ -15,18 +15,18 @@ export default function ProductShellHeader() {
             ShopBee
           </Link>
           <div className="hidden md:flex gap-6 items-center">
-            <a className="text-on-surface-variant dark:text-secondary-fixed-dim font-label-md text-label-md hover:text-primary transition-colors duration-200" href="#category-dien-tu">
+            <Link className="text-on-surface-variant dark:text-secondary-fixed-dim font-label-md text-label-md hover:text-primary transition-colors duration-200" to="/category/dien-tu">
               Điện tử
-            </a>
-            <a className="text-on-surface-variant dark:text-secondary-fixed-dim font-label-md text-label-md hover:text-primary transition-colors duration-200" href="#category-thoi-trang">
+            </Link>
+            <Link className="text-on-surface-variant dark:text-secondary-fixed-dim font-label-md text-label-md hover:text-primary transition-colors duration-200" to="/category/thoi-trang">
               Thời trang
-            </a>
-            <a className="text-on-surface-variant dark:text-secondary-fixed-dim font-label-md text-label-md hover:text-primary transition-colors duration-200" href="#category-gia-dung">
+            </Link>
+            <Link className="text-on-surface-variant dark:text-secondary-fixed-dim font-label-md text-label-md hover:text-primary transition-colors duration-200" to="/category/gia-dung">
               Gia dụng
-            </a>
-            <a className="text-on-surface-variant dark:text-secondary-fixed-dim font-label-md text-label-md hover:text-primary transition-colors duration-200" href="#category-lam-dep">
+            </Link>
+            <Link className="text-on-surface-variant dark:text-secondary-fixed-dim font-label-md text-label-md hover:text-primary transition-colors duration-200" to="/category/lam-dep">
               Làm đẹp
-            </a>
+            </Link>
           </div>
         </div>
 

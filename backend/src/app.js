@@ -10,6 +10,7 @@ const chatboxRoutes = require('./routes/chatbox')
 const categoryRoutes = require('./routes/categories')
 const orderRoutes = require('./routes/orders')
 const productRoutes = require('./routes/products')
+const voucherRoutes = require('./routes/vouchers')
 const { errorHandler, notFoundHandler } = require('./middleware/error')
 
 function parseCorsOrigin() {
@@ -43,6 +44,7 @@ function createApp() {
   app.use('/api/products', productRoutes)
   app.use('/api/cart', cartRoutes)
   app.use('/api/orders', orderRoutes)
+  app.use('/api/vouchers', voucherRoutes)
 
   app.use(notFoundHandler)
   app.use(errorHandler)

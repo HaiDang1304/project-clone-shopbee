@@ -9,6 +9,7 @@ import {
   getAccountLocations,
   getAccountProfile,
   getAdminSellerApplications,
+  getSellerFlashSales,
   getSellerDashboard,
   getSellerRegistration,
   reviewSellerApplication,
@@ -38,6 +39,7 @@ import {
 import {
   AdminApplicationsPanel,
   SellerCenterShell,
+  SellerFlashSalesPanel,
   SellerOrdersPanel,
   SellerOverview,
   SellerProductsPanel,
@@ -54,6 +56,7 @@ export default function SellerChannelPage({ standalone = false }) {
   const [loadError, setLoadError] = useState('')
   const [sellerData, setSellerData] = useState({ application: null, shop: null })
   const [sellerDashboard, setSellerDashboard] = useState({ shop: null, stats: {}, revenueTrend: [], products: [], orders: [] })
+  const [sellerFlashSales, setSellerFlashSales] = useState({ events: [], registrations: [] })
   const [revenueFilter, setRevenueFilter] = useState(defaultRevenueFilter)
   const [shopForm, setShopForm] = useState(emptyShopForm)
   const [sellerSaving, setSellerSaving] = useState(false)
@@ -108,6 +111,9 @@ export default function SellerChannelPage({ standalone = false }) {
 
         if (sellerResponse.data?.shop) {
           dashboardData = await getSellerDashboard(revenueFilterParams(defaultRevenueFilter))
+          const flashSalesData = await getSellerFlashSales()
+          if (!active) return
+          setSellerFlashSales(flashSalesData)
         }
 
         if (profileData?.role === 'admin') {
@@ -369,6 +375,11 @@ export default function SellerChannelPage({ standalone = false }) {
   async function refreshSellerDashboard() {
     const data = await getSellerDashboard(revenueFilterParams(revenueFilter))
     applySellerDashboard(data)
+  }
+
+  async function refreshSellerFlashSales() {
+    const data = await getSellerFlashSales()
+    setSellerFlashSales(data)
   }
 
   async function handleRevenueFilterChange(nextFilter, options = {}) {
@@ -656,6 +667,15 @@ export default function SellerChannelPage({ standalone = false }) {
                 handleToggleProduct={handleToggleProduct}
                 handleDeleteProduct={handleDeleteProduct}
                 resetProductForm={resetProductForm}
+              />
+            ) : null}
+
+            {activeSellerTab === 'flash-sales' ? (
+              <SellerFlashSalesPanel
+                events={sellerFlashSales.events}
+                registrations={sellerFlashSales.registrations}
+                products={products}
+                onRegistered={refreshSellerFlashSales}
               />
             ) : null}
 

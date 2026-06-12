@@ -36,6 +36,7 @@ export default function Header() {
   const { cartCount } = useCart()
   const [authUser, setAuthUser] = useState(() => getAuthUser())
   const [notifications, setNotifications] = useState(emptyNotifications)
+  const [searchTerm, setSearchTerm] = useState('')
   const [notificationOpen, setNotificationOpen] = useState(false)
   const [loadingNotifications, setLoadingNotifications] = useState(false)
   const [reviewRequest, setReviewRequest] = useState(null)
@@ -148,6 +149,12 @@ export default function Header() {
     }
   }
 
+  function handleSearchSubmit(event) {
+    event.preventDefault()
+    const keyword = searchTerm.trim()
+    navigate(keyword ? `/search?q=${encodeURIComponent(keyword)}` : '/search')
+  }
+
   return (
     <>
       <header className="fixed top-0 left-0 w-full z-50 bg-surface shadow-[0px_4px_20px_rgba(0,0,0,0.05)] h-16 flex items-center">
@@ -156,20 +163,22 @@ export default function Header() {
           <Link to="/" aria-label="Trang chủ">
             <img src="/logo_shop_remote.png" alt="ShopBee" className="h-20 w-auto" />
           </Link>
-          <div className="hidden md:flex flex-1 max-w-xl relative">
+          <form className="hidden md:flex flex-1 max-w-xl relative" onSubmit={handleSearchSubmit}>
             <input
               className="w-full h-10 pl-4 pr-12 rounded-lg border border-outline-variant bg-surface-container-low focus:border-primary focus:ring-0 text-body-md"
-              placeholder="Tìm kiếm sản phẩm, thương hiệu..."
+              placeholder="Tìm kiếm sản phẩm, shop..."
               type="text"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
             />
             <button
               className="absolute right-2 top-1/2 -translate-y-1/2 text-primary"
-              type="button"
+              type="submit"
               aria-label="Tìm kiếm"
             >
               <span className="material-symbols-outlined">search</span>
             </button>
-          </div>
+          </form>
           </div>
 
           <nav className="hidden lg:flex items-center gap-6 px-8">
@@ -179,18 +188,18 @@ export default function Header() {
           >
             Trang chủ
           </Link>
-          <a className="text-on-surface-variant hover:text-primary transition-colors duration-200 font-label-md text-label-md" href="#category-thoi-trang">
+          <Link className="text-on-surface-variant hover:text-primary transition-colors duration-200 font-label-md text-label-md" to="/category/thoi-trang">
             Thời trang
-          </a>
-          <a className="text-on-surface-variant hover:text-primary transition-colors duration-200 font-label-md text-label-md" href="#category-gia-dung">
+          </Link>
+          <Link className="text-on-surface-variant hover:text-primary transition-colors duration-200 font-label-md text-label-md" to="/category/gia-dung">
             Gia dụng
-          </a>
-          <a className="text-on-surface-variant hover:text-primary transition-colors duration-200 font-label-md text-label-md" href="#category-lam-dep">
+          </Link>
+          <Link className="text-on-surface-variant hover:text-primary transition-colors duration-200 font-label-md text-label-md" to="/category/lam-dep">
             Làm đẹp
-          </a>
-          <a className="text-on-surface-variant hover:text-primary transition-colors duration-200 font-label-md text-label-md" href="#category-suc-khoe">
-            Sức khỏe
-          </a>
+          </Link>
+          <Link className="text-on-surface-variant hover:text-primary transition-colors duration-200 font-label-md text-label-md" to="/vouchers">
+            Voucher
+          </Link>
           </nav>
 
           <div className="flex items-center gap-4">

@@ -3,6 +3,7 @@ const crypto = require('crypto')
 const { query, transaction } = require('../../config/db')
 const { asyncHandler } = require('../../middleware/error')
 const { buildDailyRevenueTrend, normalizeRevenueRange } = require('../../utils/revenue-range')
+const { normalizeVoucherCode } = require('../../services/voucher.service')
 
 const allowedApplicationStatuses = new Set(['pending', 'approved', 'rejected'])
 const dashboardOrderStatuses = ['payment_pending', 'pending', 'paid', 'processing', 'shipping', 'delivered', 'cancelled', 'refunded', 'payment_expired']
@@ -227,6 +228,162 @@ function toAdminReview(row) {
       slug: row.shop_slug || '',
     },
   }
+}
+
+function toAdminVoucher(row) {
+  return {
+    id: row.id,
+    code: row.code,
+    title: row.title,
+    scope: row.scope,
+    shopId: row.shop_id == null ? null : Number(row.shop_id),
+    shopName: row.shop_name || '',
+    discountType: row.discount_type,
+    discountValue: Number(row.discount_value || 0),
+    maxDiscountAmount: row.max_discount_amount == null ? '' : Number(row.max_discount_amount),
+    minOrderAmount: Number(row.min_order_amount || 0),
+    usageLimit: row.usage_limit == null ? '' : Number(row.usage_limit),
+    perUserLimit: row.per_user_limit == null ? '' : Number(row.per_user_limit),
+    usedCount: Number(row.used_count || 0),
+    startsAt: row.starts_at || '',
+    endsAt: row.ends_at || '',
+    isActive: Boolean(row.is_active),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
+}
+
+function toNullablePositiveNumber(value, fieldName) {
+  if (value === undefined || value === null || value === '') return null
+  const numberValue = Number(value)
+  if (!Number.isFinite(numberValue) || numberValue < 0) {
+    const err = new Error(`${fieldName} khong hop le`)
+    err.status = 400
+    throw err
+  }
+  return numberValue
+}
+
+function toNullablePositiveInteger(value, fieldName) {
+  if (value === undefined || value === null || value === '') return null
+  const numberValue = Number(value)
+  if (!Number.isSafeInteger(numberValue) || numberValue <= 0) {
+    const err = new Error(`${fieldName} khong hop le`)
+    err.status = 400
+    throw err
+  }
+  return numberValue
+}
+
+function normalizeDateTimeInput(value) {
+  if (!value) return null
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    const err = new Error('Thoi gian voucher khong hop le')
+    err.status = 400
+    throw err
+  }
+  return date
+}
+
+function normalizeVoucherPayload(body, { partial = false } = {}) {
+  const payload = {}
+
+  if (!partial || body.code !== undefined) {
+    const code = normalizeVoucherCode(body.code)
+    if (!/^[A-Z0-9_-]{3,40}$/.test(code)) {
+      const err = new Error('Ma voucher phai tu 3 den 40 ky tu, chi gom chu, so, _ hoac -')
+      err.status = 400
+      throw err
+    }
+    payload.code = code
+  }
+
+  if (!partial || body.title !== undefined) {
+    const title = String(body.title || '').trim()
+    if (!title || title.length > 160) {
+      const err = new Error('Ten chuong trinh voucher khong hop le')
+      err.status = 400
+      throw err
+    }
+    payload.title = title
+  }
+
+  if (!partial || body.scope !== undefined) {
+    const scope = ['platform', 'shop'].includes(body.scope) ? body.scope : ''
+    if (!scope) {
+      const err = new Error('Pham vi voucher khong hop le')
+      err.status = 400
+      throw err
+    }
+    payload.scope = scope
+  }
+
+  if (!partial || body.shopId !== undefined || payload.scope === 'shop') {
+    const shopId = body.shopId === undefined || body.shopId === null || body.shopId === '' ? null : Number(body.shopId)
+    if (shopId !== null && (!Number.isSafeInteger(shopId) || shopId <= 0)) {
+      const err = new Error('Cua hang ap dung voucher khong hop le')
+      err.status = 400
+      throw err
+    }
+    payload.shopId = shopId
+  }
+
+  if (!partial || body.discountType !== undefined) {
+    const discountType = ['percent', 'fixed', 'free_shipping'].includes(body.discountType) ? body.discountType : ''
+    if (!discountType) {
+      const err = new Error('Kieu giam gia khong hop le')
+      err.status = 400
+      throw err
+    }
+    payload.discountType = discountType
+  }
+
+  if (!partial || body.discountValue !== undefined) {
+    const discountValue = Number(body.discountValue || 0)
+    if (!Number.isFinite(discountValue) || discountValue < 0 || discountValue > 100000000) {
+      const err = new Error('Gia tri giam gia khong hop le')
+      err.status = 400
+      throw err
+    }
+    payload.discountValue = discountValue
+  }
+
+  if (!partial || body.maxDiscountAmount !== undefined) {
+    payload.maxDiscountAmount = toNullablePositiveNumber(body.maxDiscountAmount, 'Muc giam toi da')
+  }
+  if (!partial || body.minOrderAmount !== undefined) {
+    payload.minOrderAmount = Number(body.minOrderAmount || 0)
+    if (!Number.isFinite(payload.minOrderAmount) || payload.minOrderAmount < 0) {
+      const err = new Error('Gia tri don toi thieu khong hop le')
+      err.status = 400
+      throw err
+    }
+  }
+  if (!partial || body.usageLimit !== undefined) payload.usageLimit = toNullablePositiveInteger(body.usageLimit, 'Tong luot dung')
+  if (!partial || body.perUserLimit !== undefined) payload.perUserLimit = toNullablePositiveInteger(body.perUserLimit, 'Luot dung moi nguoi')
+  if (!partial || body.startsAt !== undefined) payload.startsAt = normalizeDateTimeInput(body.startsAt)
+  if (!partial || body.endsAt !== undefined) payload.endsAt = normalizeDateTimeInput(body.endsAt)
+  if (!partial || body.isActive !== undefined) payload.isActive = body.isActive === undefined ? true : Boolean(body.isActive)
+
+  if ((payload.scope || body.scope) === 'shop' && !payload.shopId && !partial) {
+    const err = new Error('Voucher cua hang phai chon shop ap dung')
+    err.status = 400
+    throw err
+  }
+  if ((payload.scope || body.scope) === 'platform') payload.shopId = null
+  if ((payload.discountType || body.discountType) === 'percent' && payload.discountValue > 100) {
+    const err = new Error('Voucher phan tram khong duoc vuot qua 100%')
+    err.status = 400
+    throw err
+  }
+  if (payload.startsAt && payload.endsAt && payload.startsAt > payload.endsAt) {
+    const err = new Error('Thoi gian bat dau khong duoc lon hon thoi gian ket thuc')
+    err.status = 400
+    throw err
+  }
+
+  return payload
 }
 
 function normalizeCategoryPayload(body, { partial = false } = {}) {
@@ -561,6 +718,167 @@ async function deleteAdminReview(reviewId) {
   })
 
   return readAdminReviewsData()
+}
+
+async function readAdminVouchersData() {
+  const [voucherRows, shopRows] = await Promise.all([
+    query(
+      `SELECT v.*, s.name AS shop_name
+       FROM vouchers v
+       LEFT JOIN shops s ON s.id = v.shop_id
+       ORDER BY v.created_at DESC, v.id DESC
+       LIMIT 300`,
+    ),
+    query('SELECT id, name, slug FROM shops ORDER BY name ASC LIMIT 300'),
+  ])
+  const items = voucherRows.map(toAdminVoucher)
+  const stats = {
+    total: items.length,
+    active: items.filter((voucher) => voucher.isActive).length,
+    inactive: items.filter((voucher) => !voucher.isActive).length,
+    platform: items.filter((voucher) => voucher.scope === 'platform').length,
+    shop: items.filter((voucher) => voucher.scope === 'shop').length,
+  }
+
+  return {
+    stats,
+    shops: shopRows.map((shop) => ({ id: shop.id, name: shop.name, slug: shop.slug })),
+    items,
+  }
+}
+
+async function assertVoucherShop(shopId) {
+  if (!shopId) return
+  const rows = await query('SELECT id FROM shops WHERE id = ? LIMIT 1', [shopId])
+  if (!rows.length) {
+    const err = new Error('Khong tim thay shop ap dung voucher')
+    err.status = 400
+    throw err
+  }
+}
+
+function voucherDateParam(value) {
+  return value ? new Date(value) : null
+}
+
+async function createAdminVoucher(body) {
+  const payload = normalizeVoucherPayload(body)
+  await assertVoucherShop(payload.shopId)
+
+  try {
+    await query(
+      `INSERT INTO vouchers
+         (code, title, scope, shop_id, discount_type, discount_value, max_discount_amount,
+          min_order_amount, usage_limit, per_user_limit, starts_at, ends_at, is_active)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        payload.code,
+        payload.title,
+        payload.scope,
+        payload.shopId,
+        payload.discountType,
+        payload.discountValue,
+        payload.maxDiscountAmount,
+        payload.minOrderAmount,
+        payload.usageLimit,
+        payload.perUserLimit,
+        voucherDateParam(payload.startsAt),
+        voucherDateParam(payload.endsAt),
+        payload.isActive ? 1 : 0,
+      ],
+    )
+  } catch (err) {
+    if (err.code === 'ER_DUP_ENTRY') {
+      err.status = 409
+      err.message = 'Ma voucher da ton tai'
+    }
+    throw err
+  }
+
+  return readAdminVouchersData()
+}
+
+async function updateAdminVoucher(voucherId, body) {
+  const id = Number(voucherId)
+  if (!Number.isSafeInteger(id) || id <= 0) {
+    const err = new Error('Voucher khong hop le')
+    err.status = 400
+    throw err
+  }
+
+  const existing = await query('SELECT * FROM vouchers WHERE id = ? LIMIT 1', [id])
+  const current = existing[0]
+  if (!current) {
+    const err = new Error('Khong tim thay voucher')
+    err.status = 404
+    throw err
+  }
+
+  const payload = normalizeVoucherPayload(body, { partial: true })
+  const nextScope = payload.scope || current.scope
+  const nextShopId = payload.shopId !== undefined ? payload.shopId : current.shop_id
+  if (nextScope === 'shop' && !nextShopId) {
+    const err = new Error('Voucher cua hang phai chon shop ap dung')
+    err.status = 400
+    throw err
+  }
+  await assertVoucherShop(nextScope === 'platform' ? null : nextShopId)
+
+  const fields = []
+  const params = []
+  const fieldMap = {
+    code: 'code',
+    title: 'title',
+    scope: 'scope',
+    shopId: 'shop_id',
+    discountType: 'discount_type',
+    discountValue: 'discount_value',
+    maxDiscountAmount: 'max_discount_amount',
+    minOrderAmount: 'min_order_amount',
+    usageLimit: 'usage_limit',
+    perUserLimit: 'per_user_limit',
+    startsAt: 'starts_at',
+    endsAt: 'ends_at',
+    isActive: 'is_active',
+  }
+
+  Object.entries(fieldMap).forEach(([key, column]) => {
+    if (payload[key] === undefined) return
+    fields.push(`${column} = ?`)
+    if (key === 'startsAt' || key === 'endsAt') params.push(voucherDateParam(payload[key]))
+    else if (key === 'isActive') params.push(payload[key] ? 1 : 0)
+    else params.push(payload[key])
+  })
+  if (payload.scope === 'platform') {
+    fields.push('shop_id = ?')
+    params.push(null)
+  }
+
+  if (!fields.length) return readAdminVouchersData()
+
+  try {
+    await query(`UPDATE vouchers SET ${fields.join(', ')}, updated_at = NOW() WHERE id = ?`, [...params, id])
+  } catch (err) {
+    if (err.code === 'ER_DUP_ENTRY') {
+      err.status = 409
+      err.message = 'Ma voucher da ton tai'
+    }
+    throw err
+  }
+
+  return readAdminVouchersData()
+}
+
+async function deleteAdminVoucher(voucherId) {
+  const id = Number(voucherId)
+  if (!Number.isSafeInteger(id) || id <= 0) {
+    const err = new Error('Voucher khong hop le')
+    err.status = 400
+    throw err
+  }
+
+  await query('DELETE FROM vouchers WHERE id = ?', [id])
+  return readAdminVouchersData()
 }
 
 function toDashboardNotification(row) {
@@ -960,15 +1278,19 @@ module.exports = {
   asyncHandler,
   allowedUserRoles,
   createAdminCategory,
+  createAdminVoucher,
   deleteAdminCategory,
   deleteAdminReview,
+  deleteAdminVoucher,
   readAdminCategoriesData,
   readAdminReviewsData,
+  readAdminVouchersData,
   readAdminShopsData,
   readAdminUsersData,
   readDashboardData,
   updateAdminReview,
   updateAdminCategory,
+  updateAdminVoucher,
   makeUniqueShopSlug,
   readApplications,
 }

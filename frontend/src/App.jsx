@@ -6,10 +6,13 @@ import FloatingChatButton from './components/FloatingChatButton/FloatingChatButt
 import { CartProvider } from './context/CartContext'
 import AdminDashboardPage from './pages/Admin/AdminDashboardPage'
 import CartPage from './pages/Cart/CartPage'
+import CategoryPage from './pages/Category/CategoryPage'
 import CheckoutPage from './pages/Checkout/CheckoutPage'
 import HomePage from './pages/Home/HomePage'
 import OrderSuccessPage from './pages/Checkout/OrderSuccessPage'
 import ProductDetailPage from './pages/ProductDetail/ProductDetailPage'
+import SearchPage from './pages/Search/SearchPage'
+import VoucherCenterPage from './pages/Vouchers/VoucherCenterPage'
 import AddressesPage from './pages/Account/AddressesPage'
 import BankCardsPage from './pages/Account/BankCardsPage'
 import ChangePasswordPage from './pages/Account/ChangePasswordPage'
@@ -55,6 +58,9 @@ export default function App() {
 						<Route path="/admin/dashboard" element={<AdminDashboardPage />} />
 						<Route path="/product" element={<ProductDetailPage />} />
 						<Route path="/product/:slug" element={<ProductDetailPage />} />
+						<Route path="/category/:slug" element={<CategoryPage />} />
+						<Route path="/search" element={<SearchPage />} />
+						<Route path="/vouchers" element={<VoucherCenterPage />} />
 						<Route path="/cart" element={<CartPage />} />
 						<Route path="/checkout" element={<CheckoutPage />} />
 						<Route path="/order-success" element={<OrderSuccessPage />} />

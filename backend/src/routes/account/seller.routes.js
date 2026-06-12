@@ -144,6 +144,122 @@ function registerSellerRoutes(router, context) {
     }),
   )
 
+  router.get(
+    '/seller/flash-sales',
+    asyncHandler(async (req, res) => {
+      const userId = Number(req.user.sub)
+      const shop = await readSellerShop(userId)
+      if (!shop) return res.status(403).json({ ok: false, message: 'Cua hang chua duoc admin duyet' })
+
+      const [events, registrations] = await Promise.all([
+        query(
+          `SELECT id, name, description, starts_at AS startsAt, ends_at AS endsAt,
+                  registration_starts_at AS registrationStartsAt,
+                  registration_ends_at AS registrationEndsAt,
+                  is_active AS isActive
+           FROM flash_sale_events
+           WHERE is_active = 1 AND ends_at >= NOW()
+           ORDER BY starts_at ASC
+           LIMIT 50`,
+        ),
+        query(
+          `SELECT r.id, r.event_id AS eventId, r.product_id AS productId, r.sale_price AS salePrice,
+                  r.registered_stock AS registeredStock, r.sold_count AS soldCount, r.status,
+                  r.reject_reason AS rejectReason, r.created_at AS createdAt,
+                  e.name AS eventName, e.starts_at AS startsAt, e.ends_at AS endsAt,
+                  p.name AS productName, p.price AS productPrice, p.stock AS productStock,
+                  p.thumbnail_url AS thumbnailUrl
+           FROM flash_sale_registrations r
+           JOIN flash_sale_events e ON e.id = r.event_id
+           JOIN products p ON p.id = r.product_id
+           WHERE r.shop_id = ?
+           ORDER BY r.created_at DESC
+           LIMIT 100`,
+          [shop.id],
+        ),
+      ])
+
+      return res.json({
+        ok: true,
+        data: {
+          events: events.map((event) => ({
+            ...event,
+            isActive: Boolean(event.isActive),
+            registrationOpen:
+              Boolean(event.isActive) &&
+              (!event.registrationStartsAt || new Date(event.registrationStartsAt) <= new Date()) &&
+              (!event.registrationEndsAt || new Date(event.registrationEndsAt) >= new Date()),
+          })),
+          registrations: registrations.map((item) => ({
+            ...item,
+            salePrice: Number(item.salePrice || 0),
+            registeredStock: Number(item.registeredStock || 0),
+            soldCount: Number(item.soldCount || 0),
+            productPrice: Number(item.productPrice || 0),
+            productStock: Number(item.productStock || 0),
+          })),
+        },
+      })
+    }),
+  )
+
+  router.post(
+    '/seller/flash-sales/register',
+    asyncHandler(async (req, res) => {
+      const userId = Number(req.user.sub)
+      const shop = await readSellerShop(userId)
+      if (!shop) return res.status(403).json({ ok: false, message: 'Cua hang chua duoc admin duyet' })
+
+      const eventId = Number(req.body?.eventId)
+      const productId = Number(req.body?.productId)
+      const salePrice = Number(req.body?.salePrice)
+      const registeredStock = Number(req.body?.registeredStock)
+      if (!Number.isSafeInteger(eventId) || eventId <= 0) return res.status(400).json({ ok: false, message: 'Flash sale khong hop le' })
+      if (!Number.isSafeInteger(productId) || productId <= 0) return res.status(400).json({ ok: false, message: 'San pham khong hop le' })
+      if (!Number.isFinite(salePrice) || salePrice <= 0) return res.status(400).json({ ok: false, message: 'Gia flash sale khong hop le' })
+      if (!Number.isSafeInteger(registeredStock) || registeredStock <= 0) return res.status(400).json({ ok: false, message: 'So luong dang ky khong hop le' })
+
+      const [eventRows, productRows] = await Promise.all([
+        query(
+          `SELECT id, registration_starts_at, registration_ends_at, starts_at, ends_at, is_active
+           FROM flash_sale_events
+           WHERE id = ? LIMIT 1`,
+          [eventId],
+        ),
+        query(
+          `SELECT id, shop_id, name, price, stock, status, is_active
+           FROM products
+           WHERE id = ? AND shop_id = ?
+           LIMIT 1`,
+          [productId, shop.id],
+        ),
+      ])
+      const event = eventRows[0]
+      const product = productRows[0]
+      const now = new Date()
+      if (!event || Number(event.is_active) !== 1 || new Date(event.ends_at) < now) return res.status(400).json({ ok: false, message: 'Flash sale khong kha dung' })
+      if (event.registration_starts_at && new Date(event.registration_starts_at) > now) return res.status(400).json({ ok: false, message: 'Chua den thoi gian dang ky' })
+      if (event.registration_ends_at && new Date(event.registration_ends_at) < now) return res.status(400).json({ ok: false, message: 'Da het thoi gian dang ky' })
+      if (!product || product.status !== 'active' || Number(product.is_active) !== 1) return res.status(400).json({ ok: false, message: 'San pham khong du dieu kien dang ky' })
+      if (salePrice >= Number(product.price || 0)) return res.status(400).json({ ok: false, message: 'Gia flash sale phai thap hon gia ban hien tai' })
+      if (registeredStock > Number(product.stock || 0)) return res.status(400).json({ ok: false, message: 'So luong dang ky vuot qua ton kho' })
+
+      await query(
+        `INSERT INTO flash_sale_registrations (event_id, shop_id, product_id, sale_price, registered_stock, status)
+         VALUES (?, ?, ?, ?, ?, 'pending')
+         ON DUPLICATE KEY UPDATE
+           sale_price = VALUES(sale_price),
+           registered_stock = VALUES(registered_stock),
+           status = IF(status = 'approved', status, 'pending'),
+           reject_reason = NULL,
+           updated_at = NOW()`,
+        [eventId, shop.id, productId, salePrice, registeredStock],
+      )
+
+      return res.status(201).json({ ok: true, message: 'Da gui dang ky flash sale' })
+    }),
+  )
+
   router.patch(
     '/seller/shop',
     asyncHandler(async (req, res) => {
