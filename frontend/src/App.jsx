@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { BrowserRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { ToastContainer } from 'react-toastify'
 
@@ -13,6 +14,7 @@ import OrderSuccessPage from './pages/Checkout/OrderSuccessPage'
 import ProductDetailPage from './pages/ProductDetail/ProductDetailPage'
 import SearchPage from './pages/Search/SearchPage'
 import VoucherCenterPage from './pages/Vouchers/VoucherCenterPage'
+import LoadingPage from './pages/Loading/LoadingPage'
 import AddressesPage from './pages/Account/AddressesPage'
 import BankCardsPage from './pages/Account/BankCardsPage'
 import ChangePasswordPage from './pages/Account/ChangePasswordPage'
@@ -47,11 +49,34 @@ function ChatboxGate() {
 	return hiddenOnDashboard ? null : <FloatingChatButton />
 }
 
+function TimedLoadingOverlay() {
+	const [loading, setLoading] = useState(true)
+
+	useEffect(() => {
+		const timer = window.setTimeout(() => {
+			setLoading(false)
+		}, 650)
+
+		return () => window.clearTimeout(timer)
+	}, [])
+
+	return loading ? <LoadingPage text="Đang mở ShopBee..." /> : null
+}
+
+function RouteLoadingOverlay() {
+	const location = useLocation()
+	const pathSegments = location.pathname.split('/').filter(Boolean)
+	const routeGroupKey = pathSegments[0] || '/'
+
+	return <TimedLoadingOverlay key={routeGroupKey} />
+}
+
 export default function App() {
 	return (
 		<>
 			<BrowserRouter>
 				<CartProvider>
+					<RouteLoadingOverlay />
 					<Routes>
 						<Route path="/" element={<HomePage />} />
 						<Route path="/admin" element={<AdminDashboardPage />} />
