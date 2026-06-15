@@ -8,6 +8,8 @@ const router = express.Router()
 
 router.use(requireAuth)
 
+const mysqlDateTimeFormat = '%Y-%m-%dT%H:%i:%s'
+
 function mapConversation(row) {
   return {
     id: Number(row.id),
@@ -49,7 +51,8 @@ async function getConversationForUser(conversationId, userId) {
        cu.name AS customer_name,
        cu.avatar_url AS customer_avatar_url,
        p.name AS product_name,
-       p.slug AS product_slug
+       p.slug AS product_slug,
+       DATE_FORMAT(sc.last_message_at, '${mysqlDateTimeFormat}') AS last_message_at
      FROM shop_conversations sc
      JOIN shops s ON s.id = sc.shop_id
      JOIN users cu ON cu.id = sc.customer_id
@@ -76,7 +79,8 @@ router.get(
          cu.avatar_url AS customer_avatar_url,
          p.name AS product_name,
          p.slug AS product_slug,
-         lm.message AS last_message
+         lm.message AS last_message,
+         DATE_FORMAT(sc.last_message_at, '${mysqlDateTimeFormat}') AS last_message_at
        FROM shop_conversations sc
        JOIN shops s ON s.id = sc.shop_id
        JOIN users cu ON cu.id = sc.customer_id
@@ -155,7 +159,7 @@ router.post(
 
     const conversation = await getConversationForUser(result, customerId)
     const messages = await query(
-      `SELECT sm.*, u.name AS sender_name
+      `SELECT sm.*, u.name AS sender_name, DATE_FORMAT(sm.created_at, '${mysqlDateTimeFormat}') AS created_at
        FROM shop_messages sm
        JOIN users u ON u.id = sm.sender_id
        WHERE sm.conversation_id = ?
@@ -184,7 +188,7 @@ router.get(
     if (!conversation) return res.status(404).json({ ok: false, message: 'Không tìm thấy cuộc trò chuyện' })
 
     const messages = await query(
-      `SELECT sm.*, u.name AS sender_name
+      `SELECT sm.*, u.name AS sender_name, DATE_FORMAT(sm.created_at, '${mysqlDateTimeFormat}') AS created_at
        FROM shop_messages sm
        JOIN users u ON u.id = sm.sender_id
        WHERE sm.conversation_id = ?
@@ -223,7 +227,7 @@ router.post(
     await query('UPDATE shop_conversations SET last_message_at = NOW() WHERE id = ?', [conversationId])
 
     const rows = await query(
-      `SELECT sm.*, u.name AS sender_name
+      `SELECT sm.*, u.name AS sender_name, DATE_FORMAT(sm.created_at, '${mysqlDateTimeFormat}') AS created_at
        FROM shop_messages sm
        JOIN users u ON u.id = sm.sender_id
        WHERE sm.id = ?
