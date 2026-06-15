@@ -10,6 +10,8 @@ const chatboxRoutes = require('./routes/chatbox')
 const categoryRoutes = require('./routes/categories')
 const orderRoutes = require('./routes/orders')
 const productRoutes = require('./routes/products')
+const shopChatRoutes = require('./routes/shop-chats')
+const shopRoutes = require('./routes/shops')
 const voucherRoutes = require('./routes/vouchers')
 const { errorHandler, notFoundHandler } = require('./middleware/error')
 
@@ -45,6 +47,8 @@ function createApp() {
   app.use('/api/cart', cartRoutes)
   app.use('/api/orders', orderRoutes)
   app.use('/api/vouchers', voucherRoutes)
+  app.use('/api/shops', shopRoutes)
+  app.use('/api/shop-chats', shopChatRoutes)
 
   app.use(notFoundHandler)
   app.use(errorHandler)

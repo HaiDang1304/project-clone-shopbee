@@ -13,6 +13,7 @@ import HomePage from './pages/Home/HomePage'
 import OrderSuccessPage from './pages/Checkout/OrderSuccessPage'
 import ProductDetailPage from './pages/ProductDetail/ProductDetailPage'
 import SearchPage from './pages/Search/SearchPage'
+import ShopPage from './pages/Shop/ShopPage'
 import VoucherCenterPage from './pages/Vouchers/VoucherCenterPage'
 import LoadingPage from './pages/Loading/LoadingPage'
 import AddressesPage from './pages/Account/AddressesPage'
@@ -85,6 +86,7 @@ export default function App() {
 						<Route path="/product/:slug" element={<ProductDetailPage />} />
 						<Route path="/category/:slug" element={<CategoryPage />} />
 						<Route path="/search" element={<SearchPage />} />
+						<Route path="/shop/:slug" element={<ShopPage />} />
 						<Route path="/vouchers" element={<VoucherCenterPage />} />
 						<Route path="/cart" element={<CartPage />} />
 						<Route path="/checkout" element={<CheckoutPage />} />

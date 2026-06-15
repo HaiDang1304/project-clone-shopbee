@@ -1,9 +1,11 @@
+import { Link } from 'react-router-dom'
+
 import { apiAssetUrl } from '../../../lib/api'
 import { formatCompact } from '../../../lib/format'
 
 const fallbackAvatar = '/logo_shop.png'
 
-export default function ShopInfoCard({ shop }) {
+export default function ShopInfoCard({ shop, onChat }) {
   if (!shop) return null
   const avatarSrc = apiAssetUrl(shop.avatarUrl) || fallbackAvatar
 
@@ -26,15 +28,16 @@ export default function ShopInfoCard({ shop }) {
             <button
               className="px-3 py-1 border border-primary text-primary rounded font-label-md text-label-md hover:bg-primary/5"
               type="button"
+              onClick={onChat}
             >
               Chat ngay
             </button>
-            <button
+            <Link
               className="px-3 py-1 border border-outline-variant text-on-surface-variant rounded font-label-md text-label-md hover:bg-surface-container"
-              type="button"
+              to={`/shop/${shop.slug || shop.id}`}
             >
               Xem shop
-            </button>
+            </Link>
           </div>
         </div>
       </div>
