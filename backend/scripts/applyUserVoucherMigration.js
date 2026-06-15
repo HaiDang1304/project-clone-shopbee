@@ -3,16 +3,10 @@ require('dotenv').config()
 const fs = require('fs')
 const path = require('path')
 const mysql = require('mysql2/promise')
+const { createMysqlOptions } = require('../src/config/mysql-options')
 
 async function main() {
-  const connection = await mysql.createConnection({
-    host: process.env.DB_HOST || '127.0.0.1',
-    port: Number(process.env.DB_PORT || 3306),
-    user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'shopbee_clone',
-    multipleStatements: true,
-  })
+  const connection = await mysql.createConnection(createMysqlOptions({ multipleStatements: true, pool: false }))
 
   const migrationPath = path.join(__dirname, '..', 'database', 'migrations', '20260612_add_user_vouchers.sql')
   const sql = fs.readFileSync(migrationPath, 'utf8')
