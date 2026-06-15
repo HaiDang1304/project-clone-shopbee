@@ -38,6 +38,7 @@ DB_PASSWORD=your_aiven_password
 DB_NAME=defaultdb
 DB_SSL=true
 DB_SSL_REJECT_UNAUTHORIZED=true
+DB_SSL_CA_BASE64=your_aiven_ca_certificate_base64
 
 JWT_SECRET=replace_with_long_random_secret
 JWT_EXPIRES_IN=7d
@@ -84,6 +85,38 @@ Neu ban tao database `shopbee_clone` tren Aiven va import nguyen file goc, thi t
 ```env
 DB_NAME=shopbee_clone
 ```
+
+## SSL certificate Aiven
+
+Neu Render bao loi:
+
+```text
+self-signed certificate in certificate chain
+```
+
+hay tai `CA certificate` trong Aiven Console, roi them vao Render bang mot trong hai cach.
+
+Cach de copy nhat la base64:
+
+```powershell
+[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes((Get-Content .\ca.pem -Raw)))
+```
+
+Sau do dat tren Render:
+
+```env
+DB_SSL=true
+DB_SSL_REJECT_UNAUTHORIZED=true
+DB_SSL_CA_BASE64=gia_tri_base64_vua_tao
+```
+
+Neu can chay nhanh de test, co the tam thoi dat:
+
+```env
+DB_SSL_REJECT_UNAUTHORIZED=false
+```
+
+nhung nen dung CA certificate cho production.
 
 ## 4. Cap nhat frontend Vercel
 
