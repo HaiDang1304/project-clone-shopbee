@@ -5,7 +5,7 @@ import { formatCompact } from '../../../lib/format'
 
 const fallbackAvatar = '/logo_shop.png'
 
-export default function ShopInfoCard({ shop, onChat }) {
+export default function ShopInfoCard({ shop, productId }) {
   if (!shop) return null
   const avatarSrc = apiAssetUrl(shop.avatarUrl) || fallbackAvatar
 
@@ -25,13 +25,12 @@ export default function ShopInfoCard({ shop, onChat }) {
             <span className="w-2 h-2 rounded-full bg-tertiary" /> Đang hoạt động
           </p>
           <div className="flex gap-2 mt-2">
-            <button
+            <Link
               className="px-3 py-1 border border-primary text-primary rounded font-label-md text-label-md hover:bg-primary/5"
-              type="button"
-              onClick={onChat}
+              to={`/messages?shopId=${shop.id}${productId ? `&productId=${productId}` : ''}`}
             >
               Chat ngay
-            </button>
+            </Link>
             <Link
               className="px-3 py-1 border border-outline-variant text-on-surface-variant rounded font-label-md text-label-md hover:bg-surface-container"
               to={`/shop/${shop.slug || shop.id}`}

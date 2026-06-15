@@ -76,5 +76,6 @@ export const sellerTabs = [
   { value: 'products', icon: 'inventory_2', label: 'Sản phẩm' },
   { value: 'flash-sales', icon: 'bolt', label: 'Flash sale' },
   { value: 'orders', icon: 'receipt_long', label: 'Đơn hàng' },
+  { value: 'messages', icon: 'forum', label: 'Tin nhắn' },
   { value: 'reports', icon: 'bar_chart', label: 'Báo cáo' },
 ]

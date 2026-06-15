@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
 
 import AccountLayout from './AccountLayout'
+import ShopMessagesPanel from '../../components/ShopMessagesPanel/ShopMessagesPanel'
 import {
   createSellerProduct,
   deleteSellerProduct,
@@ -681,6 +682,10 @@ export default function SellerChannelPage({ standalone = false }) {
 
             {activeSellerTab === 'orders' ? (
               <SellerOrdersPanel orders={orders} workingOrderId={workingOrderId} handleOrderStatus={handleOrderStatus} />
+            ) : null}
+
+            {activeSellerTab === 'messages' ? (
+              <ShopMessagesPanel mode="seller" className="shadow-none" />
             ) : null}
 
             {activeSellerTab === 'reports' ? (

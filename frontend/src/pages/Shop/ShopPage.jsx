@@ -3,7 +3,6 @@ import { Link, useParams, useSearchParams } from 'react-router-dom'
 
 import Footer from '../../components/Footer/Footer'
 import Header from '../../components/Header/Header'
-import ShopChatModal from '../../components/ShopChatModal/ShopChatModal'
 import { apiAssetUrl, apiGet } from '../../lib/api'
 import { formatCompact, formatCurrency, productPath } from '../../lib/format'
 
@@ -58,7 +57,6 @@ export default function ShopPage() {
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [chatOpen, setChatOpen] = useState(false)
 
   const sort = searchParams.get('sort') || 'newest'
   const search = searchParams.get('q') || ''
@@ -154,9 +152,9 @@ export default function ShopPage() {
                   </p>
                 </div>
               </div>
-              <button className="h-11 rounded-lg bg-white px-5 text-[13px] font-bold text-[#8a4b12] hover:bg-[#fff2df]" type="button" onClick={() => setChatOpen(true)} disabled={!shop}>
+              <Link className={`flex h-11 items-center rounded-lg bg-white px-5 text-[13px] font-bold text-[#8a4b12] hover:bg-[#fff2df] ${!shop ? 'pointer-events-none opacity-60' : ''}`} to={shop ? `/messages?shopId=${shop.id}` : '/messages'}>
                 Chat với shop
-              </button>
+              </Link>
             </div>
             <div className="relative z-10 mt-6 grid gap-3 sm:grid-cols-4">
               {[
@@ -240,7 +238,6 @@ export default function ShopPage() {
           </div>
         </section>
       </main>
-      <ShopChatModal open={chatOpen} shop={shop} onClose={() => setChatOpen(false)} />
       <Footer />
     </>
   )

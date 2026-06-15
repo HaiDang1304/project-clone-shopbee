@@ -16,6 +16,7 @@ import SearchPage from './pages/Search/SearchPage'
 import ShopPage from './pages/Shop/ShopPage'
 import VoucherCenterPage from './pages/Vouchers/VoucherCenterPage'
 import LoadingPage from './pages/Loading/LoadingPage'
+import MessagesPage from './pages/Messages/MessagesPage'
 import AddressesPage from './pages/Account/AddressesPage'
 import BankCardsPage from './pages/Account/BankCardsPage'
 import ChangePasswordPage from './pages/Account/ChangePasswordPage'
@@ -45,7 +46,7 @@ function AuthModalRoute({ mode }) {
 
 function ChatboxGate() {
 	const { pathname } = useLocation()
-	const hiddenOnDashboard = pathname === '/admin' || pathname.startsWith('/admin/dashboard') || pathname.startsWith('/seller/dashboard')
+	const hiddenOnDashboard = pathname === '/admin' || pathname.startsWith('/admin/dashboard') || pathname.startsWith('/seller/dashboard') || pathname.startsWith('/messages')
 
 	return hiddenOnDashboard ? null : <FloatingChatButton />
 }
@@ -88,6 +89,7 @@ export default function App() {
 						<Route path="/search" element={<SearchPage />} />
 						<Route path="/shop/:slug" element={<ShopPage />} />
 						<Route path="/vouchers" element={<VoucherCenterPage />} />
+						<Route path="/messages" element={<MessagesPage />} />
 						<Route path="/cart" element={<CartPage />} />
 						<Route path="/checkout" element={<CheckoutPage />} />
 						<Route path="/order-success" element={<OrderSuccessPage />} />

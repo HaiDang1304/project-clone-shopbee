@@ -57,6 +57,12 @@ export default function UserMenu({ user, onClose, onLogout }) {
           to="/orders"
           onClick={onClose}
         />
+        <UserMenuItem
+          icon="forum"
+          label="Tin nhắn"
+          to="/messages"
+          onClick={onClose}
+        />
       </div>
 
       <div className="border-t border-outline-variant pt-2">

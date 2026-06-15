@@ -9,7 +9,6 @@ import ShopInfoCard from '../../components/ProductDetail/ShopInfoCard/ShopInfoCa
 import ProductDescription from '../../components/ProductDetail/ProductDescription/ProductDescription'
 import ProductReviews from '../../components/ProductDetail/ProductReviews/ProductReviews'
 import ProductShellFooter from '../../components/ProductDetail/ProductShellFooter/ProductShellFooter'
-import ShopChatModal from '../../components/ShopChatModal/ShopChatModal'
 import { apiGet } from '../../lib/api'
 
 export default function ProductDetailPage() {
@@ -17,7 +16,6 @@ export default function ProductDetailPage() {
   const [product, setProduct] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [chatOpen, setChatOpen] = useState(false)
 
   useEffect(() => {
     let ignore = false
@@ -81,7 +79,7 @@ export default function ProductDetailPage() {
               </div>
               <div className="lg:col-span-7 space-y-6">
                 <ProductPurchaseCard product={product} />
-                <ShopInfoCard shop={product.shop} onChat={() => setChatOpen(true)} />
+                <ShopInfoCard shop={product.shop} productId={product.id} />
                 <ProductDescription product={product} />
                 <ProductReviews product={product} />
               </div>
@@ -93,7 +91,6 @@ export default function ProductDetailPage() {
           </div>
         )}
       </main>
-      <ShopChatModal open={chatOpen} shop={product?.shop} product={product} onClose={() => setChatOpen(false)} />
       <ProductShellFooter />
     </>
   )

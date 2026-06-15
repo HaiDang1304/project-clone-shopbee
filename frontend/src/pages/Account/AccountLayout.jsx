@@ -12,6 +12,7 @@ const accountNavItems = [
   { to: '/account/bank-cards', icon: 'payments', label: 'Ngân hàng/Thẻ' },
   { to: '/account/addresses', icon: 'location_on', label: 'Địa chỉ' },
   { to: '/account/password', icon: 'lock', label: 'Đổi mật khẩu' },
+  { to: '/messages', icon: 'forum', label: 'Tin nhắn' },
   { to: '/account/seller', icon: 'storefront', label: 'Kênh bán hàng' },
   { to: '/orders', icon: 'shopping_bag', label: 'Đơn mua', separated: true },
 ]

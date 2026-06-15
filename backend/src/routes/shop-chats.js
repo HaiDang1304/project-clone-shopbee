@@ -17,9 +17,12 @@ function mapConversation(row) {
     shopAvatarUrl: row.shop_avatar_url,
     customerId: Number(row.customer_id),
     sellerId: Number(row.seller_id),
+    customerName: row.customer_name || null,
+    customerAvatarUrl: row.customer_avatar_url || null,
     productId: row.product_id == null ? null : Number(row.product_id),
     productName: row.product_name || null,
     productSlug: row.product_slug || null,
+    lastMessage: row.last_message || null,
     lastMessageAt: row.last_message_at,
   }
 }
@@ -43,10 +46,13 @@ async function getConversationForUser(conversationId, userId) {
        s.name AS shop_name,
        s.slug AS shop_slug,
        s.avatar_url AS shop_avatar_url,
+       cu.name AS customer_name,
+       cu.avatar_url AS customer_avatar_url,
        p.name AS product_name,
        p.slug AS product_slug
      FROM shop_conversations sc
      JOIN shops s ON s.id = sc.shop_id
+     JOIN users cu ON cu.id = sc.customer_id
      LEFT JOIN products p ON p.id = sc.product_id
      WHERE sc.id = ? AND (sc.customer_id = ? OR sc.seller_id = ?)
      LIMIT 1`,
@@ -55,6 +61,42 @@ async function getConversationForUser(conversationId, userId) {
 
   return rows[0] || null
 }
+
+router.get(
+  '/conversations',
+  asyncHandler(async (req, res) => {
+    const userId = Number(req.user.sub)
+    const rows = await query(
+      `SELECT
+         sc.*,
+         s.name AS shop_name,
+         s.slug AS shop_slug,
+         s.avatar_url AS shop_avatar_url,
+         cu.name AS customer_name,
+         cu.avatar_url AS customer_avatar_url,
+         p.name AS product_name,
+         p.slug AS product_slug,
+         lm.message AS last_message
+       FROM shop_conversations sc
+       JOIN shops s ON s.id = sc.shop_id
+       JOIN users cu ON cu.id = sc.customer_id
+       LEFT JOIN products p ON p.id = sc.product_id
+       LEFT JOIN shop_messages lm ON lm.id = (
+         SELECT sm.id
+         FROM shop_messages sm
+         WHERE sm.conversation_id = sc.id
+         ORDER BY sm.created_at DESC, sm.id DESC
+         LIMIT 1
+       )
+       WHERE sc.customer_id = ? OR sc.seller_id = ?
+       ORDER BY COALESCE(sc.last_message_at, sc.updated_at, sc.created_at) DESC, sc.id DESC
+       LIMIT 100`,
+      [userId, userId],
+    )
+
+    res.json({ ok: true, data: rows.map(mapConversation) })
+  }),
+)
 
 router.post(
   '/shops/:shopId/conversations',
