@@ -30,6 +30,11 @@ function getConversationAvatar(conversation, mode) {
   return apiAssetUrl(conversation.shopAvatarUrl) || fallbackAvatar
 }
 
+function getMessageAvatar(message, conversation, mode) {
+  if (message.mine) return ''
+  return getConversationAvatar(conversation, mode)
+}
+
 export default function ShopMessagesPanel({ mode = 'customer', initialShopId = '', initialProductId = '', className = '' }) {
   const navigate = useNavigate()
   const messagesEndRef = useRef(null)
@@ -228,24 +233,38 @@ export default function ShopMessagesPanel({ mode = 'customer', initialShopId = '
                 ) : null}
               </header>
 
-              <div className="flex-1 space-y-3 overflow-y-auto bg-[#f7f4f1] px-4 py-4">
-                {error ? <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700">{error}</div> : null}
-                {loadingMessages ? <div className="h-20 animate-pulse rounded-lg bg-white" /> : null}
-                {messages.map((message) => (
-                  <div key={message.id} className={`flex ${message.mine ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[78%] rounded-lg px-4 py-2 text-[13px] leading-6 ${message.mine ? 'bg-[#8a4b12] text-white' : 'border border-[#eaded2] bg-white text-[#24170f]'}`}>
-                      <p className="whitespace-pre-line">{message.message}</p>
-                      <p className={`mt-1 text-[10px] ${message.mine ? 'text-white/70' : 'text-[#9a8576]'}`}>
-                        {message.senderName} · {formatTime(message.createdAt)}
-                      </p>
+              <div className="flex-1 overflow-y-auto bg-[#f7f4f1] px-4 py-4">
+                <div className="mx-auto flex w-full max-w-[760px] flex-col gap-3">
+                  {error ? <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700">{error}</div> : null}
+                  {loadingMessages ? <div className="h-20 animate-pulse rounded-lg bg-white" /> : null}
+                  {messages.map((message) => {
+                    const avatar = getMessageAvatar(message, currentConversation, mode)
+                    return (
+                      <div key={message.id} className={`flex items-end gap-2 ${message.mine ? 'justify-end' : 'justify-start'}`}>
+                        {!message.mine ? <img className="h-8 w-8 shrink-0 rounded-full object-cover" src={avatar} alt="" /> : null}
+                        <div className={`flex max-w-[min(560px,82%)] flex-col ${message.mine ? 'items-end' : 'items-start'}`}>
+                          <div
+                            className={`rounded-2xl px-4 py-2 text-[13px] leading-6 shadow-sm ${
+                              message.mine
+                                ? 'rounded-br-md bg-[#8a4b12] text-white'
+                                : 'rounded-bl-md border border-[#eaded2] bg-white text-[#24170f]'
+                            }`}
+                          >
+                            <p className="whitespace-pre-line break-words">{message.message}</p>
+                          </div>
+                          <p className={`mt-1 px-1 text-[10px] ${message.mine ? 'text-[#9a6b3b]' : 'text-[#9a8576]'}`}>
+                            {message.senderName} - {formatTime(message.createdAt)}
+                          </p>
+                        </div>
+                      </div>
+                    )
+                  })}
+                  {!loadingMessages && !messages.length ? (
+                    <div className="rounded-lg border border-[#eaded2] bg-white px-4 py-6 text-center text-[13px] text-[#7b6556]">
+                      Bat dau cuoc tro chuyen bang mot loi nhan ngan gon.
                     </div>
-                  </div>
-                ))}
-                {!loadingMessages && !messages.length ? (
-                  <div className="rounded-lg border border-[#eaded2] bg-white px-4 py-6 text-center text-[13px] text-[#7b6556]">
-                    Bắt đầu cuộc trò chuyện bằng một lời nhắn ngắn gọn.
-                  </div>
-                ) : null}
+                  ) : null}
+                </div>
                 <div ref={messagesEndRef} />
               </div>
 
