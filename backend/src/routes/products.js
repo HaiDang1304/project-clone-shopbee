@@ -222,8 +222,8 @@ router.get(
        JOIN users u ON u.id = s.owner_id
        WHERE ${where.join(' AND ')}
        ORDER BY ${orderBySql(String(req.query.sort || 'newest'))}
-       LIMIT ? OFFSET ?`,
-      [...params, limit, offset],
+       LIMIT ${limit} OFFSET ${offset}`,
+      params,
       ),
       query(
         `SELECT COUNT(*) AS total
