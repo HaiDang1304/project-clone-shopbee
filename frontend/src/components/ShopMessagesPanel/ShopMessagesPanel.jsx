@@ -33,7 +33,8 @@ function getConversationAvatar(conversation, mode) {
 export default function ShopMessagesPanel({ mode = 'customer', initialShopId = '', initialProductId = '', className = '' }) {
   const navigate = useNavigate()
   const messagesEndRef = useRef(null)
-  const user = getAuthUser()
+  const user = useMemo(() => getAuthUser(), [])
+  const userId = user?.id || ''
   const [conversations, setConversations] = useState([])
   const [activeConversationId, setActiveConversationId] = useState('')
   const [activeConversation, setActiveConversation] = useState(null)
@@ -56,7 +57,7 @@ export default function ShopMessagesPanel({ mode = 'customer', initialShopId = '
   }, [navigate, user])
 
   useEffect(() => {
-    if (!user) return undefined
+    if (!userId) return undefined
     let ignore = false
 
     async function loadConversations() {
@@ -75,8 +76,10 @@ export default function ShopMessagesPanel({ mode = 'customer', initialShopId = '
         if (ignore) return
         const nextConversations = response.data || []
         setConversations(nextConversations)
-        const nextActiveId = createdConversation?.id || activeConversationId || nextConversations[0]?.id || ''
-        setActiveConversationId(nextActiveId ? String(nextActiveId) : '')
+        setActiveConversationId((current) => {
+          const nextActiveId = createdConversation?.id || current || nextConversations[0]?.id || ''
+          return nextActiveId ? String(nextActiveId) : ''
+        })
       } catch (err) {
         if (!ignore) setError(err.message || 'Không tải được tin nhắn')
       } finally {
@@ -89,7 +92,7 @@ export default function ShopMessagesPanel({ mode = 'customer', initialShopId = '
     return () => {
       ignore = true
     }
-  }, [initialProductId, initialShopId, mode, user])
+  }, [initialProductId, initialShopId, mode, userId])
 
   useEffect(() => {
     if (!activeConversationId) {
