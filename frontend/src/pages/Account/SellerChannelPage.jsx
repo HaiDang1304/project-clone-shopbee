@@ -13,6 +13,7 @@ import {
   getSellerFlashSales,
   getSellerDashboard,
   getSellerRegistration,
+  getSellerVouchers,
   reviewSellerApplication,
   submitSellerRegistration,
   updateSellerOrder,
@@ -44,6 +45,7 @@ import {
   SellerOrdersPanel,
   SellerOverview,
   SellerProductsPanel,
+  SellerVouchersPanel,
   SellerRegistrationPanel,
   SellerReportsPanel,
   SellerShopProfilePanel,
@@ -58,6 +60,7 @@ export default function SellerChannelPage({ standalone = false }) {
   const [sellerData, setSellerData] = useState({ application: null, shop: null })
   const [sellerDashboard, setSellerDashboard] = useState({ shop: null, stats: {}, revenueTrend: [], products: [], orders: [] })
   const [sellerFlashSales, setSellerFlashSales] = useState({ events: [], registrations: [] })
+  const [sellerVouchers, setSellerVouchers] = useState({ stats: {}, items: [] })
   const [revenueFilter, setRevenueFilter] = useState(defaultRevenueFilter)
   const [shopForm, setShopForm] = useState(emptyShopForm)
   const [sellerSaving, setSellerSaving] = useState(false)
@@ -112,9 +115,13 @@ export default function SellerChannelPage({ standalone = false }) {
 
         if (sellerResponse.data?.shop) {
           dashboardData = await getSellerDashboard(revenueFilterParams(defaultRevenueFilter))
-          const flashSalesData = await getSellerFlashSales()
+          const [flashSalesData, vouchersData] = await Promise.all([
+            getSellerFlashSales(),
+            getSellerVouchers(),
+          ])
           if (!active) return
           setSellerFlashSales(flashSalesData)
+          setSellerVouchers(vouchersData)
         }
 
         if (profileData?.role === 'admin') {
@@ -381,6 +388,11 @@ export default function SellerChannelPage({ standalone = false }) {
   async function refreshSellerFlashSales() {
     const data = await getSellerFlashSales()
     setSellerFlashSales(data)
+  }
+
+  async function refreshSellerVouchers() {
+    const data = await getSellerVouchers()
+    setSellerVouchers(data)
   }
 
   async function handleRevenueFilterChange(nextFilter, options = {}) {
@@ -677,6 +689,14 @@ export default function SellerChannelPage({ standalone = false }) {
                 registrations={sellerFlashSales.registrations}
                 products={products}
                 onRegistered={refreshSellerFlashSales}
+              />
+            ) : null}
+
+            {activeSellerTab === 'vouchers' ? (
+              <SellerVouchersPanel
+                vouchersData={sellerVouchers}
+                onVouchersDataChange={setSellerVouchers}
+                onRefresh={refreshSellerVouchers}
               />
             ) : null}
 

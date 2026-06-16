@@ -96,6 +96,8 @@ function mapProduct(row) {
           ratingAvg: Number(row.shop_rating_avg || 0),
           ratingCount: row.shop_rating_count || 0,
           followerCount: row.shop_follower_count || 0,
+          productCount: row.shop_product_count || 0,
+          soldCount: row.shop_sold_count || 0,
         }
       : null,
   }
@@ -277,16 +279,24 @@ router.get(
          c.slug AS category_slug,
          s.name AS shop_name,
          s.slug AS shop_slug,
-         s.avatar_url AS shop_avatar_url,
-         s.rating_avg AS shop_rating_avg,
-         s.rating_count AS shop_rating_count,
-         s.follower_count AS shop_follower_count
-       FROM products p
-       LEFT JOIN categories c ON c.id = p.category_id
-       JOIN shops s ON s.id = p.shop_id
-       JOIN users u ON u.id = s.owner_id
-        WHERE p.is_active = 1 AND s.is_active = 1 AND u.role = 'seller' AND u.is_active = 1 AND ${isNumericId ? 'p.id = ?' : 'p.slug = ?'}
-       LIMIT 1`,
+          s.avatar_url AS shop_avatar_url,
+          s.rating_avg AS shop_rating_avg,
+          s.rating_count AS shop_rating_count,
+          s.follower_count AS shop_follower_count,
+          shop_summary.product_count AS shop_product_count,
+          shop_summary.sold_count AS shop_sold_count
+        FROM products p
+        LEFT JOIN categories c ON c.id = p.category_id
+        JOIN shops s ON s.id = p.shop_id
+        JOIN users u ON u.id = s.owner_id
+        LEFT JOIN (
+          SELECT shop_id, COUNT(*) AS product_count, COALESCE(SUM(sold_count), 0) AS sold_count
+          FROM products
+          WHERE is_active = 1 AND status = 'active'
+          GROUP BY shop_id
+        ) shop_summary ON shop_summary.shop_id = s.id
+         WHERE p.is_active = 1 AND s.is_active = 1 AND u.role = 'seller' AND u.is_active = 1 AND ${isNumericId ? 'p.id = ?' : 'p.slug = ?'}
+        LIMIT 1`,
       [isNumericId ? Number(idOrSlug) : idOrSlug],
     )
 

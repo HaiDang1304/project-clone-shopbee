@@ -127,7 +127,7 @@ export default function RecommendationGrid() {
         </div>
       ) : null}
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-6">
+      <div className="grid grid-cols-1 gap-3 min-[380px]:grid-cols-2 md:grid-cols-4 lg:grid-cols-6">
         {loading
           ? Array.from({ length: 12 }).map((_, index) => (
               <div

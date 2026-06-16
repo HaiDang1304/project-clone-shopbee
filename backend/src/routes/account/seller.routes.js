@@ -19,6 +19,10 @@ function registerSellerRoutes(router, context) {
     readSellerShop,
     readSellerProducts,
     readSellerDashboard,
+    readSellerVouchersData,
+    createSellerVoucher,
+    updateSellerVoucher,
+    deleteSellerVoucher,
     readOrderReviewProducts,
     readProfile,
   } = context
@@ -257,6 +261,54 @@ function registerSellerRoutes(router, context) {
       )
 
       return res.status(201).json({ ok: true, message: 'Da gui dang ky flash sale' })
+    }),
+  )
+
+  router.get(
+    '/seller/vouchers',
+    asyncHandler(async (req, res) => {
+      const userId = Number(req.user.sub)
+      const shop = await readSellerShop(userId)
+      if (!shop) return res.status(403).json({ ok: false, message: 'Cửa hàng chưa được admin duyệt' })
+
+      const vouchers = await readSellerVouchersData(shop.id)
+      return res.json({ ok: true, data: vouchers })
+    }),
+  )
+
+  router.post(
+    '/seller/vouchers',
+    asyncHandler(async (req, res) => {
+      const userId = Number(req.user.sub)
+      const shop = await readSellerShop(userId)
+      if (!shop) return res.status(403).json({ ok: false, message: 'Cửa hàng chưa được admin duyệt' })
+
+      const vouchers = await createSellerVoucher(shop.id, req.body)
+      return res.status(201).json({ ok: true, data: vouchers, message: 'Đã tạo voucher của shop' })
+    }),
+  )
+
+  router.patch(
+    '/seller/vouchers/:voucherId',
+    asyncHandler(async (req, res) => {
+      const userId = Number(req.user.sub)
+      const shop = await readSellerShop(userId)
+      if (!shop) return res.status(403).json({ ok: false, message: 'Cửa hàng chưa được admin duyệt' })
+
+      const vouchers = await updateSellerVoucher(shop.id, req.params.voucherId, req.body)
+      return res.json({ ok: true, data: vouchers, message: 'Đã cập nhật voucher của shop' })
+    }),
+  )
+
+  router.delete(
+    '/seller/vouchers/:voucherId',
+    asyncHandler(async (req, res) => {
+      const userId = Number(req.user.sub)
+      const shop = await readSellerShop(userId)
+      if (!shop) return res.status(403).json({ ok: false, message: 'Cửa hàng chưa được admin duyệt' })
+
+      const vouchers = await deleteSellerVoucher(shop.id, req.params.voucherId)
+      return res.json({ ok: true, data: vouchers, message: 'Đã xóa voucher của shop' })
     }),
   )
 

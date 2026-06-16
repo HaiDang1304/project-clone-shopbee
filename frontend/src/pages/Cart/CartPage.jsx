@@ -242,7 +242,7 @@ export default function CartPage() {
                     return (
                       <article
                         key={item.id}
-                        className="grid gap-4 px-4 py-4 md:grid-cols-[44px_minmax(0,1fr)_120px_140px_120px_80px] md:items-center md:px-5"
+                        className="grid grid-cols-[28px_minmax(0,1fr)] gap-4 px-4 py-4 md:grid-cols-[44px_minmax(0,1fr)_120px_140px_120px_80px] md:items-center md:px-5"
                       >
                         <input
                           className="rounded border-outline-variant text-primary focus:ring-primary"
@@ -288,17 +288,23 @@ export default function CartPage() {
                           </div>
                         </div>
 
-                        <p className="text-right text-body-sm text-on-surface md:text-body-md">{formatCurrency(item.unitPrice)}</p>
-                        <div className="justify-self-start md:justify-self-center">
+                        <p className="col-span-2 flex justify-between text-body-sm text-on-surface md:col-span-1 md:block md:text-right md:text-body-md">
+                          <span className="text-on-surface-variant md:hidden">Đơn giá</span>
+                          {formatCurrency(item.unitPrice)}
+                        </p>
+                        <div className="col-span-2 justify-self-start md:col-span-1 md:justify-self-center">
                           <QuantityControl
                             item={item}
                             disabled={workingItemId === item.id || loading}
                             onChange={(quantity) => handleQuantityChange(item, quantity)}
                           />
                         </div>
-                        <p className="text-right text-title-sm font-title-sm text-primary">{formatCurrency(item.lineTotal)}</p>
+                        <p className="col-span-2 flex justify-between text-title-sm font-title-sm text-primary md:col-span-1 md:block md:text-right">
+                          <span className="text-body-sm font-normal text-on-surface-variant md:hidden">Thành tiền</span>
+                          {formatCurrency(item.lineTotal)}
+                        </p>
                         <button
-                          className="justify-self-start text-label-md font-label-md text-on-surface-variant hover:text-error md:justify-self-end"
+                          className="col-span-2 h-10 justify-self-start rounded-lg border border-outline-variant px-4 text-label-md font-label-md text-on-surface-variant hover:border-error hover:text-error md:col-span-1 md:h-auto md:border-0 md:px-0 md:justify-self-end"
                           type="button"
                           disabled={workingItemId === item.id || loading}
                           onClick={() => handleRemove(item)}

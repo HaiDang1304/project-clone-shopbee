@@ -2,6 +2,12 @@
 @import "tailwindcss";
 
 @layer base {
+  html,
+  body {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
   body {
     @apply bg-surface font-body-md text-on-surface;
     margin: 0;
@@ -9,6 +15,8 @@
 
   #root {
     min-height: 100vh;
+    max-width: 100%;
+    overflow-x: hidden;
   }
 }
 

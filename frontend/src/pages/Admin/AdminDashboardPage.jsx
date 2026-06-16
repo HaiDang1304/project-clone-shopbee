@@ -43,6 +43,7 @@ export default function AdminDashboardPage() {
   const [revenueFilter, setRevenueFilter] = useState(defaultRevenueFilter)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -102,6 +103,11 @@ export default function AdminDashboardPage() {
 
   const activeNav = adminNavItems.find((item) => item.value === activeModule)
 
+  function handleModuleChange(value) {
+    setActiveModule(value)
+    setSidebarOpen(false)
+  }
+
   async function refreshDashboardData() {
     const nextDashboardData = await getAdminDashboardData(revenueFilterParams(revenueFilter))
     setDashboardData(nextDashboardData)
@@ -115,14 +121,14 @@ export default function AdminDashboardPage() {
       const nextDashboardData = await getAdminDashboardData(revenueFilterParams(nextFilter))
       setDashboardData(nextDashboardData)
     } catch (err) {
-      toast.error(err.message || 'Khong tai duoc doanh thu theo khoang ngay')
+      toast.error(err.message || 'Không tải được doanh thu theo khoảng ngày')
     }
   }
 
   return (
     <main className="min-h-screen bg-[#f7f5f2] font-['Be_Vietnam_Pro'] text-[#1d1712] lg:h-screen lg:overflow-hidden">
       <div className="grid min-h-screen grid-cols-1 lg:h-full lg:min-h-0 lg:grid-cols-[174px_minmax(0,1fr)]">
-        <aside className="flex min-h-full flex-col border-b border-[#e8ded4] bg-[#f1f0ee] lg:h-screen lg:min-h-0 lg:overflow-hidden lg:border-b-0 lg:border-r">
+        <aside className="hidden min-h-full flex-col border-b border-[#e8ded4] bg-[#f1f0ee] lg:flex lg:h-screen lg:min-h-0 lg:overflow-hidden lg:border-b-0 lg:border-r">
           <div className="flex h-[62px] items-center gap-2 px-3">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#ff9800] text-[#5d3500]">
               <span className="material-symbols-outlined text-[19px]">shopping_bag</span>
@@ -139,7 +145,7 @@ export default function AdminDashboardPage() {
                 key={item.value}
                 item={item}
                 active={activeModule === item.value}
-                onClick={() => setActiveModule(item.value)}
+                onClick={() => handleModuleChange(item.value)}
               />
             ))}
           </nav>
@@ -148,7 +154,7 @@ export default function AdminDashboardPage() {
             <SidebarItem
               item={{ value: 'settings', icon: 'settings', label: 'Cài đặt' }}
               active={activeModule === 'settings'}
-              onClick={() => setActiveModule('settings')}
+              onClick={() => handleModuleChange('settings')}
             />
             <button
               className="mt-2 flex h-8 w-full items-center gap-2 rounded-md px-3 text-left text-[11px] font-semibold text-[#d31818] transition-colors hover:bg-[#ffe7e3]"
@@ -160,9 +166,66 @@ export default function AdminDashboardPage() {
           </div>
         </aside>
 
+        {sidebarOpen ? (
+          <div className="fixed inset-0 z-40 lg:hidden">
+            <button className="absolute inset-0 bg-black/45" type="button" aria-label="Close admin menu" onClick={() => setSidebarOpen(false)} />
+            <aside className="absolute left-0 top-0 flex h-full w-[min(86vw,300px)] flex-col overflow-y-auto border-r border-[#e8ded4] bg-[#f1f0ee] shadow-2xl">
+              <div className="flex h-[62px] items-center justify-between gap-2 border-b border-[#e3d9cf] px-3">
+                <div className="flex min-w-0 items-center gap-2">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#ff9800] text-[#5d3500]">
+                    <span className="material-symbols-outlined text-[19px]">shopping_bag</span>
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-[20px] font-bold leading-6 text-[#3b2508]">ShopBee</p>
+                    <p className="truncate text-[11px] font-medium text-[#8b7461]">Admin</p>
+                  </div>
+                </div>
+                <button className="flex h-9 w-9 items-center justify-center rounded-md hover:bg-[#e8ded4]" type="button" aria-label="Close admin menu" onClick={() => setSidebarOpen(false)}>
+                  <span className="material-symbols-outlined">close</span>
+                </button>
+              </div>
+
+              <nav className="flex-1 space-y-2 px-2 py-4">
+                {adminNavItems.map((item) => (
+                  <SidebarItem
+                    key={item.value}
+                    item={item}
+                    active={activeModule === item.value}
+                    onClick={() => handleModuleChange(item.value)}
+                  />
+                ))}
+              </nav>
+
+              <div className="border-t border-[#e3d9cf] px-2 py-4">
+                <SidebarItem
+                  item={{ value: 'settings', icon: 'settings', label: 'Cài đặt' }}
+                  active={activeModule === 'settings'}
+                  onClick={() => handleModuleChange('settings')}
+                />
+                <button
+                  className="mt-2 flex h-9 w-full items-center gap-2 rounded-md px-3 text-left text-[12px] font-semibold text-[#d31818] transition-colors hover:bg-[#ffe7e3]"
+                  type="button"
+                >
+                  <span className="material-symbols-outlined text-[18px]">logout</span>
+                  Đăng xuất
+                </button>
+              </div>
+            </aside>
+          </div>
+        ) : null}
+
         <section className="min-w-0 lg:flex lg:h-screen lg:min-h-0 lg:flex-col lg:overflow-hidden">
-          <header className="sticky top-0 z-20 flex min-h-[38px] shrink-0 flex-wrap items-center justify-between gap-3 border-b border-[#e2cdbb] bg-[#fbfaf9] px-4 py-1.5 shadow-[0_1px_0_rgba(130,92,52,0.04)]">
-            <label className="relative flex h-8 w-full max-w-[312px] items-center md:max-w-[420px]">
+          <header className="sticky top-0 z-20 flex min-h-[48px] shrink-0 flex-wrap items-center justify-between gap-3 border-b border-[#e2cdbb] bg-[#fbfaf9] px-3 py-2 shadow-[0_1px_0_rgba(130,92,52,0.04)] md:px-4 lg:min-h-[38px] lg:py-1.5">
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+              <button
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-[#3e2e24] hover:bg-[#f2e7db] lg:hidden"
+                type="button"
+                aria-label="Open admin menu"
+                onClick={() => setSidebarOpen(true)}
+              >
+                <span className="material-symbols-outlined text-[21px]">menu</span>
+              </button>
+            <label className="relative flex h-8 min-w-0 flex-1 items-center md:max-w-[420px]">
               <span className="material-symbols-outlined pointer-events-none absolute left-3 text-[18px] text-[#6e4d36]">
                 search
               </span>
@@ -174,6 +237,7 @@ export default function AdminDashboardPage() {
                 placeholder="Tìm kiếm đơn hàng, khách hàng..."
               />
             </label>
+            </div>
 
             <div className="flex items-center gap-4">
               <button
@@ -230,7 +294,7 @@ export default function AdminDashboardPage() {
               />
             ) : null}
             {!loading && !error && activeModule === 'shops' ? (
-              <ShopsDashboard searchTerm={searchTerm} shopsData={shopsData} />
+              <ShopsDashboard searchTerm={searchTerm} shopsData={shopsData} onShopsDataChange={setShopsData} />
             ) : null}
             {!loading && !error && activeModule === 'categories' ? (
               <CategoriesDashboard

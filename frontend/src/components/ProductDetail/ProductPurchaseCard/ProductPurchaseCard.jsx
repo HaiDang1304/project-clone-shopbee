@@ -451,18 +451,18 @@ export default function ProductPurchaseCard({ product }) {
           </div>
         ) : null}
 
-        <div className="flex flex-col sm:flex-row gap-4 pt-4">
+        <div className="flex flex-row gap-3 pt-4 sm:gap-4">
           <button
-            className="flex-1 h-12 border-2 border-primary-container text-primary-container rounded-lg font-title-md flex items-center justify-center gap-2 hover:bg-primary-container/5 transition-all disabled:opacity-60"
+            className="flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-lg border-2 border-primary-container px-3 py-3 text-label-md font-title-md text-primary-container transition-all hover:bg-primary-container/5 disabled:opacity-60 sm:gap-2 sm:px-4 sm:text-title-sm"
             type="button"
             onClick={handleAddToCart}
             disabled={submitting || buyingNow || !stock}
           >
-            <span className="material-symbols-outlined">add_shopping_cart</span>
+            <span className="material-symbols-outlined shrink-0 text-[22px] sm:text-[24px]">add_shopping_cart</span>
             {submitting ? 'Đang thêm...' : 'Thêm vào giỏ hàng'}
           </button>
           <button
-            className="flex-1 h-12 bg-primary-container text-white rounded-lg font-title-md flex items-center justify-center gap-2 hover:opacity-90 transition-all shadow-lg shadow-primary/20 disabled:opacity-60"
+            className="flex min-w-0 flex-1 items-center justify-center rounded-lg bg-primary-container px-3 py-3 text-label-md font-title-md text-white shadow-lg shadow-primary/20 transition-all hover:opacity-90 disabled:opacity-60 sm:px-4 sm:text-title-sm"
             type="button"
             onClick={handleBuyNow}
             disabled={submitting || buyingNow || !stock}

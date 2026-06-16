@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 
 import { apiAssetUrl, apiGet, apiPost } from '../../lib/api'
 import { getAuthUser } from '../../lib/auth'
+import { getChatSocket } from '../../lib/chatSocket'
 
 const fallbackAvatar = '/logo_shop.png'
 
@@ -25,6 +26,11 @@ function getConversationTitle(conversation, mode) {
   return conversation.shopName || 'Shop'
 }
 
+function getConversationSubtitle(conversation, mode) {
+  if (conversation.productName) return conversation.productName
+  return mode === 'seller' ? conversation.shopName || 'Gian hàng của bạn' : 'Cuộc trò chuyện với shop'
+}
+
 function getConversationAvatar(conversation, mode) {
   if (mode === 'seller') return apiAssetUrl(conversation.customerAvatarUrl) || fallbackAvatar
   return apiAssetUrl(conversation.shopAvatarUrl) || fallbackAvatar
@@ -35,11 +41,33 @@ function getMessageAvatar(message, conversation, mode) {
   return getConversationAvatar(conversation, mode)
 }
 
+function modeCopy(mode) {
+  if (mode === 'seller') {
+    return {
+      title: 'Hộp thư bán hàng',
+      description: 'Quản lý nhiều khách nhắn đến shop của bạn.',
+      empty: 'Chưa có khách hàng nào nhắn cho shop.',
+      select: 'Chọn một khách hàng để trả lời',
+      placeholder: 'Trả lời khách hàng...',
+    }
+  }
+
+  return {
+    title: 'Hộp thư mua hàng',
+    description: 'Theo dõi tư vấn từ các shop bạn quan tâm.',
+    empty: 'Bạn chưa có cuộc trò chuyện với shop nào.',
+    select: 'Chọn một shop để nhắn tin',
+    placeholder: 'Nhập tin nhắn cho shop...',
+  }
+}
+
 export default function ShopMessagesPanel({ mode = 'customer', initialShopId = '', initialProductId = '', className = '' }) {
   const navigate = useNavigate()
   const messagesEndRef = useRef(null)
+  const joinedConversationRef = useRef('')
   const user = useMemo(() => getAuthUser(), [])
   const userId = user?.id || ''
+  const copy = modeCopy(mode)
   const [conversations, setConversations] = useState([])
   const [activeConversationId, setActiveConversationId] = useState('')
   const [activeConversation, setActiveConversation] = useState(null)
@@ -49,6 +77,7 @@ export default function ShopMessagesPanel({ mode = 'customer', initialShopId = '
   const [loadingMessages, setLoadingMessages] = useState(false)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
+  const socket = useMemo(() => (user ? getChatSocket() : null), [user])
 
   const activeFromList = useMemo(
     () => conversations.find((item) => Number(item.id) === Number(activeConversationId)) || null,
@@ -77,12 +106,14 @@ export default function ShopMessagesPanel({ mode = 'customer', initialShopId = '
           createdConversation = response.data?.conversation || null
         }
 
-        const response = await apiGet('/api/shop-chats/conversations')
+        const response = await apiGet(`/api/shop-chats/conversations?role=${encodeURIComponent(mode)}`)
         if (ignore) return
+
         const nextConversations = response.data || []
         setConversations(nextConversations)
         setActiveConversationId((current) => {
-          const nextActiveId = createdConversation?.id || current || nextConversations[0]?.id || ''
+          const stillExists = nextConversations.some((item) => Number(item.id) === Number(current))
+          const nextActiveId = createdConversation?.id || (stillExists ? current : '') || nextConversations[0]?.id || ''
           return nextActiveId ? String(nextActiveId) : ''
         })
       } catch (err) {
@@ -100,13 +131,19 @@ export default function ShopMessagesPanel({ mode = 'customer', initialShopId = '
   }, [initialProductId, initialShopId, mode, userId])
 
   useEffect(() => {
-    if (!activeConversationId) {
-      setMessages([])
-      setActiveConversation(null)
-      return undefined
-    }
-
     let ignore = false
+
+    if (!activeConversationId) {
+      Promise.resolve().then(() => {
+        if (!ignore) {
+          setMessages([])
+          setActiveConversation(null)
+        }
+      })
+      return () => {
+        ignore = true
+      }
+    }
 
     async function loadMessages({ quiet = false } = {}) {
       if (!quiet) setLoadingMessages(true)
@@ -124,13 +161,81 @@ export default function ShopMessagesPanel({ mode = 'customer', initialShopId = '
     }
 
     loadMessages()
-    const timer = window.setInterval(() => loadMessages({ quiet: true }), 6000)
 
     return () => {
       ignore = true
-      window.clearInterval(timer)
     }
   }, [activeConversationId, activeFromList])
+
+  useEffect(() => {
+    if (!socket || !activeConversationId) return undefined
+
+    const previousConversationId = joinedConversationRef.current
+    if (previousConversationId && previousConversationId !== String(activeConversationId)) {
+      socket.emit('shop-chat:leave', { conversationId: previousConversationId })
+    }
+
+    joinedConversationRef.current = String(activeConversationId)
+    socket.emit('shop-chat:join', { conversationId: activeConversationId }, (response) => {
+      if (!response?.ok) setError(response?.message || 'Không thể kết nối cuộc trò chuyện')
+    })
+
+    return () => {
+      socket.emit('shop-chat:leave', { conversationId: activeConversationId })
+    }
+  }, [activeConversationId, socket])
+
+  useEffect(() => {
+    if (!socket) return undefined
+
+    function updateConversationList(conversation, message) {
+      if (!conversation) return
+      setConversations((current) => {
+        const exists = current.some((item) => Number(item.id) === Number(conversation.id))
+        const nextConversation = {
+          ...conversation,
+          lastMessage: message?.message || conversation.lastMessage,
+          lastMessageAt: message?.createdAt || conversation.lastMessageAt,
+        }
+        const next = exists
+          ? current.map((item) => (Number(item.id) === Number(conversation.id) ? { ...item, ...nextConversation } : item))
+          : [nextConversation, ...current]
+
+        return next.sort((left, right) => new Date(right.lastMessageAt || 0) - new Date(left.lastMessageAt || 0))
+      })
+    }
+
+    function handleMessage(payload = {}) {
+      const nextMessage = payload.message
+      const conversation = payload.conversation
+      updateConversationList(conversation, nextMessage)
+
+      if (Number(payload.conversationId) !== Number(activeConversationId) || !nextMessage) return
+      if (conversation) setActiveConversation(conversation)
+      setMessages((current) => {
+        if (current.some((item) => Number(item.id) === Number(nextMessage.id))) return current
+        return [...current, nextMessage]
+      })
+    }
+
+    function handleConversationUpdated(payload = {}) {
+      updateConversationList(payload.conversation, payload.message)
+    }
+
+    function handleConnectError(err) {
+      setError(err?.message || 'Không kết nối được realtime chat')
+    }
+
+    socket.on('shop-chat:message', handleMessage)
+    socket.on('shop-chat:conversation-updated', handleConversationUpdated)
+    socket.on('connect_error', handleConnectError)
+
+    return () => {
+      socket.off('shop-chat:message', handleMessage)
+      socket.off('shop-chat:conversation-updated', handleConversationUpdated)
+      socket.off('connect_error', handleConnectError)
+    }
+  }, [activeConversationId, socket])
 
   useEffect(() => {
     window.setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }), 40)
@@ -145,23 +250,15 @@ export default function ShopMessagesPanel({ mode = 'customer', initialShopId = '
     setSending(true)
     setError('')
 
-    try {
-      const response = await apiPost(`/api/shop-chats/conversations/${activeConversationId}/messages`, { message })
-      const sentMessage = response.data
-      setMessages((current) => [...current, sentMessage])
-      setConversations((current) =>
-        current.map((conversation) =>
-          Number(conversation.id) === Number(activeConversationId)
-            ? { ...conversation, lastMessage: sentMessage.message, lastMessageAt: sentMessage.createdAt }
-            : conversation,
-        ),
-      )
-    } catch (err) {
-      setInput(message)
-      setError(err.message || 'Không gửi được tin nhắn')
-    } finally {
+    const activeSocket = socket || getChatSocket()
+    if (!activeSocket.connected) activeSocket.connect()
+
+    activeSocket.emit('shop-chat:send', { conversationId: activeConversationId, message }, (response) => {
       setSending(false)
-    }
+      if (response?.ok) return
+      setInput(message)
+      setError(response?.message || 'Kh?ng g?i ???c tin nh?n')
+    })
   }
 
   if (!user) return null
@@ -171,70 +268,78 @@ export default function ShopMessagesPanel({ mode = 'customer', initialShopId = '
   const currentAvatar = currentConversation ? getConversationAvatar(currentConversation, mode) : fallbackAvatar
 
   return (
-    <section className={`overflow-hidden rounded-lg border border-[#eaded2] bg-white shadow-sm ${className}`}>
-      <div className="grid min-h-[680px] grid-cols-1 lg:grid-cols-[330px_minmax(0,1fr)]">
-        <aside className="border-b border-[#eaded2] bg-[#fbfaf9] lg:border-b-0 lg:border-r">
-          <div className="border-b border-[#eaded2] px-4 py-4">
-            <h2 className="text-[18px] font-bold text-[#1d1712]">{mode === 'seller' ? 'Tin nhắn khách hàng' : 'Tin nhắn với shop'}</h2>
-            <p className="mt-1 text-[12px] text-[#7b6556]">
-              {mode === 'seller' ? 'Trao đổi đơn hàng, size và tồn kho với người mua.' : 'Theo dõi tư vấn từ các shop bạn quan tâm.'}
-            </p>
+    <section className={`overflow-hidden rounded-xl border border-[#e5ddd5] bg-white shadow-sm ${className}`}>
+      <div className="grid min-h-[calc(100vh-210px)] grid-cols-1 lg:min-h-[700px] lg:grid-cols-[360px_minmax(0,1fr)]">
+        <aside className="border-b border-[#e5ddd5] bg-[#fbfaf7] lg:border-b-0 lg:border-r">
+          <div className="border-b border-[#e5ddd5] px-4 py-4">
+            <h2 className="text-[18px] font-bold text-[#201915]">{copy.title}</h2>
+            <p className="mt-1 text-[12px] leading-5 text-[#766a61]">{copy.description}</p>
           </div>
 
-          <div className="max-h-[260px] overflow-y-auto p-2 lg:max-h-[620px]">
+          <div className="max-h-[320px] overflow-y-auto p-2 lg:max-h-[640px]">
             {loading ? (
-              Array.from({ length: 4 }).map((_, index) => <div key={index} className="mb-2 h-16 animate-pulse rounded-lg bg-white" />)
+              Array.from({ length: 5 }).map((_, index) => <div key={index} className="mb-2 h-[76px] animate-pulse rounded-xl bg-white" />)
             ) : conversations.length ? (
               conversations.map((conversation) => {
                 const active = Number(conversation.id) === Number(activeConversationId)
                 return (
                   <button
                     key={conversation.id}
-                    className={`mb-2 flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left transition-colors ${
-                      active ? 'bg-[#fff2df] text-[#7a430f]' : 'bg-white text-[#24170f] hover:bg-[#f6efe8]'
+                    className={`mb-2 flex w-full items-start gap-3 rounded-xl border px-3 py-3 text-left transition ${
+                      active
+                        ? 'border-[#d45b32] bg-[#fff4ef] text-[#301b13]'
+                        : 'border-transparent bg-white text-[#241f1b] hover:border-[#e5ddd5] hover:bg-[#f7f3ef]'
                     }`}
                     type="button"
                     onClick={() => setActiveConversationId(String(conversation.id))}
                   >
-                    <img className="h-11 w-11 shrink-0 rounded-full object-cover" src={getConversationAvatar(conversation, mode)} alt="" />
+                    <img className="h-12 w-12 shrink-0 rounded-full object-cover" src={getConversationAvatar(conversation, mode)} alt="" />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[13px] font-bold">{getConversationTitle(conversation, mode)}</span>
-                      <span className="mt-1 block truncate text-[12px] text-[#7b6556]">
-                        {conversation.lastMessage || conversation.productName || 'Chưa có tin nhắn'}
+                      <span className="flex items-center justify-between gap-2">
+                        <span className="truncate text-[14px] font-bold">{getConversationTitle(conversation, mode)}</span>
+                        <span className="shrink-0 text-[10px] font-medium text-[#9b8d84]">{formatTime(conversation.lastMessageAt)}</span>
+                      </span>
+                      <span className="mt-1 block truncate text-[12px] font-medium text-[#6a5d55]">
+                        {getConversationSubtitle(conversation, mode)}
+                      </span>
+                      <span className="mt-1 block truncate text-[12px] text-[#8a7c73]">
+                        {conversation.lastMessage || 'Chưa có tin nhắn'}
                       </span>
                     </span>
-                    <span className="shrink-0 text-[10px] text-[#9a8576]">{formatTime(conversation.lastMessageAt)}</span>
                   </button>
                 )
               })
             ) : (
-              <div className="rounded-lg border border-[#eaded2] bg-white px-4 py-6 text-center text-[13px] text-[#7b6556]">
-                Chưa có cuộc trò chuyện nào.
+              <div className="rounded-xl border border-[#e5ddd5] bg-white px-4 py-6 text-center text-[13px] leading-6 text-[#766a61]">
+                {copy.empty}
               </div>
             )}
           </div>
         </aside>
 
-        <div className="flex min-h-[620px] flex-col">
+        <div className="flex min-h-[560px] flex-col lg:min-h-[700px]">
           {currentConversation ? (
             <>
-              <header className="flex min-h-16 items-center gap-3 border-b border-[#eaded2] px-4 py-3">
+              <header className="flex min-h-16 items-center gap-3 border-b border-[#e5ddd5] px-4 py-3">
                 <img className="h-11 w-11 rounded-full object-cover" src={currentAvatar} alt={currentTitle} />
                 <div className="min-w-0 flex-1">
-                  <h3 className="truncate text-[15px] font-bold text-[#1d1712]">{currentTitle}</h3>
-                  <p className="truncate text-[12px] text-[#7b6556]">
-                    {currentConversation.productName ? `Đang trao đổi về ${currentConversation.productName}` : 'Cuộc trò chuyện ShopBee'}
+                  <h3 className="truncate text-[15px] font-bold text-[#201915]">{currentTitle}</h3>
+                  <p className="truncate text-[12px] text-[#766a61]">
+                    {getConversationSubtitle(currentConversation, mode)}
                   </p>
                 </div>
                 {currentConversation.productSlug ? (
-                  <Link className="rounded-lg border border-[#dfc8b5] px-3 py-2 text-[12px] font-bold text-[#7a430f] hover:border-[#9a5700]" to={`/product/${currentConversation.productSlug}`}>
+                  <Link
+                    className="hidden rounded-lg border border-[#ddd4cc] px-3 py-2 text-[12px] font-bold text-[#3f352f] hover:border-[#d45b32] hover:text-[#d45b32] sm:inline-flex"
+                    to={`/product/${currentConversation.productSlug}`}
+                  >
                     Xem sản phẩm
                   </Link>
                 ) : null}
               </header>
 
-              <div className="flex-1 overflow-y-auto bg-[#f7f4f1] px-4 py-4">
-                <div className="mx-auto flex w-full max-w-[760px] flex-col gap-3">
+              <div className="flex-1 overflow-y-auto bg-[#f5f6f1] px-3 py-4 sm:px-4">
+                <div className="mx-auto flex w-full max-w-[780px] flex-col gap-3">
                   {error ? <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700">{error}</div> : null}
                   {loadingMessages ? <div className="h-20 animate-pulse rounded-lg bg-white" /> : null}
                   {messages.map((message) => {
@@ -246,31 +351,31 @@ export default function ShopMessagesPanel({ mode = 'customer', initialShopId = '
                           <div
                             className={`rounded-2xl px-4 py-2 text-[13px] leading-6 shadow-sm ${
                               message.mine
-                                ? 'rounded-br-md bg-[#8a4b12] text-white'
-                                : 'rounded-bl-md border border-[#eaded2] bg-white text-[#24170f]'
+                                ? 'rounded-br-md bg-[#d45b32] text-white'
+                                : 'rounded-bl-md border border-[#e5ddd5] bg-white text-[#241f1b]'
                             }`}
                           >
                             <p className="whitespace-pre-line break-words">{message.message}</p>
                           </div>
-                          <p className={`mt-1 px-1 text-[10px] ${message.mine ? 'text-[#9a6b3b]' : 'text-[#9a8576]'}`}>
-                            {message.senderName} - {formatTime(message.createdAt)}
+                          <p className={`mt-1 px-1 text-[10px] ${message.mine ? 'text-[#b6654c]' : 'text-[#9b8d84]'}`}>
+                            {message.senderName} · {formatTime(message.createdAt)}
                           </p>
                         </div>
                       </div>
                     )
                   })}
                   {!loadingMessages && !messages.length ? (
-                    <div className="rounded-lg border border-[#eaded2] bg-white px-4 py-6 text-center text-[13px] text-[#7b6556]">
-                      Bat dau cuoc tro chuyen bang mot loi nhan ngan gon.
+                    <div className="rounded-xl border border-[#e5ddd5] bg-white px-4 py-6 text-center text-[13px] text-[#766a61]">
+                      Bắt đầu cuộc trò chuyện bằng một lời nhắn ngắn gọn.
                     </div>
                   ) : null}
                 </div>
                 <div ref={messagesEndRef} />
               </div>
 
-              <form className="flex items-end gap-2 border-t border-[#eaded2] bg-white p-3" onSubmit={sendMessage}>
+              <form className="flex items-end gap-2 border-t border-[#e5ddd5] bg-white p-3" onSubmit={sendMessage}>
                 <textarea
-                  className="max-h-32 min-h-11 flex-1 resize-none rounded-lg border-[#dfc8b5] bg-[#fbfaf9] px-3 py-2 text-[13px] focus:border-[#9a5700] focus:ring-0"
+                  className="max-h-32 min-h-11 flex-1 resize-none rounded-lg border-[#ddd4cc] bg-[#fbfaf7] px-3 py-2 text-[13px] focus:border-[#d45b32] focus:ring-0"
                   rows={1}
                   value={input}
                   onChange={(event) => setInput(event.target.value)}
@@ -280,10 +385,10 @@ export default function ShopMessagesPanel({ mode = 'customer', initialShopId = '
                       sendMessage(event)
                     }
                   }}
-                  placeholder={mode === 'seller' ? 'Trả lời khách hàng...' : 'Nhập tin nhắn cho shop...'}
+                  placeholder={copy.placeholder}
                   disabled={sending}
                 />
-                <button className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[#8a4b12] text-white hover:bg-[#6f3b0e] disabled:cursor-not-allowed disabled:opacity-50" type="submit" disabled={!input.trim() || sending} aria-label="Gửi tin nhắn">
+                <button className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[#d45b32] text-white hover:bg-[#bd4926] disabled:cursor-not-allowed disabled:opacity-50" type="submit" disabled={!input.trim() || sending} aria-label="Gửi tin nhắn">
                   <span className="material-symbols-outlined text-[20px]">send</span>
                 </button>
               </form>
@@ -291,11 +396,9 @@ export default function ShopMessagesPanel({ mode = 'customer', initialShopId = '
           ) : (
             <div className="flex flex-1 items-center justify-center px-5 py-12 text-center">
               <div>
-                <span className="material-symbols-outlined text-[44px] text-[#b98a4d]">forum</span>
-                <h3 className="mt-3 text-[18px] font-bold text-[#1d1712]">Chọn một cuộc trò chuyện</h3>
-                <p className="mt-2 max-w-sm text-[13px] leading-6 text-[#7b6556]">
-                  {mode === 'seller' ? 'Khi khách nhắn cho shop, cuộc trò chuyện sẽ xuất hiện ở đây.' : 'Bấm Chat với shop ở trang sản phẩm hoặc shop để bắt đầu.'}
-                </p>
+                <span className="material-symbols-outlined text-[44px] text-[#d45b32]">forum</span>
+                <h3 className="mt-3 text-[18px] font-bold text-[#201915]">{copy.select}</h3>
+                <p className="mt-2 max-w-sm text-[13px] leading-6 text-[#766a61]">{copy.empty}</p>
               </div>
             </div>
           )}

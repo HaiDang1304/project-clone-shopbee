@@ -21,11 +21,11 @@ function getInitial(name, email) {
   return String(name || email || 'U').trim().slice(0, 1).toUpperCase()
 }
 
-function AccountAvatar({ user }) {
+function AccountAvatar({ user, className = 'h-12 w-12', textClassName = 'text-title-md font-title-md' }) {
   if (user.avatarUrl) {
     return (
       <img
-        className="h-12 w-12 rounded-full object-cover"
+        className={`${className} rounded-full object-cover`}
         src={apiAssetUrl(user.avatarUrl)}
         alt={user.name}
         referrerPolicy="no-referrer"
@@ -34,7 +34,7 @@ function AccountAvatar({ user }) {
   }
 
   return (
-    <span className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-title-md font-title-md text-on-primary">
+    <span className={`flex ${className} items-center justify-center rounded-full bg-primary ${textClassName} text-on-primary`}>
       {getInitial(user.name, user.email)}
     </span>
   )
@@ -86,16 +86,20 @@ export default function AccountLayout({ children }) {
   return (
     <>
       <Header />
-      <main className="min-h-[640px] bg-surface-container-low pt-24 pb-16">
-        <div className="mx-auto grid max-w-container-max grid-cols-1 gap-6 px-margin-mobile md:px-margin-desktop lg:grid-cols-[260px_minmax(0,1fr)]">
-          <aside className="lg:sticky lg:top-24 lg:self-start">
+      <main className="min-h-[640px] bg-surface-container-low pb-10 pt-16 md:pb-16 md:pt-24">
+        <div className="mx-auto grid max-w-container-max grid-cols-1 gap-4 px-margin-mobile md:px-margin-desktop lg:grid-cols-[260px_minmax(0,1fr)] lg:gap-6">
+          <aside className="sticky top-16 z-30 -mx-margin-mobile border-b border-outline-variant bg-surface-container-low/95 px-margin-mobile py-2 shadow-sm backdrop-blur md:-mx-margin-desktop md:px-margin-desktop lg:top-24 lg:z-auto lg:mx-0 lg:self-start lg:border-b-0 lg:bg-transparent lg:p-0 lg:shadow-none lg:backdrop-blur-none">
             {profile ? (
-              <div className="mb-5 flex min-w-0 items-center gap-3">
-                <AccountAvatar user={profile} />
+              <div className="mb-2 flex min-w-0 items-center gap-2 rounded-lg bg-surface-container-lowest px-3 py-2 shadow-sm lg:mb-5 lg:gap-3 lg:bg-transparent lg:p-0 lg:shadow-none">
+                <AccountAvatar
+                  user={profile}
+                  className="h-9 w-9 shrink-0 lg:h-12 lg:w-12"
+                  textClassName="text-label-lg font-label-lg lg:text-title-md lg:font-title-md"
+                />
                 <div className="min-w-0">
                   <p className="truncate text-label-lg font-label-lg text-on-surface">{profile.name}</p>
                   <NavLink
-                    className="mt-1 flex items-center gap-1 text-label-md text-on-surface-variant hover:text-primary"
+                    className="mt-0.5 flex items-center gap-1 text-label-md text-on-surface-variant hover:text-primary lg:mt-1"
                     to="/profile"
                   >
                     <span className="material-symbols-outlined text-[16px]">edit</span>
@@ -104,32 +108,35 @@ export default function AccountLayout({ children }) {
                 </div>
               </div>
             ) : (
-              <div className="mb-5 rounded-lg bg-surface-container-lowest px-4 py-3 text-body-sm text-on-surface-variant">
+              <div className="mb-2 rounded-lg bg-surface-container-lowest px-4 py-3 text-body-sm text-on-surface-variant shadow-sm lg:mb-5 lg:shadow-none">
                 {loadError || 'Đang tải thông tin...'}
               </div>
             )}
 
-            <nav className="rounded-lg bg-surface-container-lowest p-2 shadow-sm lg:bg-transparent lg:p-0 lg:shadow-none">
+            <nav
+              className="custom-scrollbar flex gap-2 overflow-x-auto pb-1 lg:block lg:overflow-visible lg:rounded-lg lg:bg-transparent lg:p-0 lg:pb-0 lg:shadow-none"
+              aria-label="Account navigation"
+            >
               {navItems.map((item) => (
                 <NavLink
                   key={item.to}
                   className={({ isActive }) =>
-                    `${item.separated ? 'mt-4' : 'mt-1'} flex h-11 items-center gap-3 rounded-md px-4 text-label-md font-label-md transition-colors ${
+                    `${item.separated ? 'lg:mt-4' : 'lg:mt-1'} flex h-10 shrink-0 items-center gap-1.5 rounded-full px-3 text-label-md font-label-md transition-colors lg:h-11 lg:w-full lg:gap-3 lg:rounded-md lg:px-4 ${
                       isActive
-                        ? 'bg-primary-fixed text-primary'
-                        : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
+                        ? 'bg-primary-fixed text-primary shadow-sm lg:shadow-none'
+                        : 'bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container hover:text-on-surface lg:bg-transparent'
                     }`
                   }
                   to={item.to}
                 >
-                  <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
-                  {item.label}
+                  <span className="material-symbols-outlined text-[19px] lg:text-[20px]">{item.icon}</span>
+                  <span className="whitespace-nowrap">{item.label}</span>
                 </NavLink>
               ))}
             </nav>
           </aside>
 
-          <section>{children}</section>
+          <section className="min-w-0 pt-1 lg:pt-0">{children}</section>
         </div>
       </main>
       <Footer />

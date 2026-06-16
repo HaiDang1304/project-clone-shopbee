@@ -242,7 +242,7 @@ export default function SearchPage() {
                 </div>
               ) : null}
 
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
+              <div className="grid grid-cols-1 gap-3 min-[380px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
                 {loading
                   ? Array.from({ length: 8 }).map((_, index) => (
                       <div key={index} className="h-[304px] animate-pulse rounded-xl border border-[#eaded2] bg-white" />

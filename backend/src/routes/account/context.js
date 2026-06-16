@@ -7,6 +7,7 @@ const shop = require('./context/shop')
 const sellerproducts = require('./context/seller-products')
 const sellerorders = require('./context/seller-orders')
 const sellerdashboard = require('./context/seller-dashboard')
+const sellervouchers = require('./context/seller-vouchers')
 const orders = require('./context/orders')
 const notifications = require('./context/notifications')
 
@@ -20,6 +21,7 @@ module.exports = {
   ...sellerproducts,
   ...sellerorders,
   ...sellerdashboard,
+  ...sellervouchers,
   ...orders,
   ...notifications,
 }

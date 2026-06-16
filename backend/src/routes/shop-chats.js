@@ -69,6 +69,15 @@ router.get(
   '/conversations',
   asyncHandler(async (req, res) => {
     const userId = Number(req.user.sub)
+    const requestedRole = String(req.query.role || 'all').toLowerCase()
+    const role = ['customer', 'seller', 'all'].includes(requestedRole) ? requestedRole : 'all'
+    const scopeWhere =
+      role === 'customer'
+        ? 'sc.customer_id = ?'
+        : role === 'seller'
+          ? 'sc.seller_id = ?'
+          : '(sc.customer_id = ? OR sc.seller_id = ?)'
+    const scopeParams = role === 'all' ? [userId, userId] : [userId]
     const rows = await query(
       `SELECT
          sc.*,
@@ -92,10 +101,10 @@ router.get(
          ORDER BY sm.created_at DESC, sm.id DESC
          LIMIT 1
        )
-       WHERE sc.customer_id = ? OR sc.seller_id = ?
+       WHERE ${scopeWhere}
        ORDER BY COALESCE(sc.last_message_at, sc.updated_at, sc.created_at) DESC, sc.id DESC
        LIMIT 100`,
-      [userId, userId],
+      scopeParams,
     )
 
     res.json({ ok: true, data: rows.map(mapConversation) })

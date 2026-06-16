@@ -38,6 +38,7 @@ export default function Header() {
   const [notifications, setNotifications] = useState(emptyNotifications)
   const [searchTerm, setSearchTerm] = useState('')
   const [notificationOpen, setNotificationOpen] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [loadingNotifications, setLoadingNotifications] = useState(false)
   const [reviewRequest, setReviewRequest] = useState(null)
   const notificationRef = useRef(null)
@@ -152,16 +153,30 @@ export default function Header() {
   function handleSearchSubmit(event) {
     event.preventDefault()
     const keyword = searchTerm.trim()
+    setMobileMenuOpen(false)
     navigate(keyword ? `/search?q=${encodeURIComponent(keyword)}` : '/search')
+  }
+
+  function closeMobileMenu() {
+    setMobileMenuOpen(false)
   }
 
   return (
     <>
       <header className="fixed top-0 left-0 w-full z-50 bg-surface shadow-[0px_4px_20px_rgba(0,0,0,0.05)] h-16 flex items-center">
-        <div className="flex justify-between items-center w-full px-margin-desktop max-w-container-max mx-auto h-16">
-          <div className="flex items-center gap-8 flex-1">
+        <div className="flex justify-between items-center w-full px-margin-mobile md:px-margin-desktop max-w-container-max mx-auto h-16">
+          <div className="flex min-w-0 items-center gap-3 md:gap-8 flex-1">
+          <button
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full hover:bg-surface-container lg:hidden"
+            type="button"
+            aria-label="Open menu"
+            aria-expanded={mobileMenuOpen}
+            onClick={() => setMobileMenuOpen(true)}
+          >
+            <span className="material-symbols-outlined">menu</span>
+          </button>
           <Link to="/" aria-label="Trang chủ">
-            <img src="/logo_shop_remote.png" alt="ShopBee" className="h-20 w-auto" />
+            <img src="/logo_shop_remote.png" alt="ShopBee" className="h-14 w-auto sm:h-16 md:h-20" />
           </Link>
           <form className="hidden md:flex flex-1 max-w-xl relative" onSubmit={handleSearchSubmit}>
             <input
@@ -202,7 +217,7 @@ export default function Header() {
           </Link>
           </nav>
 
-          <div className="flex items-center gap-4">
+          <div className="flex shrink-0 items-center gap-1 sm:gap-2 md:gap-4">
             <div className="relative" ref={notificationRef}>
               <button
                 className="relative flex h-10 w-10 items-center justify-center rounded-full hover:bg-surface-container"
@@ -220,7 +235,7 @@ export default function Header() {
               </button>
 
               {notificationOpen ? (
-                <div className="absolute right-0 top-12 w-[360px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest shadow-xl">
+                <div className="fixed left-3 right-3 top-[72px] max-h-[calc(100dvh-96px)] overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest shadow-xl sm:absolute sm:left-auto sm:right-0 sm:top-12 sm:w-[360px] sm:max-w-[calc(100vw-2rem)]">
                   <div className="flex items-center justify-between gap-3 border-b border-outline-variant px-4 py-3">
                     <div>
                       <p className="text-title-sm font-title-sm text-on-surface">Thông báo</p>
@@ -253,7 +268,7 @@ export default function Header() {
                   ) : loadingNotifications ? (
                     <div className="px-4 py-5 text-body-sm text-on-surface-variant">Đang tải thông báo...</div>
                   ) : notifications.items.length ? (
-                    <div className="max-h-[420px] overflow-y-auto">
+                    <div className="max-h-[calc(100dvh-180px)] overflow-y-auto sm:max-h-[420px]">
                       {notifications.items.map((notification) => (
                         <button
                           key={notification.id}
@@ -302,6 +317,71 @@ export default function Header() {
           </div>
         </div>
       </header>
+
+      {mobileMenuOpen ? (
+        <div className="fixed inset-0 z-[70] lg:hidden">
+          <button
+            className="absolute inset-0 bg-black/45"
+            type="button"
+            aria-label="Close menu"
+            onClick={closeMobileMenu}
+          />
+          <aside className="absolute left-0 top-0 flex h-full w-[min(86vw,340px)] flex-col overflow-y-auto bg-surface-container-lowest shadow-2xl">
+            <div className="flex h-16 items-center justify-between border-b border-outline-variant px-4">
+              <Link className="flex items-center" to="/" onClick={closeMobileMenu}>
+                <img src="/logo_shop_remote.png" alt="ShopBee" className="h-14 w-auto" />
+              </Link>
+              <button
+                className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-surface-container"
+                type="button"
+                aria-label="Close menu"
+                onClick={closeMobileMenu}
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            <form className="border-b border-outline-variant px-4 py-4" onSubmit={handleSearchSubmit}>
+              <label className="relative block">
+                <input
+                  className="h-11 w-full rounded-lg border border-outline-variant bg-surface-container-low py-2 pl-4 pr-12 text-body-md focus:border-primary focus:ring-0"
+                  placeholder="Tìm sản phẩm, shop..."
+                  type="text"
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                />
+                <button className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center text-primary" type="submit" aria-label="Search">
+                  <span className="material-symbols-outlined">search</span>
+                </button>
+              </label>
+            </form>
+
+            <nav className="grid gap-1 px-3 py-4">
+              {[
+                ['Trang chủ', '/'],
+                ['Thời trang', '/category/thoi-trang'],
+                ['Gia dụng', '/category/gia-dung'],
+                ['Làm đẹp', '/category/lam-dep'],
+                ['Voucher', '/vouchers'],
+                ['Tin nhắn', '/messages'],
+                ['Giỏ hàng', '/cart'],
+              ].map(([label, to]) => (
+                <Link
+                  key={to}
+                  className="flex h-11 items-center gap-3 rounded-lg px-3 text-label-lg font-label-lg text-on-surface-variant hover:bg-surface-container hover:text-primary"
+                  to={to}
+                  onClick={closeMobileMenu}
+                >
+                  <span className="material-symbols-outlined text-[20px]">
+                    {to === '/cart' ? 'shopping_cart' : to === '/messages' ? 'forum' : 'chevron_right'}
+                  </span>
+                  {label}
+                </Link>
+              ))}
+            </nav>
+          </aside>
+        </div>
+      ) : null}
 
       {reviewRequest ? (
         <ReviewModal

@@ -41,7 +41,7 @@ export function SellerProductsPanel({
             onClick={openCreateProductModal}
           >
             <span className="material-symbols-outlined text-[20px]">add</span>
-            + Đăng sản phẩm mới
+            Đăng sản phẩm mới
           </button>
         </div>
       </section>

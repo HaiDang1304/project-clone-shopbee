@@ -1,7 +1,7 @@
 export default function Footer() {
   return (
     <footer className="bg-surface-container-highest">
-      <div className="max-w-container-max mx-auto grid grid-cols-1 md:grid-cols-4 gap-gutter px-margin-desktop py-12">
+      <div className="max-w-container-max mx-auto grid grid-cols-1 gap-6 px-margin-mobile py-10 md:grid-cols-4 md:gap-gutter md:px-margin-desktop md:py-12">
         <div>
           <img
             src="/logo_shop_remote.png"

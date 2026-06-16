@@ -996,6 +996,37 @@ async function readAdminShopsData() {
   }
 }
 
+async function updateAdminShop(shopId, body) {
+  const id = Number(shopId)
+  if (!Number.isSafeInteger(id) || id <= 0) {
+    const err = new Error('Cửa hàng không hợp lệ')
+    err.status = 400
+    throw err
+  }
+
+  const existing = await query('SELECT id FROM shops WHERE id = ? LIMIT 1', [id])
+  if (!existing.length) {
+    const err = new Error('Không tìm thấy cửa hàng')
+    err.status = 404
+    throw err
+  }
+
+  const fields = []
+  const params = []
+  if (Object.prototype.hasOwnProperty.call(body || {}, 'isActive')) {
+    const isActiveValue = body.isActive
+    const isActive =
+      isActiveValue === true || isActiveValue === 1 || isActiveValue === '1' || isActiveValue === 'true'
+    fields.push('is_active = ?')
+    params.push(isActive ? 1 : 0)
+  }
+
+  if (!fields.length) return readAdminShopsData()
+
+  await query(`UPDATE shops SET ${fields.join(', ')}, updated_at = NOW() WHERE id = ?`, [...params, id])
+  return readAdminShopsData()
+}
+
 async function readAdminUsersData() {
   const [statRows, userRows] = await Promise.all([
     query(
@@ -1288,6 +1319,7 @@ module.exports = {
   readAdminShopsData,
   readAdminUsersData,
   readDashboardData,
+  updateAdminShop,
   updateAdminReview,
   updateAdminCategory,
   updateAdminVoucher,

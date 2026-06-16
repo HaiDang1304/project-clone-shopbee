@@ -17,6 +17,7 @@ import {
   updateAdminCategory,
   updateAdminFlashSale,
   updateAdminComment,
+  updateAdminShop,
   updateAdminUser,
   updateAdminVoucher,
 } from '../../lib/account'
@@ -124,7 +125,7 @@ function RevenueTrendCard({ trend, revenueRange, revenueFilter, onRevenueFilterC
     <section className="rounded-lg border border-[#eaded2] bg-white p-4 shadow-[0_8px_24px_rgba(60,42,22,0.05)]">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-[15px] font-bold text-[#15110d]">Doanh thu theo khoang thoi gian</h2>
+          <h2 className="text-[15px] font-bold text-[#15110d]">Doanh thu theo khoảng thời gian</h2>
           <p className="mt-1 text-[11px] text-[#7c6657]">
             {hasRevenue
               ? `Cao nhất ${peakPoint.day}: ${formatCurrency(peakPoint.value)}`
@@ -132,7 +133,7 @@ function RevenueTrendCard({ trend, revenueRange, revenueFilter, onRevenueFilterC
           </p>
         </div>
         <div className="rounded-lg bg-[#fff7ea] px-3 py-2 text-right">
-          <p className="text-[10px] font-semibold uppercase text-[#9a5700]">Tong doanh thu</p>
+          <p className="text-[10px] font-semibold uppercase text-[#9a5700]">Tổng doanh thu</p>
           <p className="mt-0.5 text-[18px] font-bold leading-6 text-[#2b1a02]">{formatCurrency(totalRevenue)}</p>
         </div>
       </div>
@@ -172,7 +173,7 @@ function PlatformFeeShopsTable({ shops }) {
     <section className="overflow-hidden rounded-lg border border-[#eaded2] bg-white shadow-[0_8px_24px_rgba(60,42,22,0.05)]">
       <div className="flex flex-wrap items-start justify-between gap-3 px-4 py-3">
         <div>
-          <h2 className="text-[15px] font-bold text-[#15110d]">Doanh thu theo khoang thoi gian</h2>
+          <h2 className="text-[15px] font-bold text-[#15110d]">Doanh thu theo khoảng thời gian</h2>
           <p className="mt-0.5 text-[11px] text-[#7c6657]">Phí sàn cố định 5% trên đơn đã giao trong tháng.</p>
         </div>
         <span className="rounded-full bg-[#e8fff5] px-3 py-1 text-[10px] font-bold text-[#047857]">
@@ -476,7 +477,7 @@ function PendingShopsTable({ shops, totalCount, onReviewed }) {
     <section className="overflow-hidden rounded-lg border border-[#eaded2] bg-white shadow-[0_8px_24px_rgba(60,42,22,0.05)]">
       <div className="flex flex-wrap items-start justify-between gap-3 px-4 py-3">
         <div>
-          <h2 className="text-[15px] font-bold text-[#15110d]">Doanh thu theo khoang thoi gian</h2>
+          <h2 className="text-[15px] font-bold text-[#15110d]">Doanh thu theo khoảng thời gian</h2>
           <p className="mt-0.5 text-[11px] text-[#7c6657]">Kiểm tra thông tin pháp lý trước khi phê duyệt.</p>
         </div>
         <div className="flex gap-2">
@@ -653,19 +654,19 @@ export function ReportsDashboard({ dashboardData, shopsData, revenueFilter, onRe
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-[24px] font-bold leading-8 text-[#15110d]">Thong ke bao cao</h1>
+          <h1 className="text-[24px] font-bold leading-8 text-[#15110d]">Thống kê báo cáo</h1>
           <p className="mt-1 text-[12px] text-[#6b4d3e]">
-            Tong hop doanh thu, phi san, don hang va hieu qua cua tung cua hang.
+            Tổng hợp doanh thu, phí sàn, đơn hàng và hiệu quả của từng cửa hàng.
           </p>
         </div>
         <label className="grid min-w-[260px] gap-1.5">
-          <span className="text-[11px] font-bold text-[#4b3527]">Xem chi tiet cua hang</span>
+          <span className="text-[11px] font-bold text-[#4b3527]">Xem chi tiết cửa hàng</span>
           <select
             className="h-10 rounded-lg border-[#dfc8b5] bg-white text-[13px] text-[#1d1712] focus:border-[#c98225] focus:ring-0"
             value={selectedShopId}
             onChange={(event) => setSelectedShopId(event.target.value)}
           >
-            <option value="">Tong quan toan san</option>
+            <option value="">Tổng quan toàn sàn</option>
             {shops.map((shop) => (
               <option key={shop.id} value={shop.id}>{shop.name}</option>
             ))}
@@ -674,17 +675,17 @@ export function ReportsDashboard({ dashboardData, shopsData, revenueFilter, onRe
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <OverviewMetricCard stat={{ label: 'Doanh thu khoang chon', value: formatCurrency(revenueTotal), icon: 'payments', change: 'Theo bieu do', iconClass: 'bg-[#fff2df] text-[#d47b00]' }} />
-        <OverviewMetricCard stat={{ label: 'Doanh thu da giao thang', value: formatCurrency(totalDeliveredRevenue), icon: 'inventory', change: 'Da giao', iconClass: 'bg-[#e8fff5] text-[#047857]' }} />
-        <OverviewMetricCard stat={{ label: 'Don hang gan day', value: formatCount(orders.length), icon: 'shopping_bag', change: 'Moi nhat', iconClass: 'bg-[#e8f0ff] text-[#2f6bf2]' }} />
-        <OverviewMetricCard stat={{ label: 'Phi san thang', value: formatCurrency(totalPlatformFee), icon: 'receipt', change: `${formatCount(shopsData?.stats?.active || 0)} shop dang ban`, iconClass: 'bg-[#f3e8ff] text-[#8c38d8]' }} />
+        <OverviewMetricCard stat={{ label: 'Doanh thu khoảng chọn', value: formatCurrency(revenueTotal), icon: 'payments', change: 'Theo biểu đồ', iconClass: 'bg-[#fff2df] text-[#d47b00]' }} />
+        <OverviewMetricCard stat={{ label: 'Doanh thu đã giao tháng', value: formatCurrency(totalDeliveredRevenue), icon: 'inventory', change: 'Đã giao', iconClass: 'bg-[#e8fff5] text-[#047857]' }} />
+        <OverviewMetricCard stat={{ label: 'Đơn hàng gần đây', value: formatCount(orders.length), icon: 'shopping_bag', change: 'Mới nhất', iconClass: 'bg-[#e8f0ff] text-[#2f6bf2]' }} />
+        <OverviewMetricCard stat={{ label: 'Phí sàn tháng', value: formatCurrency(totalPlatformFee), icon: 'receipt', change: `${formatCount(shopsData?.stats?.active || 0)} shop đang bán`, iconClass: 'bg-[#f3e8ff] text-[#8c38d8]' }} />
       </div>
 
       <section className="rounded-lg border border-[#eaded2] bg-white p-4 shadow-[0_8px_24px_rgba(60,42,22,0.05)]">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="text-[15px] font-bold text-[#15110d]">Doanh thu hoat dong cua san</h2>
-            <p className="mt-1 text-[11px] text-[#7c6657]">Tong doanh thu don hang hop le theo khoang ngay dang chon.</p>
+            <h2 className="text-[15px] font-bold text-[#15110d]">Doanh thu hoạt động của sàn</h2>
+            <p className="mt-1 text-[11px] text-[#7c6657]">Tổng doanh thu đơn hàng hợp lệ theo khoảng ngày đang chọn.</p>
           </div>
           <RevenueRangeControls value={revenueFilter} revenueRange={dashboardData?.revenueRange} onChange={onRevenueFilterChange} />
         </div>
@@ -695,13 +696,13 @@ export function ReportsDashboard({ dashboardData, shopsData, revenueFilter, onRe
 
       <div className="grid gap-5 xl:grid-cols-2">
         <section className="rounded-lg border border-[#eaded2] bg-white p-4 shadow-[0_8px_24px_rgba(60,42,22,0.05)]">
-          <h2 className="text-[15px] font-bold text-[#15110d]">Top cua hang theo doanh thu</h2>
+          <h2 className="text-[15px] font-bold text-[#15110d]">Top cửa hàng theo doanh thu</h2>
           <div className="mt-4 h-[240px] rounded-lg bg-[#fbfaf9] px-3 pb-3 pt-4">
             <SummaryBarChart items={topShopChartItems} valueType="currency" color="#047857" />
           </div>
         </section>
         <section className="rounded-lg border border-[#eaded2] bg-white p-4 shadow-[0_8px_24px_rgba(60,42,22,0.05)]">
-          <h2 className="text-[15px] font-bold text-[#15110d]">Trang thai don hang</h2>
+          <h2 className="text-[15px] font-bold text-[#15110d]">Trạng thái đơn hàng</h2>
           <div className="mt-4 h-[240px] rounded-lg bg-[#fbfaf9] px-3 pb-3 pt-4">
             <SummaryBarChart items={statusChartItems} color="#2f6bf2" />
           </div>
@@ -713,39 +714,39 @@ export function ReportsDashboard({ dashboardData, shopsData, revenueFilter, onRe
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 className="text-[18px] font-bold text-[#15110d]">{selectedShop.name}</h2>
-              <p className="mt-1 text-[12px] text-[#7c6657]">{selectedShop.owner?.name || 'Chu shop'} · {formatShopAddress(selectedShop)}</p>
+              <p className="mt-1 text-[12px] text-[#7c6657]">{selectedShop.owner?.name || 'Chủ shop'} · {formatShopAddress(selectedShop)}</p>
             </div>
             <span className={`rounded-full px-3 py-1 text-[11px] font-bold ${selectedShop.isActive ? 'bg-[#d9f7df] text-[#087c32]' : 'bg-[#ffdcd6] text-[#b42318]'}`}>
-              {selectedShop.isActive ? 'Dang hoat dong' : 'Tam khoa'}
+              {selectedShop.isActive ? 'Đang hoạt động' : 'Tạm khóa'}
             </span>
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-lg bg-[#fbfaf9] px-4 py-3">
-              <p className="text-[11px] font-bold uppercase text-[#7c6657]">Tong doanh thu</p>
+              <p className="text-[11px] font-bold uppercase text-[#7c6657]">Tổng doanh thu</p>
               <p className="mt-1 text-[18px] font-bold text-[#a15d00]">{formatCurrency(selectedShop.revenue)}</p>
             </div>
             <div className="rounded-lg bg-[#fbfaf9] px-4 py-3">
-              <p className="text-[11px] font-bold uppercase text-[#7c6657]">Phi san thang</p>
+              <p className="text-[11px] font-bold uppercase text-[#7c6657]">Phí sàn tháng</p>
               <p className="mt-1 text-[18px] font-bold text-[#047857]">{formatCurrency(selectedShop.monthlyPlatformFee)}</p>
             </div>
             <div className="rounded-lg bg-[#fbfaf9] px-4 py-3">
-              <p className="text-[11px] font-bold uppercase text-[#7c6657]">Don hang</p>
+              <p className="text-[11px] font-bold uppercase text-[#7c6657]">Đơn hàng</p>
               <p className="mt-1 text-[18px] font-bold text-[#15110d]">{formatCount(selectedShop.orderCount)}</p>
             </div>
             <div className="rounded-lg bg-[#fbfaf9] px-4 py-3">
-              <p className="text-[11px] font-bold uppercase text-[#7c6657]">Danh gia</p>
+              <p className="text-[11px] font-bold uppercase text-[#7c6657]">Đánh giá</p>
               <p className="mt-1 text-[18px] font-bold text-[#15110d]">{Number(selectedShop.ratingAvg || 0).toFixed(1)}/5</p>
             </div>
           </div>
           <div className="mt-4 grid gap-3 md:grid-cols-3">
             <p className="rounded-lg border border-[#eaded2] px-4 py-3 text-[12px] text-[#4b3527]">
-              Doanh thu da giao thang: <span className="font-bold text-[#15110d]">{formatCurrency(selectedShopFee?.monthlyDeliveredRevenue || selectedShop.monthlyDeliveredRevenue || 0)}</span>
+              Doanh thu đã giao tháng: <span className="font-bold text-[#15110d]">{formatCurrency(selectedShopFee?.monthlyDeliveredRevenue || selectedShop.monthlyDeliveredRevenue || 0)}</span>
             </p>
             <p className="rounded-lg border border-[#eaded2] px-4 py-3 text-[12px] text-[#4b3527]">
-              Thuc nhan uoc tinh: <span className="font-bold text-[#15110d]">{formatCurrency(selectedShopFee?.monthlyPayout || Math.max(0, Number(selectedShop.monthlyDeliveredRevenue || 0) - Number(selectedShop.monthlyPlatformFee || 0)))}</span>
+              Thực nhận ước tính: <span className="font-bold text-[#15110d]">{formatCurrency(selectedShopFee?.monthlyPayout || Math.max(0, Number(selectedShop.monthlyDeliveredRevenue || 0) - Number(selectedShop.monthlyPlatformFee || 0)))}</span>
             </p>
             <p className="rounded-lg border border-[#eaded2] px-4 py-3 text-[12px] text-[#4b3527]">
-              San pham dang quan ly: <span className="font-bold text-[#15110d]">{formatCount(selectedShop.productCount)}</span>
+              Sản phẩm đang quản lý: <span className="font-bold text-[#15110d]">{formatCount(selectedShop.productCount)}</span>
             </p>
           </div>
         </section>
@@ -783,8 +784,9 @@ export function PlaceholderModule({ activeModule }) {
   )
 }
 
-export function ShopsDashboard({ searchTerm, shopsData }) {
+export function ShopsDashboard({ searchTerm, shopsData, onShopsDataChange }) {
   const [activeStatus, setActiveStatus] = useState('all')
+  const [workingShopId, setWorkingShopId] = useState(null)
   const stats = useMemo(() => buildShopStats(shopsData), [shopsData])
   const shops = useMemo(() => shopsData?.items || [], [shopsData])
   const statusTabs = [
@@ -808,6 +810,23 @@ export function ShopsDashboard({ searchTerm, shopsData }) {
 
   const visibleCount = filteredShops.length
   const visibleStart = visibleCount ? 1 : 0
+
+  async function handleToggleShop(shop) {
+    const nextActive = !shop.isActive
+    const actionText = nextActive ? 'mở khóa' : 'khóa'
+    if (!window.confirm(`Bạn có chắc muốn ${actionText} cửa hàng "${shop.name}"?`)) return
+
+    setWorkingShopId(shop.id)
+    try {
+      const nextData = await updateAdminShop(shop.id, { isActive: nextActive })
+      onShopsDataChange?.(nextData)
+      toast.success(nextActive ? 'Đã mở khóa cửa hàng.' : 'Đã khóa cửa hàng.')
+    } catch (err) {
+      toast.error(err.message || 'Không cập nhật được trạng thái cửa hàng.')
+    } finally {
+      setWorkingShopId(null)
+    }
+  }
 
   return (
     <div className="space-y-5">
@@ -858,11 +877,13 @@ export function ShopsDashboard({ searchTerm, shopsData }) {
                 <th className="px-4">Theo dõi</th>
                 <th className="px-4">Trạng thái</th>
                 <th className="px-4">Ngày tạo</th>
+                <th className="px-4 text-center">Thao tác</th>
               </tr>
             </thead>
             <tbody>
               {filteredShops.map((shop) => {
                 const createdAt = formatDateTime(shop.createdAt)
+                const isWorking = workingShopId === shop.id
 
                 return (
                   <tr key={shop.id} className="border-t border-[#f0e7df] text-[12px] text-[#17120e]">
@@ -916,6 +937,16 @@ export function ShopsDashboard({ searchTerm, shopsData }) {
                       <p className="font-semibold">{createdAt.date}</p>
                       <p className="text-[10px] text-[#6e5c51]">{createdAt.time}</p>
                     </td>
+                    <td className="px-4 py-4">
+                      <div className="flex justify-center">
+                        <IconButton
+                          icon={isWorking ? 'sync' : shop.isActive ? 'lock_open' : 'lock'}
+                          label={shop.isActive ? `Khóa ${shop.name}` : `Mở khóa ${shop.name}`}
+                          disabled={isWorking}
+                          onClick={() => handleToggleShop(shop)}
+                        />
+                      </div>
+                    </td>
                   </tr>
                 )
               })}
@@ -968,9 +999,9 @@ export function CategoriesDashboard({ searchTerm, categoriesData, onCategoriesDa
   const categories = useMemo(() => categoriesData?.items || [], [categoriesData])
   const parentOptions = categories.filter((category) => Number(category.id) !== Number(editingCategoryId))
   const statusTabs = [
-    { value: 'all', label: 'Tat ca', count: categoriesData?.stats?.total || 0 },
-    { value: 'active', label: 'Dang hien thi', count: categoriesData?.stats?.active || 0 },
-    { value: 'inactive', label: 'Tam an', count: categoriesData?.stats?.inactive || 0 },
+    { value: 'all', label: 'Tất cả', count: categoriesData?.stats?.total || 0 },
+    { value: 'active', label: 'Đang hiển thị', count: categoriesData?.stats?.active || 0 },
+    { value: 'inactive', label: 'Tạm ẩn', count: categoriesData?.stats?.inactive || 0 },
   ]
 
   const filteredCategories = useMemo(() => {
@@ -1039,9 +1070,9 @@ export function CategoriesDashboard({ searchTerm, categoriesData, onCategoriesDa
         : await createAdminCategory(payload)
       onCategoriesDataChange(nextData)
       resetCategoryForm()
-      toast.success(editingCategoryId ? 'Da cap nhat danh muc.' : 'Da tao danh muc.')
+      toast.success(editingCategoryId ? 'Đã cập nhật danh mục.' : 'Đã tạo danh mục.')
     } catch (err) {
-      toast.error(err.message || 'Khong luu duoc danh muc.')
+      toast.error(err.message || 'Không lưu được danh mục.')
     } finally {
       setSavingCategory(false)
     }
@@ -1053,25 +1084,25 @@ export function CategoriesDashboard({ searchTerm, categoriesData, onCategoriesDa
     try {
       const nextData = await updateAdminCategory(category.id, { isActive: !category.isActive })
       onCategoriesDataChange(nextData)
-      toast.success('Da cap nhat trang thai danh muc.')
+      toast.success('Đã cập nhật trạng thái danh mục.')
     } catch (err) {
-      toast.error(err.message || 'Khong cap nhat duoc danh muc.')
+      toast.error(err.message || 'Không cập nhật được danh mục.')
     } finally {
       setWorkingCategoryId(null)
     }
   }
 
   async function handleDeleteCategory(category) {
-    if (!window.confirm(`Ban co chac muon xoa danh muc "${category.name}"?`)) return
+    if (!window.confirm(`Bạn có chắc muốn xóa danh mục "${category.name}"?`)) return
     setWorkingCategoryId(category.id)
 
     try {
       const nextData = await deleteAdminCategory(category.id)
       onCategoriesDataChange(nextData)
       if (Number(editingCategoryId) === Number(category.id)) resetCategoryForm()
-      toast.success('Da xoa danh muc.')
+      toast.success('Đã xóa danh mục.')
     } catch (err) {
-      toast.error(err.message || 'Khong xoa duoc danh muc.')
+      toast.error(err.message || 'Không xóa được danh mục.')
     } finally {
       setWorkingCategoryId(null)
     }
@@ -1081,29 +1112,29 @@ export function CategoriesDashboard({ searchTerm, categoriesData, onCategoriesDa
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-[24px] font-bold leading-8 text-[#15110d]">Quan tri danh muc</h1>
+          <h1 className="text-[24px] font-bold leading-8 text-[#15110d]">Quản trị danh mục</h1>
           <p className="mt-1 text-[12px] text-[#6b4d3e]">
-            Tao, sap xep va an hien danh muc san pham cho trang mua hang va kenh nguoi ban.
+            Tạo, sắp xếp và ẩn hiện danh mục sản phẩm cho trang mua hàng và kênh người bán.
           </p>
         </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <OverviewMetricCard stat={{ label: 'Tong danh muc', value: formatCount(categoriesData?.stats?.total || 0), icon: 'category', change: 'Tat ca', iconClass: 'bg-[#fff2df] text-[#d47b00]' }} />
-        <OverviewMetricCard stat={{ label: 'Dang hien thi', value: formatCount(categoriesData?.stats?.active || 0), icon: 'visibility', change: 'Active', iconClass: 'bg-[#e8fff5] text-[#047857]' }} />
-        <OverviewMetricCard stat={{ label: 'Tam an', value: formatCount(categoriesData?.stats?.inactive || 0), icon: 'visibility_off', change: 'Inactive', iconClass: 'bg-[#fff0e7] text-[#e5791f]' }} />
-        <OverviewMetricCard stat={{ label: 'Danh muc goc', value: formatCount(categoriesData?.stats?.roots || 0), icon: 'account_tree', change: 'Root', iconClass: 'bg-[#e8f0ff] text-[#2f6bf2]' }} />
+        <OverviewMetricCard stat={{ label: 'Tổng danh mục', value: formatCount(categoriesData?.stats?.total || 0), icon: 'category', change: 'Tất cả', iconClass: 'bg-[#fff2df] text-[#d47b00]' }} />
+        <OverviewMetricCard stat={{ label: 'Đang hiển thị', value: formatCount(categoriesData?.stats?.active || 0), icon: 'visibility', change: 'Active', iconClass: 'bg-[#e8fff5] text-[#047857]' }} />
+        <OverviewMetricCard stat={{ label: 'Tạm ẩn', value: formatCount(categoriesData?.stats?.inactive || 0), icon: 'visibility_off', change: 'Inactive', iconClass: 'bg-[#fff0e7] text-[#e5791f]' }} />
+        <OverviewMetricCard stat={{ label: 'Danh mục gốc', value: formatCount(categoriesData?.stats?.roots || 0), icon: 'account_tree', change: 'Root', iconClass: 'bg-[#e8f0ff] text-[#2f6bf2]' }} />
       </div>
 
       <section className="rounded-lg border border-[#eaded2] bg-white p-4 shadow-[0_8px_24px_rgba(60,42,22,0.05)]">
         <form className="grid gap-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_140px_130px_auto]" onSubmit={handleCategorySubmit}>
           <label className="grid gap-1.5">
-            <span className="text-[11px] font-bold text-[#4b3527]">Ten danh muc</span>
+            <span className="text-[11px] font-bold text-[#4b3527]">Tên danh mục</span>
             <input
               className="h-10 rounded-lg border-[#dfc8b5] bg-[#fbfaf9] text-[13px] text-[#1d1712] focus:border-[#c98225] focus:ring-0"
               value={categoryForm.name}
               onChange={(event) => updateCategoryField('name', event.target.value)}
-              placeholder="Vi du: Dien tu"
+              placeholder="Ví dụ: Điện tử"
               required
             />
           </label>
@@ -1118,13 +1149,13 @@ export function CategoriesDashboard({ searchTerm, categoriesData, onCategoriesDa
             />
           </label>
           <label className="grid gap-1.5">
-            <span className="text-[11px] font-bold text-[#4b3527]">Danh muc cha</span>
+            <span className="text-[11px] font-bold text-[#4b3527]">Danh mục cha</span>
             <select
               className="h-10 rounded-lg border-[#dfc8b5] bg-[#fbfaf9] text-[13px] text-[#1d1712] focus:border-[#c98225] focus:ring-0"
               value={categoryForm.parentId}
               onChange={(event) => updateCategoryField('parentId', event.target.value)}
             >
-              <option value="">Danh muc goc</option>
+              <option value="">Danh mục gốc</option>
               {parentOptions.map((category) => (
                 <option key={category.id} value={category.id}>
                   {category.name}
@@ -1133,7 +1164,7 @@ export function CategoriesDashboard({ searchTerm, categoriesData, onCategoriesDa
             </select>
           </label>
           <label className="grid gap-1.5">
-            <span className="text-[11px] font-bold text-[#4b3527]">Thu tu</span>
+            <span className="text-[11px] font-bold text-[#4b3527]">Thứ tự</span>
             <input
               className="h-10 rounded-lg border-[#dfc8b5] bg-[#fbfaf9] text-[13px] text-[#1d1712] focus:border-[#c98225] focus:ring-0"
               type="number"
@@ -1150,14 +1181,14 @@ export function CategoriesDashboard({ searchTerm, categoriesData, onCategoriesDa
                 checked={categoryForm.isActive}
                 onChange={(event) => updateCategoryField('isActive', event.target.checked)}
               />
-              Hien thi
+              Hiển thị
             </label>
             <button
               className="h-10 rounded-lg bg-[#995900] px-4 text-[12px] font-bold text-white hover:bg-[#7b4600] disabled:opacity-60"
               type="submit"
               disabled={savingCategory}
             >
-              {savingCategory ? 'Dang luu...' : editingCategoryId ? 'Cap nhat' : 'Them'}
+              {savingCategory ? 'Đang lưu...' : editingCategoryId ? 'Cập nhật' : 'Thêm'}
             </button>
             {editingCategoryId ? (
               <button
@@ -1165,7 +1196,7 @@ export function CategoriesDashboard({ searchTerm, categoriesData, onCategoriesDa
                 type="button"
                 onClick={resetCategoryForm}
               >
-                Huy
+                Hủy
               </button>
             ) : null}
           </div>
@@ -1193,13 +1224,13 @@ export function CategoriesDashboard({ searchTerm, categoriesData, onCategoriesDa
           <table className="w-full min-w-[900px] border-collapse text-left">
             <thead>
               <tr className="h-12 bg-[#eeeeed] text-[10px] font-bold uppercase text-[#4b3527]">
-                <th className="px-4">Danh muc</th>
-                <th className="px-4">Danh muc cha</th>
-                <th className="px-4">Thu tu</th>
-                <th className="px-4">San pham</th>
-                <th className="px-4">Danh muc con</th>
-                <th className="px-4">Trang thai</th>
-                <th className="px-4">Cap nhat</th>
+                <th className="px-4">Danh mục</th>
+                <th className="px-4">Danh mục cha</th>
+                <th className="px-4">Thứ tự</th>
+                <th className="px-4">Sản phẩm</th>
+                <th className="px-4">Danh mục con</th>
+                <th className="px-4">Trạng thái</th>
+                <th className="px-4">Cập nhật</th>
                 <th className="px-4 text-center">Thao tac</th>
               </tr>
             </thead>
@@ -1214,13 +1245,13 @@ export function CategoriesDashboard({ searchTerm, categoriesData, onCategoriesDa
                       <p className="font-bold text-[#1d1712]">{category.name}</p>
                       <p className="mt-0.5 text-[10px] text-[#7b6556]">/{category.slug}</p>
                     </td>
-                    <td className="px-4 py-4">{category.parentId ? categoryById[category.parentId]?.name || `#${category.parentId}` : 'Danh muc goc'}</td>
+                    <td className="px-4 py-4">{category.parentId ? categoryById[category.parentId]?.name || `#${category.parentId}` : 'Danh mục gốc'}</td>
                     <td className="px-4 py-4 font-semibold">{formatCount(category.sortOrder)}</td>
                     <td className="px-4 py-4">{formatCount(category.productCount)}</td>
                     <td className="px-4 py-4">{formatCount(category.childCount)}</td>
                     <td className="px-4 py-4">
                       <span className={`inline-flex rounded-full px-2 py-1 text-[10px] font-bold ${category.isActive ? 'bg-[#d9f7df] text-[#087c32]' : 'bg-[#ffdcd6] text-[#b42318]'}`}>
-                        {category.isActive ? 'Dang hien thi' : 'Tam an'}
+                        {category.isActive ? 'Đang hiển thị' : 'Tạm ẩn'}
                       </span>
                     </td>
                     <td className="px-4 py-4">
@@ -1229,14 +1260,14 @@ export function CategoriesDashboard({ searchTerm, categoriesData, onCategoriesDa
                     </td>
                     <td className="px-4 py-4">
                       <div className="flex justify-center gap-1">
-                        <IconButton icon="edit" label="Sua danh muc" disabled={isWorking} onClick={() => editCategory(category)} />
+                        <IconButton icon="edit" label="Sửa danh mục" disabled={isWorking} onClick={() => editCategory(category)} />
                         <IconButton
                           icon={category.isActive ? 'visibility_off' : 'visibility'}
-                          label={category.isActive ? 'Tam an' : 'Hien thi'}
+                          label={category.isActive ? 'Tạm ẩn' : 'Hiển thị'}
                           disabled={isWorking}
                           onClick={() => handleToggleCategory(category)}
                         />
-                        <IconButton icon="delete" label="Xoa danh muc" disabled={isWorking} onClick={() => handleDeleteCategory(category)} />
+                        <IconButton icon="delete" label="Xóa danh mục" disabled={isWorking} onClick={() => handleDeleteCategory(category)} />
                       </div>
                     </td>
                   </tr>
@@ -1248,7 +1279,7 @@ export function CategoriesDashboard({ searchTerm, categoriesData, onCategoriesDa
 
         {!filteredCategories.length ? (
           <div className="border-t border-[#f0e7df] px-4 py-10 text-center text-[13px] text-[#6e5c51]">
-            Khong tim thay danh muc phu hop.
+            Không tìm thấy danh mục phù hợp.
           </div>
         ) : null}
       </section>
@@ -1275,10 +1306,10 @@ export function CommentsDashboard({ searchTerm, commentsData, onCommentsDataChan
   const [workingCommentId, setWorkingCommentId] = useState(null)
   const comments = useMemo(() => commentsData?.items || [], [commentsData])
   const statusTabs = [
-    { value: 'all', label: 'Tat ca', count: commentsData?.stats?.total || 0 },
-    { value: 'visible', label: 'Dang hien thi', count: commentsData?.stats?.visible || 0 },
-    { value: 'hidden', label: 'Da an', count: commentsData?.stats?.hidden || 0 },
-    { value: 'low', label: 'Rating thap', count: commentsData?.stats?.lowRating || 0 },
+    { value: 'all', label: 'Tất cả', count: commentsData?.stats?.total || 0 },
+    { value: 'visible', label: 'Đang hiển thị', count: commentsData?.stats?.visible || 0 },
+    { value: 'hidden', label: 'Đã ẩn', count: commentsData?.stats?.hidden || 0 },
+    { value: 'low', label: 'Rating thấp', count: commentsData?.stats?.lowRating || 0 },
   ]
 
   const filteredComments = useMemo(() => {
@@ -1311,24 +1342,24 @@ export function CommentsDashboard({ searchTerm, commentsData, onCommentsDataChan
     try {
       const nextData = await updateAdminComment(comment.id, { isVisible: !comment.isVisible })
       onCommentsDataChange(nextData)
-      toast.success('Da cap nhat trang thai binh luan.')
+      toast.success('Đã cập nhật trạng thái bình luận.')
     } catch (err) {
-      toast.error(err.message || 'Khong cap nhat duoc binh luan.')
+      toast.error(err.message || 'Không cập nhật được bình luận.')
     } finally {
       setWorkingCommentId(null)
     }
   }
 
   async function handleDeleteComment(comment) {
-    if (!window.confirm(`Ban co chac muon xoa binh luan #${comment.id}?`)) return
+    if (!window.confirm(`Bạn có chắc muốn xóa bình luận #${comment.id}?`)) return
     setWorkingCommentId(comment.id)
 
     try {
       const nextData = await deleteAdminComment(comment.id)
       onCommentsDataChange(nextData)
-      toast.success('Da xoa binh luan.')
+      toast.success('Đã xóa bình luận.')
     } catch (err) {
-      toast.error(err.message || 'Khong xoa duoc binh luan.')
+      toast.error(err.message || 'Không xóa được bình luận.')
     } finally {
       setWorkingCommentId(null)
     }
@@ -1338,18 +1369,18 @@ export function CommentsDashboard({ searchTerm, commentsData, onCommentsDataChan
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-[24px] font-bold leading-8 text-[#15110d]">Quan ly binh luan</h1>
+          <h1 className="text-[24px] font-bold leading-8 text-[#15110d]">Quản lý bình luận</h1>
           <p className="mt-1 text-[12px] text-[#6b4d3e]">
-            Kiem duyet danh gia san pham, an hien noi dung va theo doi nhung rating can xu ly.
+            Kiểm duyệt đánh giá sản phẩm, ẩn hiện nội dung và theo dõi những rating cần xử lý.
           </p>
         </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <OverviewMetricCard stat={{ label: 'Tong binh luan', value: formatCount(commentsData?.stats?.total || 0), icon: 'rate_review', change: 'Tat ca', iconClass: 'bg-[#fff2df] text-[#d47b00]' }} />
-        <OverviewMetricCard stat={{ label: 'Dang hien thi', value: formatCount(commentsData?.stats?.visible || 0), icon: 'visibility', change: 'Public', iconClass: 'bg-[#e8fff5] text-[#047857]' }} />
-        <OverviewMetricCard stat={{ label: 'Da an', value: formatCount(commentsData?.stats?.hidden || 0), icon: 'visibility_off', change: 'Hidden', iconClass: 'bg-[#fff0e7] text-[#e5791f]' }} />
-        <OverviewMetricCard stat={{ label: 'Rating thap', value: formatCount(commentsData?.stats?.lowRating || 0), icon: 'priority_high', change: 'Can xem', iconClass: 'bg-[#ffe0df] text-[#be2420]' }} />
+        <OverviewMetricCard stat={{ label: 'Tổng bình luận', value: formatCount(commentsData?.stats?.total || 0), icon: 'rate_review', change: 'Tất cả', iconClass: 'bg-[#fff2df] text-[#d47b00]' }} />
+        <OverviewMetricCard stat={{ label: 'Đang hiển thị', value: formatCount(commentsData?.stats?.visible || 0), icon: 'visibility', change: 'Public', iconClass: 'bg-[#e8fff5] text-[#047857]' }} />
+        <OverviewMetricCard stat={{ label: 'Đã ẩn', value: formatCount(commentsData?.stats?.hidden || 0), icon: 'visibility_off', change: 'Hidden', iconClass: 'bg-[#fff0e7] text-[#e5791f]' }} />
+        <OverviewMetricCard stat={{ label: 'Rating thấp', value: formatCount(commentsData?.stats?.lowRating || 0), icon: 'priority_high', change: 'Cần xem', iconClass: 'bg-[#ffe0df] text-[#be2420]' }} />
       </div>
 
       <section className="overflow-hidden rounded-lg border border-[#eaded2] bg-white shadow-[0_8px_24px_rgba(60,42,22,0.05)]">
@@ -1373,12 +1404,12 @@ export function CommentsDashboard({ searchTerm, commentsData, onCommentsDataChan
           <table className="w-full min-w-[1040px] border-collapse text-left">
             <thead>
               <tr className="h-12 bg-[#eeeeed] text-[10px] font-bold uppercase text-[#4b3527]">
-                <th className="px-4">Binh luan</th>
-                <th className="px-4">Khach hang</th>
-                <th className="px-4">San pham</th>
+                <th className="px-4">Bình luận</th>
+                <th className="px-4">Khách hàng</th>
+                <th className="px-4">Sản phẩm</th>
                 <th className="px-4">Shop</th>
-                <th className="px-4">Danh gia</th>
-                <th className="px-4">Trang thai</th>
+                <th className="px-4">Đánh giá</th>
+                <th className="px-4">Trạng thái</th>
                 <th className="px-4">Ngay gui</th>
                 <th className="px-4 text-center">Thao tac</th>
               </tr>
@@ -1392,16 +1423,16 @@ export function CommentsDashboard({ searchTerm, commentsData, onCommentsDataChan
                   <tr key={comment.id} className="border-t border-[#f0e7df] text-[12px] text-[#17120e]">
                     <td className="max-w-[360px] px-4 py-4">
                       <p className="line-clamp-3 leading-5 text-[#1d1712]">
-                        {comment.comment || 'Khach hang khong de lai binh luan.'}
+                        {comment.comment || 'Khách hàng không để lại bình luận.'}
                       </p>
-                      <p className="mt-1 text-[10px] text-[#7b6556]">Review #{comment.id} · Don #{comment.orderId || 'N/A'}</p>
+                      <p className="mt-1 text-[10px] text-[#7b6556]">Review #{comment.id} · Đơn #{comment.orderId || 'N/A'}</p>
                     </td>
                     <td className="px-4 py-4">
-                      <p className="font-bold">{comment.user?.name || 'Khach hang'}</p>
-                      <p className="text-[10px] text-[#7b6556]">{comment.user?.email || 'Chua co email'}</p>
+                      <p className="font-bold">{comment.user?.name || 'Khách hàng'}</p>
+                      <p className="text-[10px] text-[#7b6556]">{comment.user?.email || 'Chưa có email'}</p>
                     </td>
                     <td className="px-4 py-4">
-                      <p className="line-clamp-2 font-semibold">{comment.product?.name || 'San pham'}</p>
+                      <p className="line-clamp-2 font-semibold">{comment.product?.name || 'Sản phẩm'}</p>
                       <p className="text-[10px] text-[#7b6556]">ID #{comment.product?.id}</p>
                     </td>
                     <td className="px-4 py-4">{comment.shop?.name || 'Shop'}</td>
@@ -1411,7 +1442,7 @@ export function CommentsDashboard({ searchTerm, commentsData, onCommentsDataChan
                     </td>
                     <td className="px-4 py-4">
                       <span className={`inline-flex rounded-full px-2 py-1 text-[10px] font-bold ${comment.isVisible ? 'bg-[#d9f7df] text-[#087c32]' : 'bg-[#ffdcd6] text-[#b42318]'}`}>
-                        {comment.isVisible ? 'Dang hien thi' : 'Da an'}
+                        {comment.isVisible ? 'Đang hiển thị' : 'Đã ẩn'}
                       </span>
                     </td>
                     <td className="px-4 py-4">
@@ -1422,11 +1453,11 @@ export function CommentsDashboard({ searchTerm, commentsData, onCommentsDataChan
                       <div className="flex justify-center gap-1">
                         <IconButton
                           icon={comment.isVisible ? 'visibility_off' : 'visibility'}
-                          label={comment.isVisible ? 'An binh luan' : 'Hien thi binh luan'}
+                          label={comment.isVisible ? 'Ẩn bình luận' : 'Hiển thị bình luận'}
                           disabled={isWorking}
                           onClick={() => handleToggleComment(comment)}
                         />
-                        <IconButton icon="delete" label="Xoa binh luan" disabled={isWorking} onClick={() => handleDeleteComment(comment)} />
+                        <IconButton icon="delete" label="Xóa bình luận" disabled={isWorking} onClick={() => handleDeleteComment(comment)} />
                       </div>
                     </td>
                   </tr>
@@ -1438,7 +1469,7 @@ export function CommentsDashboard({ searchTerm, commentsData, onCommentsDataChan
 
         {!filteredComments.length ? (
           <div className="border-t border-[#f0e7df] px-4 py-10 text-center text-[13px] text-[#6e5c51]">
-            Khong tim thay binh luan phu hop.
+            Không tìm thấy bình luận phù hợp.
           </div>
         ) : null}
       </section>
@@ -1485,9 +1516,9 @@ function normalizeVoucherCodeInput(value) {
 }
 
 function voucherDiscountText(voucher) {
-  if (voucher.discountType === 'free_shipping') return 'Mien phi van chuyen'
+  if (voucher.discountType === 'free_shipping') return 'Miễn phí vận chuyển'
   if (voucher.discountType === 'percent') {
-    return `${Number(voucher.discountValue || 0)}%${voucher.maxDiscountAmount ? ` toi da ${formatCurrency(voucher.maxDiscountAmount)}` : ''}`
+    return `${Number(voucher.discountValue || 0)}%${voucher.maxDiscountAmount ? ` tối đa ${formatCurrency(voucher.maxDiscountAmount)}` : ''}`
   }
   return formatCurrency(voucher.discountValue)
 }
@@ -1748,11 +1779,11 @@ export function PromotionsDashboard({ searchTerm, promotionsData, flashSalesData
   const flashSaleRegistrations = flashSalesData?.registrations || []
   const shops = promotionsData?.shops || []
   const scopeTabs = [
-    { value: 'all', label: 'Tat ca', count: promotionsData?.stats?.total || 0 },
-    { value: 'platform', label: 'Voucher san', count: promotionsData?.stats?.platform || 0 },
+    { value: 'all', label: 'Tất cả', count: promotionsData?.stats?.total || 0 },
+    { value: 'platform', label: 'Voucher sàn', count: promotionsData?.stats?.platform || 0 },
     { value: 'shop', label: 'Voucher shop', count: promotionsData?.stats?.shop || 0 },
-    { value: 'active', label: 'Dang bat', count: promotionsData?.stats?.active || 0 },
-    { value: 'inactive', label: 'Tam tat', count: promotionsData?.stats?.inactive || 0 },
+    { value: 'active', label: 'Đang bật', count: promotionsData?.stats?.active || 0 },
+    { value: 'inactive', label: 'Tạm tắt', count: promotionsData?.stats?.inactive || 0 },
   ]
 
   const filteredVouchers = useMemo(() => {
@@ -1820,9 +1851,9 @@ export function PromotionsDashboard({ searchTerm, promotionsData, flashSalesData
         : await createAdminVoucher(payload)
       onPromotionsDataChange(nextData)
       resetVoucherForm()
-      toast.success(editingVoucherId ? 'Da cap nhat voucher.' : 'Da tao voucher.')
+      toast.success(editingVoucherId ? 'Đã cập nhật voucher.' : 'Đã tạo voucher.')
     } catch (err) {
-      toast.error(err.message || 'Khong luu duoc voucher.')
+      toast.error(err.message || 'Không lưu được voucher.')
     } finally {
       setSavingVoucher(false)
     }
@@ -1834,25 +1865,25 @@ export function PromotionsDashboard({ searchTerm, promotionsData, flashSalesData
     try {
       const nextData = await updateAdminVoucher(voucher.id, { isActive: !voucher.isActive })
       onPromotionsDataChange(nextData)
-      toast.success('Da cap nhat trang thai voucher.')
+      toast.success('Đã cập nhật trạng thái voucher.')
     } catch (err) {
-      toast.error(err.message || 'Khong cap nhat duoc voucher.')
+      toast.error(err.message || 'Không cập nhật được voucher.')
     } finally {
       setWorkingVoucherId(null)
     }
   }
 
   async function handleDeleteVoucher(voucher) {
-    if (!window.confirm(`Ban co chac muon xoa voucher ${voucher.code}?`)) return
+    if (!window.confirm(`Bạn có chắc muốn xóa voucher ${voucher.code}?`)) return
     setWorkingVoucherId(voucher.id)
 
     try {
       const nextData = await deleteAdminVoucher(voucher.id)
       onPromotionsDataChange(nextData)
       if (Number(editingVoucherId) === Number(voucher.id)) resetVoucherForm()
-      toast.success('Da xoa voucher.')
+      toast.success('Đã xóa voucher.')
     } catch (err) {
-      toast.error(err.message || 'Khong xoa duoc voucher.')
+      toast.error(err.message || 'Không xóa được voucher.')
     } finally {
       setWorkingVoucherId(null)
     }
@@ -1902,17 +1933,17 @@ export function PromotionsDashboard({ searchTerm, promotionsData, flashSalesData
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-[24px] font-bold leading-8 text-[#15110d]">Khuyen mai va voucher</h1>
+          <h1 className="text-[24px] font-bold leading-8 text-[#15110d]">Khuyến mãi và voucher</h1>
           <p className="mt-1 text-[12px] text-[#6b4d3e]">
-            Quan ly voucher san va voucher cua tung shop. Voucher shop se tru vao doanh thu shop, voucher san chi tru tong thanh toan cua khach.
+            Quản lý voucher sàn và voucher của từng shop. Voucher shop sẽ trừ vào doanh thu shop, voucher sàn chỉ trừ tổng thanh toán của khách.
           </p>
         </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <OverviewMetricCard stat={{ label: 'Tong voucher', value: formatCount(promotionsData?.stats?.total || 0), icon: 'local_offer', change: 'Tat ca', iconClass: 'bg-[#fff2df] text-[#d47b00]' }} />
-        <OverviewMetricCard stat={{ label: 'Dang bat', value: formatCount(promotionsData?.stats?.active || 0), icon: 'toggle_on', change: 'Active', iconClass: 'bg-[#e8fff5] text-[#047857]' }} />
-        <OverviewMetricCard stat={{ label: 'Voucher san', value: formatCount(promotionsData?.stats?.platform || 0), icon: 'store', change: 'Platform', iconClass: 'bg-[#e8f0ff] text-[#2f6bf2]' }} />
+        <OverviewMetricCard stat={{ label: 'Tổng voucher', value: formatCount(promotionsData?.stats?.total || 0), icon: 'local_offer', change: 'Tất cả', iconClass: 'bg-[#fff2df] text-[#d47b00]' }} />
+        <OverviewMetricCard stat={{ label: 'Đang bật', value: formatCount(promotionsData?.stats?.active || 0), icon: 'toggle_on', change: 'Active', iconClass: 'bg-[#e8fff5] text-[#047857]' }} />
+        <OverviewMetricCard stat={{ label: 'Voucher sàn', value: formatCount(promotionsData?.stats?.platform || 0), icon: 'store', change: 'Platform', iconClass: 'bg-[#e8f0ff] text-[#2f6bf2]' }} />
         <OverviewMetricCard stat={{ label: 'Voucher shop', value: formatCount(promotionsData?.stats?.shop || 0), icon: 'storefront', change: 'Shop', iconClass: 'bg-[#f3e8ff] text-[#8c38d8]' }} />
       </div>
 
@@ -1924,13 +1955,13 @@ export function PromotionsDashboard({ searchTerm, promotionsData, flashSalesData
           </label>
           <label className="grid gap-1.5 xl:col-span-2">
             <span className="text-[11px] font-bold text-[#4b3527]">Ten chuong trinh</span>
-            <input className="h-10 rounded-lg border-[#dfc8b5] bg-[#fbfaf9] text-[13px] text-[#1d1712] focus:border-[#c98225] focus:ring-0" value={voucherForm.title} onChange={(event) => updateVoucherField('title', event.target.value)} placeholder="Giam gia khai truong" required />
+            <input className="h-10 rounded-lg border-[#dfc8b5] bg-[#fbfaf9] text-[13px] text-[#1d1712] focus:border-[#c98225] focus:ring-0" value={voucherForm.title} onChange={(event) => updateVoucherField('title', event.target.value)} placeholder="Giảm giá khai trương" required />
           </label>
           <label className="grid gap-1.5">
             <span className="text-[11px] font-bold text-[#4b3527]">Pham vi</span>
             <select className="h-10 rounded-lg border-[#dfc8b5] bg-[#fbfaf9] text-[13px] text-[#1d1712] focus:border-[#c98225] focus:ring-0" value={voucherForm.scope} onChange={(event) => updateVoucherField('scope', event.target.value)}>
-              <option value="platform">Voucher san</option>
-              <option value="shop">Voucher cua hang</option>
+              <option value="platform">Voucher sàn</option>
+              <option value="shop">Voucher cửa hàng</option>
             </select>
           </label>
           {voucherForm.scope === 'shop' ? (
@@ -1945,31 +1976,31 @@ export function PromotionsDashboard({ searchTerm, promotionsData, flashSalesData
             </label>
           ) : null}
           <label className="grid gap-1.5">
-            <span className="text-[11px] font-bold text-[#4b3527]">Kieu giam</span>
+            <span className="text-[11px] font-bold text-[#4b3527]">Kiểu giảm</span>
             <select className="h-10 rounded-lg border-[#dfc8b5] bg-[#fbfaf9] text-[13px] text-[#1d1712] focus:border-[#c98225] focus:ring-0" value={voucherForm.discountType} onChange={(event) => updateVoucherField('discountType', event.target.value)}>
-              <option value="fixed">Giam tien</option>
-              <option value="percent">Giam %</option>
-              <option value="free_shipping">Mien phi ship</option>
+              <option value="fixed">Giảm tiền</option>
+              <option value="percent">Giảm %</option>
+              <option value="free_shipping">Miễn phí ship</option>
             </select>
           </label>
           <label className="grid gap-1.5">
-            <span className="text-[11px] font-bold text-[#4b3527]">Gia tri</span>
+            <span className="text-[11px] font-bold text-[#4b3527]">Giá trị</span>
             <input className="h-10 rounded-lg border-[#dfc8b5] bg-[#fbfaf9] text-[13px] text-[#1d1712] focus:border-[#c98225] focus:ring-0" type="number" min="0" value={voucherForm.discountValue} onChange={(event) => updateVoucherField('discountValue', event.target.value)} placeholder={voucherForm.discountType === 'percent' ? '10' : '50000'} />
           </label>
           <label className="grid gap-1.5">
-            <span className="text-[11px] font-bold text-[#4b3527]">Giam toi da</span>
-            <input className="h-10 rounded-lg border-[#dfc8b5] bg-[#fbfaf9] text-[13px] text-[#1d1712] focus:border-[#c98225] focus:ring-0" type="number" min="0" value={voucherForm.maxDiscountAmount} onChange={(event) => updateVoucherField('maxDiscountAmount', event.target.value)} placeholder="Bo trong neu khong gioi han" />
+            <span className="text-[11px] font-bold text-[#4b3527]">Giảm tối đa</span>
+            <input className="h-10 rounded-lg border-[#dfc8b5] bg-[#fbfaf9] text-[13px] text-[#1d1712] focus:border-[#c98225] focus:ring-0" type="number" min="0" value={voucherForm.maxDiscountAmount} onChange={(event) => updateVoucherField('maxDiscountAmount', event.target.value)} placeholder="Bỏ trống nếu không giới hạn" />
           </label>
           <label className="grid gap-1.5">
-            <span className="text-[11px] font-bold text-[#4b3527]">Don toi thieu</span>
+            <span className="text-[11px] font-bold text-[#4b3527]">Đơn tối thiểu</span>
             <input className="h-10 rounded-lg border-[#dfc8b5] bg-[#fbfaf9] text-[13px] text-[#1d1712] focus:border-[#c98225] focus:ring-0" type="number" min="0" value={voucherForm.minOrderAmount} onChange={(event) => updateVoucherField('minOrderAmount', event.target.value)} />
           </label>
           <label className="grid gap-1.5">
-            <span className="text-[11px] font-bold text-[#4b3527]">Tong luot</span>
+            <span className="text-[11px] font-bold text-[#4b3527]">Tổng lượt</span>
             <input className="h-10 rounded-lg border-[#dfc8b5] bg-[#fbfaf9] text-[13px] text-[#1d1712] focus:border-[#c98225] focus:ring-0" type="number" min="1" value={voucherForm.usageLimit} onChange={(event) => updateVoucherField('usageLimit', event.target.value)} />
           </label>
           <label className="grid gap-1.5">
-            <span className="text-[11px] font-bold text-[#4b3527]">Moi nguoi</span>
+            <span className="text-[11px] font-bold text-[#4b3527]">Mỗi người</span>
             <input className="h-10 rounded-lg border-[#dfc8b5] bg-[#fbfaf9] text-[13px] text-[#1d1712] focus:border-[#c98225] focus:ring-0" type="number" min="1" value={voucherForm.perUserLimit} onChange={(event) => updateVoucherField('perUserLimit', event.target.value)} />
           </label>
           <label className="grid gap-1.5">
@@ -1986,11 +2017,11 @@ export function PromotionsDashboard({ searchTerm, promotionsData, flashSalesData
               Bat
             </label>
             <button className="h-10 rounded-lg bg-[#995900] px-4 text-[12px] font-bold text-white hover:bg-[#7b4600] disabled:opacity-60" type="submit" disabled={savingVoucher}>
-              {savingVoucher ? 'Dang luu...' : editingVoucherId ? 'Cap nhat' : 'Them'}
+              {savingVoucher ? 'Đang lưu...' : editingVoucherId ? 'Cập nhật' : 'Thêm'}
             </button>
             {editingVoucherId ? (
               <button className="h-10 rounded-lg border border-[#bba795] px-3 text-[12px] font-bold text-[#4e3d31] hover:border-[#9a5700]" type="button" onClick={resetVoucherForm}>
-                Huy
+                Hủy
               </button>
             ) : null}
           </div>
@@ -2012,11 +2043,11 @@ export function PromotionsDashboard({ searchTerm, promotionsData, flashSalesData
               <tr className="h-12 bg-[#eeeeed] text-[10px] font-bold uppercase text-[#4b3527]">
                 <th className="px-4">Voucher</th>
                 <th className="px-4">Pham vi</th>
-                <th className="px-4">Giam gia</th>
+                <th className="px-4">Giảm giá</th>
                 <th className="px-4">Dieu kien</th>
                 <th className="px-4">Luot dung</th>
                 <th className="px-4">Thoi gian</th>
-                <th className="px-4">Trang thai</th>
+                <th className="px-4">Trạng thái</th>
                 <th className="px-4 text-center">Thao tac</th>
               </tr>
             </thead>
@@ -2029,24 +2060,24 @@ export function PromotionsDashboard({ searchTerm, promotionsData, flashSalesData
                       <p className="font-bold text-[#1d1712]">{voucher.code}</p>
                       <p className="mt-0.5 text-[10px] text-[#7b6556]">{voucher.title}</p>
                     </td>
-                    <td className="px-4 py-4">{voucher.scope === 'shop' ? voucher.shopName || `Shop #${voucher.shopId}` : 'Toan san'}</td>
+                    <td className="px-4 py-4">{voucher.scope === 'shop' ? voucher.shopName || `Shop #${voucher.shopId}` : 'Toàn sàn'}</td>
                     <td className="px-4 py-4 font-semibold">{voucherDiscountText(voucher)}</td>
                     <td className="px-4 py-4">Tu {formatCurrency(voucher.minOrderAmount)}</td>
                     <td className="px-4 py-4">{formatCount(voucher.usedCount)} / {voucher.usageLimit || '∞'}</td>
                     <td className="px-4 py-4">
-                      <p>{voucher.startsAt ? formatDateTime(voucher.startsAt).date : 'Khong gioi han'}</p>
-                      <p className="text-[10px] text-[#6e5c51]">{voucher.endsAt ? `den ${formatDateTime(voucher.endsAt).date}` : ''}</p>
+                      <p>{voucher.startsAt ? formatDateTime(voucher.startsAt).date : 'Không giới hạn'}</p>
+                      <p className="text-[10px] text-[#6e5c51]">{voucher.endsAt ? `đến ${formatDateTime(voucher.endsAt).date}` : ''}</p>
                     </td>
                     <td className="px-4 py-4">
                       <span className={`inline-flex rounded-full px-2 py-1 text-[10px] font-bold ${voucher.isActive ? 'bg-[#d9f7df] text-[#087c32]' : 'bg-[#ffdcd6] text-[#b42318]'}`}>
-                        {voucher.isActive ? 'Dang bat' : 'Tam tat'}
+                        {voucher.isActive ? 'Đang bật' : 'Tạm tắt'}
                       </span>
                     </td>
                     <td className="px-4 py-4">
                       <div className="flex justify-center gap-1">
-                        <IconButton icon="edit" label="Sua voucher" disabled={isWorking} onClick={() => editVoucher(voucher)} />
-                        <IconButton icon={voucher.isActive ? 'toggle_off' : 'toggle_on'} label={voucher.isActive ? 'Tat voucher' : 'Bat voucher'} disabled={isWorking} onClick={() => handleToggleVoucher(voucher)} />
-                        <IconButton icon="delete" label="Xoa voucher" disabled={isWorking} onClick={() => handleDeleteVoucher(voucher)} />
+                        <IconButton icon="edit" label="Sửa voucher" disabled={isWorking} onClick={() => editVoucher(voucher)} />
+                        <IconButton icon={voucher.isActive ? 'toggle_off' : 'toggle_on'} label={voucher.isActive ? 'Tắt voucher' : 'Bật voucher'} disabled={isWorking} onClick={() => handleToggleVoucher(voucher)} />
+                        <IconButton icon="delete" label="Xóa voucher" disabled={isWorking} onClick={() => handleDeleteVoucher(voucher)} />
                       </div>
                     </td>
                   </tr>
@@ -2057,7 +2088,7 @@ export function PromotionsDashboard({ searchTerm, promotionsData, flashSalesData
         </div>
         {!filteredVouchers.length ? (
           <div className="border-t border-[#f0e7df] px-4 py-10 text-center text-[13px] text-[#6e5c51]">
-            Khong tim thay voucher phu hop.
+            Không tìm thấy voucher phù hợp.
           </div>
         ) : null}
       </section>

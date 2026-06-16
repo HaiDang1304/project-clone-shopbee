@@ -60,7 +60,7 @@ export default function ProductDetailPage() {
   return (
     <>
       < Headers/>
-      <main className="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-8">
+      <main className="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop pb-8 pt-24">
         {loading ? (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-gutter items-start">
             <div className="lg:col-span-5 h-[520px] rounded-xl bg-surface-container animate-pulse" />

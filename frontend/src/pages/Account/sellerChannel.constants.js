@@ -74,6 +74,7 @@ export const sellerTabs = [
   { value: 'overview', icon: 'dashboard', label: 'Tổng quan' },
   { value: 'profile', icon: 'storefront', label: 'Hồ sơ cửa hàng' },
   { value: 'products', icon: 'inventory_2', label: 'Sản phẩm' },
+  { value: 'vouchers', icon: 'local_offer', label: 'Voucher' },
   { value: 'flash-sales', icon: 'bolt', label: 'Flash sale' },
   { value: 'orders', icon: 'receipt_long', label: 'Đơn hàng' },
   { value: 'messages', icon: 'forum', label: 'Tin nhắn' },

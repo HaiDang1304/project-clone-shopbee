@@ -83,19 +83,17 @@ export async function getSellerProducts() {
   return data.data || { shop: null, products: [] }
 }
 
-function toQueryString(params = {}) {
+function buildQueryString(params = {}) {
   const query = new URLSearchParams()
-
-  Object.entries(params).forEach(([key, value]) => {
+  Object.entries(params || {}).forEach(([key, value]) => {
     if (value !== undefined && value !== null && value !== '') query.set(key, value)
   })
-
-  const value = query.toString()
-  return value ? `?${value}` : ''
+  const queryString = query.toString()
+  return queryString ? `?${queryString}` : ''
 }
 
 export async function getSellerDashboard(params = {}) {
-  const data = await apiGet(`/api/account/seller/dashboard${toQueryString(params)}`)
+  const data = await apiGet(`/api/account/seller/dashboard${buildQueryString(params)}`)
   return data.data || { shop: null, stats: {}, revenueTrend: [], products: [], orders: [] }
 }
 
@@ -129,18 +127,57 @@ export async function updateSellerOrder(orderId, payload) {
   return data.data || { shop: null, stats: {}, revenueTrend: [], products: [], orders: [] }
 }
 
+export async function getSellerFlashSales() {
+  const data = await apiGet('/api/account/seller/flash-sales')
+  return data.data || { events: [], registrations: [] }
+}
+
+export async function registerSellerFlashSale(payload) {
+  return apiPost('/api/account/seller/flash-sales/register', payload)
+}
+
+export async function getSellerVouchers() {
+  const data = await apiGet('/api/account/seller/vouchers')
+  return data.data || { stats: {}, items: [] }
+}
+
+export async function createSellerVoucher(payload) {
+  const data = await apiPost('/api/account/seller/vouchers', payload)
+  return data.data || { stats: {}, items: [] }
+}
+
+export async function updateSellerVoucher(voucherId, payload) {
+  const data = await apiPatch(`/api/account/seller/vouchers/${voucherId}`, payload)
+  return data.data || { stats: {}, items: [] }
+}
+
+export async function deleteSellerVoucher(voucherId) {
+  const data = await apiDelete(`/api/account/seller/vouchers/${voucherId}`)
+  return data.data || { stats: {}, items: [] }
+}
+
 export async function getAdminSellerApplications(status = 'pending') {
   const data = await apiGet(`/api/admin/seller-applications?status=${encodeURIComponent(status)}`)
   return data.data || []
 }
 
 export async function getAdminDashboardData(params = {}) {
-  const data = await apiGet(`/api/admin/dashboard${toQueryString(params)}`)
+  const data = await apiGet(`/api/admin/dashboard${buildQueryString(params)}`)
   return data.data || null
 }
 
 export async function getAdminUsersData() {
   const data = await apiGet('/api/admin/users')
+  return data.data || { stats: {}, items: [] }
+}
+
+export async function getAdminShopsData() {
+  const data = await apiGet('/api/admin/shops')
+  return data.data || { stats: {}, items: [] }
+}
+
+export async function updateAdminShop(shopId, payload) {
+  const data = await apiPatch(`/api/admin/shops/${shopId}`, payload)
   return data.data || { stats: {}, items: [] }
 }
 
@@ -217,20 +254,6 @@ export async function updateAdminFlashSale(eventId, payload) {
 export async function reviewAdminFlashSaleRegistration(registrationId, payload) {
   const data = await apiPatch(`/api/admin/flash-sales/registrations/${registrationId}`, payload)
   return data.data || { stats: {}, events: [], registrations: [] }
-}
-
-export async function getSellerFlashSales() {
-  const data = await apiGet('/api/account/seller/flash-sales')
-  return data.data || { events: [], registrations: [] }
-}
-
-export async function registerSellerFlashSale(payload) {
-  return apiPost('/api/account/seller/flash-sales/register', payload)
-}
-
-export async function getAdminShopsData() {
-  const data = await apiGet('/api/admin/shops')
-  return data.data || { stats: {}, items: [] }
 }
 
 export async function updateAdminUser(userId, payload) {
