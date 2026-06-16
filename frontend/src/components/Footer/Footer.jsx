@@ -144,7 +144,7 @@ export default function Footer() {
       </div>
 
       <div className="border-t border-surface-container py-6 text-center text-label-md text-on-surface-variant">
-        <p>© 2026 ShopBee. Nền tảng thương mại điện tử hàng đầu.</p>
+        <p>© 2026 ShopBee. By Developer LuHaiDang </p>
       </div>
     </footer>
   )

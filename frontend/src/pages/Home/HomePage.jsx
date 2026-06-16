@@ -1,5 +1,6 @@
 import Header from '../../components/Header/Header'
 import HeroSection from '../../components/HeroSection/HeroSection'
+import SalesBannerSlider from '../../components/SalesBannerSlider/SalesBannerSlider'
 import FlashSaleSection from '../../components/FlashSaleSection/FlashSaleSection'
 import CategoriesGrid from '../../components/CategoriesGrid/CategoriesGrid'
 import RecommendationGrid from '../../components/RecommendationGrid/RecommendationGrid'
@@ -13,6 +14,7 @@ export default function HomePage() {
         <HeroSection />
         <FlashSaleSection />
         <CategoriesGrid />
+        <SalesBannerSlider />
         <RecommendationGrid />
       </main>
       <Footer />

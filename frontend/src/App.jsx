@@ -24,6 +24,8 @@ import OrdersPage from './pages/Account/OrdersPage'
 import ProfilePage from './pages/Account/ProfilePage'
 import SellerChannelPage from './pages/Account/SellerChannelPage'
 
+const SCROLL_TO_TOP_ON_ROUTE_CHANGE = true
+
 function AuthModalRoute({ mode }) {
 	const navigate = useNavigate()
 	const location = useLocation()
@@ -49,6 +51,22 @@ function ChatboxGate() {
 	const hiddenOnDashboard = pathname === '/admin' || pathname.startsWith('/admin/dashboard') || pathname.startsWith('/seller/dashboard') || pathname.startsWith('/messages')
 
 	return hiddenOnDashboard ? null : <FloatingChatButton />
+}
+
+function ScrollToTopOnRouteChange() {
+	const { pathname, search } = useLocation()
+
+	useEffect(() => {
+		if (!SCROLL_TO_TOP_ON_ROUTE_CHANGE) return
+
+		window.scrollTo({
+			top: 0,
+			left: 0,
+			behavior: 'auto',
+		})
+	}, [pathname, search])
+
+	return null
 }
 
 function TimedLoadingOverlay() {
@@ -78,6 +96,7 @@ export default function App() {
 		<>
 			<BrowserRouter>
 				<CartProvider>
+					<ScrollToTopOnRouteChange />
 					<RouteLoadingOverlay />
 					<Routes>
 						<Route path="/" element={<HomePage />} />

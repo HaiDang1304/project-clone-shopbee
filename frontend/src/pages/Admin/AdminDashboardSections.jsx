@@ -1202,7 +1202,6 @@ export function CategoriesDashboard({ searchTerm, categoriesData, onCategoriesDa
           </div>
         </form>
       </section>
-
       <section className="overflow-hidden rounded-lg border border-[#eaded2] bg-white shadow-[0_8px_24px_rgba(60,42,22,0.05)]">
         <div className="flex min-h-12 overflow-x-auto border-b border-[#eaded2]">
           {statusTabs.map((tab) => (
@@ -1523,6 +1522,18 @@ function voucherDiscountText(voucher) {
   return formatCurrency(voucher.discountValue)
 }
 
+function getAdminFlashSaleEventStatus(eventItem) {
+  if (!eventItem?.isActive) return 'disabled'
+
+  const now = Date.now()
+  const startsAt = eventItem.startsAt ? new Date(eventItem.startsAt).getTime() : 0
+  const endsAt = eventItem.endsAt ? new Date(eventItem.endsAt).getTime() : 0
+
+  if (startsAt && now < startsAt) return 'upcoming'
+  if (endsAt && now > endsAt) return 'ended'
+  return 'live'
+}
+
 function getAdminFlashSaleEventMeta(eventItem) {
   if (!eventItem?.isActive) {
     return {
@@ -1579,6 +1590,28 @@ function getAdminFlashSaleRegistrationMeta(status) {
   }
 }
 
+function AdminFormModal({ title, description, children, onClose }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4 py-6">
+      <div className="max-h-[calc(100vh-48px)] w-full max-w-5xl overflow-hidden rounded-xl bg-white shadow-2xl">
+        <div className="flex items-start justify-between gap-4 border-b border-[#eaded2] bg-[#fffaf4] px-5 py-4">
+          <div>
+            <h2 className="text-[18px] font-bold text-[#15110d]">{title}</h2>
+            {description ? <p className="mt-1 text-[12px] text-[#6b4d3e]">{description}</p> : null}
+          </div>
+          <button className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[#4b3527] hover:bg-[#f2e7db]" type="button" onClick={onClose} aria-label="Dong modal">
+            <span className="material-symbols-outlined text-[20px]">close</span>
+          </button>
+        </div>
+        <div className="max-h-[calc(100vh-140px)] overflow-y-auto p-5">
+          {children}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// eslint-disable-next-line no-unused-vars
 function AdminFlashSalesPanel({
   flashSalesData,
   flashSaleForm,
@@ -1586,8 +1619,11 @@ function AdminFlashSalesPanel({
   flashSaleRegistrations,
   savingFlashSale,
   workingRegistrationId,
+  creatingFlashSale,
   onFlashSaleFormChange,
   onFlashSaleSubmit,
+  onCreateFlashSaleClick,
+  onCloseFlashSaleModal,
   onToggleFlashSale,
   onReviewFlashSaleRegistration,
 }) {
@@ -1614,6 +1650,11 @@ function AdminFlashSalesPanel({
               Admin tạo khung giờ, seller đăng ký sản phẩm và số lượng bán, sản phẩm được duyệt sẽ tự hiển thị đúng thời gian.
             </p>
           </div>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <button className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#995900] px-4 text-[12px] font-bold text-white hover:bg-[#7b4600]" type="button" onClick={onCreateFlashSaleClick}>
+              <span className="material-symbols-outlined text-[18px]">add</span>
+              Tạo khung giờ
+            </button>
           <div className="grid grid-cols-3 gap-2 text-center">
             <div className="rounded-lg bg-white px-3 py-2">
               <p className="text-[18px] font-bold text-[#15110d]">{formatCount(flashSaleEvents.length)}</p>
@@ -1628,10 +1669,13 @@ function AdminFlashSalesPanel({
               <p className="text-[10px] font-bold uppercase text-[#7b6556]">Chờ duyệt</p>
             </div>
           </div>
+          </div>
         </div>
       </div>
 
-      <div className="grid gap-5 p-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+      <div className="p-4">
+        {creatingFlashSale ? (
+          <AdminFormModal title="Tạo khung giờ flash sale" description="Thiết lập thời gian bán và thời gian seller đăng ký sản phẩm." onClose={onCloseFlashSaleModal}>
         <form className="rounded-lg border border-[#eaded2] bg-[#fbfaf9] p-4" onSubmit={onFlashSaleSubmit}>
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-[20px] text-[#c57900]">edit_calendar</span>
@@ -1675,6 +1719,8 @@ function AdminFlashSalesPanel({
             </button>
           </div>
         </form>
+          </AdminFormModal>
+        ) : null}
 
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-3">
@@ -1765,13 +1811,352 @@ function AdminFlashSalesPanel({
   )
 }
 
+function AdminFlashSalesPanelV2({
+  flashSalesData,
+  flashSaleForm,
+  flashSaleEvents,
+  flashSaleRegistrations,
+  savingFlashSale,
+  workingRegistrationId,
+  creatingFlashSale,
+  onFlashSaleFormChange,
+  onFlashSaleSubmit,
+  onCreateFlashSaleClick,
+  onCloseFlashSaleModal,
+  onToggleFlashSale,
+  onReviewFlashSaleRegistration,
+}) {
+  const [eventStatusFilter, setEventStatusFilter] = useState('all')
+  const [registrationStatusFilter, setRegistrationStatusFilter] = useState('all')
+  const [activeEventId, setActiveEventId] = useState('')
+  const [registrationKeyword, setRegistrationKeyword] = useState('')
+  const pendingRegistrations = flashSalesData?.stats?.pendingRegistrations || 0
+  const activeEvents = flashSalesData?.stats?.activeEvents || flashSaleEvents.filter((eventItem) => eventItem.isActive).length
+  const eventStatusTabs = [
+    { value: 'all', label: 'Tất cả', count: flashSaleEvents.length },
+    { value: 'live', label: 'Đang chạy', count: flashSaleEvents.filter((eventItem) => getAdminFlashSaleEventStatus(eventItem) === 'live').length },
+    { value: 'upcoming', label: 'Sắp tới', count: flashSaleEvents.filter((eventItem) => getAdminFlashSaleEventStatus(eventItem) === 'upcoming').length },
+    { value: 'ended', label: 'Hết hạn', count: flashSaleEvents.filter((eventItem) => getAdminFlashSaleEventStatus(eventItem) === 'ended').length },
+    { value: 'disabled', label: 'Tạm tắt', count: flashSaleEvents.filter((eventItem) => getAdminFlashSaleEventStatus(eventItem) === 'disabled').length },
+  ]
+
+  const filteredEvents = useMemo(
+    () => flashSaleEvents.filter((eventItem) => eventStatusFilter === 'all' || getAdminFlashSaleEventStatus(eventItem) === eventStatusFilter),
+    [eventStatusFilter, flashSaleEvents],
+  )
+  const selectedEvent = filteredEvents.find((eventItem) => String(eventItem.id) === String(activeEventId)) || filteredEvents[0] || null
+  const selectedEventRegistrations = selectedEvent
+    ? flashSaleRegistrations.filter((item) => Number(item.eventId) === Number(selectedEvent.id))
+    : []
+  const registrationStatusTabs = [
+    { value: 'all', label: 'Tất cả', count: selectedEventRegistrations.length },
+    { value: 'pending', label: 'Chờ duyệt', count: selectedEventRegistrations.filter((item) => item.status === 'pending').length },
+    { value: 'approved', label: 'Đã duyệt', count: selectedEventRegistrations.filter((item) => item.status === 'approved').length },
+    { value: 'rejected', label: 'Từ chối', count: selectedEventRegistrations.filter((item) => item.status === 'rejected').length },
+  ]
+  const visibleRegistrations = selectedEventRegistrations
+    .filter((item) => registrationStatusFilter === 'all' || item.status === registrationStatusFilter)
+    .filter((item) => {
+      const keyword = registrationKeyword.trim().toLowerCase()
+      if (!keyword) return true
+      return `${item.product?.name || ''} ${item.shop?.name || ''} ${item.shop?.ownerEmail || ''}`.toLowerCase().includes(keyword)
+    })
+    .sort((left, right) => {
+      if (left.status === right.status) return new Date(right.createdAt || 0).getTime() - new Date(left.createdAt || 0).getTime()
+      if (left.status === 'pending') return -1
+      if (right.status === 'pending') return 1
+      return 0
+    })
+
+  function updateField(field, value) {
+    onFlashSaleFormChange((current) => ({ ...current, [field]: value }))
+  }
+
+  function selectEvent(eventId) {
+    setActiveEventId(String(eventId))
+    setRegistrationStatusFilter('all')
+    setRegistrationKeyword('')
+  }
+
+  return (
+    <section className="overflow-hidden rounded-lg border border-[#eaded2] bg-white shadow-[0_8px_24px_rgba(60,42,22,0.05)]">
+      <div className="border-b border-[#eaded2] bg-[#fffaf4] px-4 py-4">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h2 className="text-[18px] font-bold text-[#15110d]">Flash Sale của sàn</h2>
+            <p className="mt-1 max-w-3xl text-[12px] text-[#6b4d3e]">
+              Chọn từng khung giờ để duyệt sản phẩm đăng ký riêng, tránh trộn lẫn giữa khung giờ mới, đang chạy và đã hết hạn.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <button className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#995900] px-4 text-[12px] font-bold text-white hover:bg-[#7b4600]" type="button" onClick={onCreateFlashSaleClick}>
+              <span className="material-symbols-outlined text-[18px]">add</span>
+              Tạo khung giờ
+            </button>
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="rounded-lg bg-white px-3 py-2">
+                <p className="text-[18px] font-bold text-[#15110d]">{formatCount(flashSaleEvents.length)}</p>
+                <p className="text-[10px] font-bold uppercase text-[#7b6556]">Khung giờ</p>
+              </div>
+              <div className="rounded-lg bg-white px-3 py-2">
+                <p className="text-[18px] font-bold text-[#087c32]">{formatCount(activeEvents)}</p>
+                <p className="text-[10px] font-bold uppercase text-[#7b6556]">Đang bật</p>
+              </div>
+              <div className="rounded-lg bg-white px-3 py-2">
+                <p className="text-[18px] font-bold text-[#9a5700]">{formatCount(pendingRegistrations)}</p>
+                <p className="text-[10px] font-bold uppercase text-[#7b6556]">Chờ duyệt</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {creatingFlashSale ? (
+        <AdminFormModal title="Tạo khung giờ flash sale" description="Thiết lập thời gian bán và thời gian seller đăng ký sản phẩm." onClose={onCloseFlashSaleModal}>
+          <form className="rounded-lg border border-[#eaded2] bg-[#fbfaf9] p-4" onSubmit={onFlashSaleSubmit}>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="grid gap-1.5 sm:col-span-2">
+                <span className="text-[11px] font-bold text-[#4b3527]">Tên chương trình</span>
+                <input className="h-10 rounded-lg border-[#dfc8b5] bg-white text-[13px] text-[#1d1712] focus:border-[#c98225] focus:ring-0" value={flashSaleForm.name} onChange={(event) => updateField('name', event.target.value)} placeholder="Flash Sale cuối tuần" required />
+              </label>
+              <label className="grid gap-1.5">
+                <span className="text-[11px] font-bold text-[#4b3527]">Bắt đầu bán</span>
+                <input className="h-10 rounded-lg border-[#dfc8b5] bg-white text-[13px] text-[#1d1712] focus:border-[#c98225] focus:ring-0" type="datetime-local" value={flashSaleForm.startsAt} onChange={(event) => updateField('startsAt', event.target.value)} required />
+              </label>
+              <label className="grid gap-1.5">
+                <span className="text-[11px] font-bold text-[#4b3527]">Kết thúc bán</span>
+                <input className="h-10 rounded-lg border-[#dfc8b5] bg-white text-[13px] text-[#1d1712] focus:border-[#c98225] focus:ring-0" type="datetime-local" value={flashSaleForm.endsAt} onChange={(event) => updateField('endsAt', event.target.value)} required />
+              </label>
+              <label className="grid gap-1.5">
+                <span className="text-[11px] font-bold text-[#4b3527]">Mở đăng ký</span>
+                <input className="h-10 rounded-lg border-[#dfc8b5] bg-white text-[13px] text-[#1d1712] focus:border-[#c98225] focus:ring-0" type="datetime-local" value={flashSaleForm.registrationStartsAt} onChange={(event) => updateField('registrationStartsAt', event.target.value)} />
+              </label>
+              <label className="grid gap-1.5">
+                <span className="text-[11px] font-bold text-[#4b3527]">Đóng đăng ký</span>
+                <input className="h-10 rounded-lg border-[#dfc8b5] bg-white text-[13px] text-[#1d1712] focus:border-[#c98225] focus:ring-0" type="datetime-local" value={flashSaleForm.registrationEndsAt} onChange={(event) => updateField('registrationEndsAt', event.target.value)} />
+              </label>
+              <label className="grid gap-1.5 sm:col-span-2">
+                <span className="text-[11px] font-bold text-[#4b3527]">Mô tả</span>
+                <textarea className="min-h-[78px] resize-y rounded-lg border-[#dfc8b5] bg-white text-[13px] text-[#1d1712] focus:border-[#c98225] focus:ring-0" value={flashSaleForm.description} onChange={(event) => updateField('description', event.target.value)} placeholder="Ghi chú ngắn cho seller khi đăng ký." />
+              </label>
+            </div>
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+              <label className="flex h-10 items-center gap-2 rounded-lg border border-[#dfc8b5] bg-white px-3 text-[12px] font-semibold text-[#4b3527]">
+                <input className="rounded border-[#dfc8b5] text-[#c57900] focus:ring-[#c57900]" type="checkbox" checked={flashSaleForm.isActive} onChange={(event) => updateField('isActive', event.target.checked)} />
+                Đang bật
+              </label>
+              <button className="h-10 rounded-lg bg-[#995900] px-4 text-[12px] font-bold text-white hover:bg-[#7b4600] disabled:opacity-60" type="submit" disabled={savingFlashSale}>
+                {savingFlashSale ? 'Đang tạo...' : 'Tạo flash sale'}
+              </button>
+            </div>
+          </form>
+        </AdminFormModal>
+      ) : null}
+
+      <div className="grid gap-4 p-4 xl:grid-cols-[330px_minmax(0,1fr)]">
+        <aside className="overflow-hidden rounded-lg border border-[#eaded2] bg-[#fbfaf9]">
+          <div className="border-b border-[#eaded2] p-3">
+            <h3 className="text-[14px] font-bold text-[#15110d]">Khung giờ</h3>
+            <div className="mt-3 flex gap-1 overflow-x-auto pb-1">
+              {eventStatusTabs.map((tab) => (
+                <button
+                  key={tab.value}
+                  className={`shrink-0 rounded-full px-3 py-1.5 text-[11px] font-bold transition ${eventStatusFilter === tab.value ? 'bg-[#995900] text-white' : 'bg-white text-[#5f5148] hover:text-[#995900]'}`}
+                  type="button"
+                  onClick={() => {
+                    setEventStatusFilter(tab.value)
+                    setActiveEventId('')
+                    setRegistrationStatusFilter('all')
+                  }}
+                >
+                  {tab.label} ({formatCount(tab.count)})
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="max-h-[620px] overflow-y-auto p-2">
+            {filteredEvents.map((eventItem) => {
+              const eventMeta = getAdminFlashSaleEventMeta(eventItem)
+              const startsAt = formatDateTime(eventItem.startsAt)
+              const endsAt = formatDateTime(eventItem.endsAt)
+              const selected = selectedEvent && Number(selectedEvent.id) === Number(eventItem.id)
+
+              return (
+                <button
+                  key={eventItem.id}
+                  className={`mb-2 w-full rounded-lg border px-3 py-3 text-left text-[12px] transition ${selected ? 'border-[#995900] bg-white shadow-sm' : 'border-transparent bg-white hover:border-[#dfc8b5]'}`}
+                  type="button"
+                  onClick={() => selectEvent(eventItem.id)}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="min-w-0 flex-1 truncate font-bold text-[#1d1712]">{eventItem.name}</p>
+                    <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-bold ${eventMeta.className}`}>{eventMeta.label}</span>
+                  </div>
+                  <p className="mt-2 text-[#7b6556]">{startsAt.date} {startsAt.time}</p>
+                  <p className="text-[#7b6556]">đến {endsAt.date} {endsAt.time}</p>
+                  <div className="mt-3 grid grid-cols-3 gap-1 text-center">
+                    <span className="rounded-md bg-[#fff2df] px-2 py-1 text-[10px] font-bold text-[#9a5700]">{formatCount(eventItem.registrationCount)} đơn</span>
+                    <span className="rounded-md bg-[#d9f7df] px-2 py-1 text-[10px] font-bold text-[#087c32]">{formatCount(eventItem.approvedCount)} duyệt</span>
+                    <span className="rounded-md bg-[#fff1cc] px-2 py-1 text-[10px] font-bold text-[#9a5a00]">{formatCount(eventItem.pendingCount)} chờ</span>
+                  </div>
+                </button>
+              )
+            })}
+            {!filteredEvents.length ? <p className="rounded-lg border border-dashed border-[#eaded2] bg-white px-3 py-8 text-center text-[12px] text-[#7b6556]">Không có khung giờ phù hợp.</p> : null}
+          </div>
+        </aside>
+
+        <div className="min-w-0 rounded-lg border border-[#eaded2] bg-white">
+          {selectedEvent ? (
+            <>
+              <div className="border-b border-[#eaded2] p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="truncate text-[17px] font-bold text-[#15110d]">{selectedEvent.name}</h3>
+                      <span className={`rounded-full px-2 py-1 text-[10px] font-bold ${getAdminFlashSaleEventMeta(selectedEvent).className}`}>{getAdminFlashSaleEventMeta(selectedEvent).label}</span>
+                    </div>
+                    <p className="mt-1 text-[12px] text-[#7b6556]">
+                      {formatDateTime(selectedEvent.startsAt).date} {formatDateTime(selectedEvent.startsAt).time} - {formatDateTime(selectedEvent.endsAt).date} {formatDateTime(selectedEvent.endsAt).time}
+                    </p>
+                    {selectedEvent.description ? <p className="mt-2 text-[12px] leading-5 text-[#6b4d3e]">{selectedEvent.description}</p> : null}
+                  </div>
+                  <button className="h-9 rounded-lg border border-[#dfc8b5] px-3 text-[12px] font-bold text-[#4b3527] hover:border-[#9a5700]" type="button" onClick={() => onToggleFlashSale(selectedEvent)}>
+                    {selectedEvent.isActive ? 'Tắt khung giờ' : 'Bật khung giờ'}
+                  </button>
+                </div>
+                <div className="mt-4 grid gap-2 sm:grid-cols-4">
+                  <div className="rounded-lg bg-[#fbfaf9] px-3 py-2">
+                    <p className="text-[10px] font-bold uppercase text-[#7b6556]">Tổng đăng ký</p>
+                    <p className="mt-1 text-[18px] font-bold text-[#15110d]">{formatCount(selectedEvent.registrationCount)}</p>
+                  </div>
+                  <div className="rounded-lg bg-[#fbfaf9] px-3 py-2">
+                    <p className="text-[10px] font-bold uppercase text-[#7b6556]">Chờ duyệt</p>
+                    <p className="mt-1 text-[18px] font-bold text-[#9a5700]">{formatCount(selectedEvent.pendingCount)}</p>
+                  </div>
+                  <div className="rounded-lg bg-[#fbfaf9] px-3 py-2">
+                    <p className="text-[10px] font-bold uppercase text-[#7b6556]">Đã duyệt</p>
+                    <p className="mt-1 text-[18px] font-bold text-[#087c32]">{formatCount(selectedEvent.approvedCount)}</p>
+                  </div>
+                  <div className="rounded-lg bg-[#fbfaf9] px-3 py-2">
+                    <p className="text-[10px] font-bold uppercase text-[#7b6556]">Hiển thị</p>
+                    <p className="mt-1 text-[18px] font-bold text-[#15110d]">{selectedEvent.isActive ? 'Có' : 'Không'}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="border-b border-[#eaded2] p-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex gap-1 overflow-x-auto pb-1">
+                    {registrationStatusTabs.map((tab) => (
+                      <button
+                        key={tab.value}
+                        className={`shrink-0 rounded-full px-3 py-1.5 text-[11px] font-bold transition ${registrationStatusFilter === tab.value ? 'bg-[#995900] text-white' : 'bg-[#f3f1ed] text-[#5f5148] hover:text-[#995900]'}`}
+                        type="button"
+                        onClick={() => setRegistrationStatusFilter(tab.value)}
+                      >
+                        {tab.label} ({formatCount(tab.count)})
+                      </button>
+                    ))}
+                  </div>
+                  <label className="relative flex h-9 min-w-[220px] items-center">
+                    <span className="material-symbols-outlined pointer-events-none absolute left-3 text-[17px] text-[#7b6556]">search</span>
+                    <input
+                      className="h-9 w-full rounded-lg border-[#dfc8b5] bg-[#fbfaf9] pl-9 pr-3 text-[12px] focus:border-[#c98225] focus:ring-0"
+                      value={registrationKeyword}
+                      onChange={(event) => setRegistrationKeyword(event.target.value)}
+                      placeholder="Tìm sản phẩm, shop..."
+                    />
+                  </label>
+                </div>
+              </div>
+              <div className="max-h-[520px] overflow-auto">
+                <table className="w-full min-w-[860px] border-collapse text-left">
+                  <thead className="sticky top-0 z-10 bg-[#eeeeed]">
+                    <tr className="h-11 text-[10px] font-bold uppercase text-[#4b3527]">
+                      <th className="px-4">Sản phẩm</th>
+                      <th className="px-4">Shop</th>
+                      <th className="px-4">Giá sale</th>
+                      <th className="px-4">Số lượng</th>
+                      <th className="px-4">Trạng thái</th>
+                      <th className="px-4 text-center">Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visibleRegistrations.map((item) => {
+                      const statusMeta = getAdminFlashSaleRegistrationMeta(item.status)
+                      const isWorking = workingRegistrationId === item.id
+
+                      return (
+                        <tr key={item.id} className="border-t border-[#f0e7df] text-[12px] text-[#17120e]">
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-3">
+                              <img className="h-11 w-11 shrink-0 rounded-lg bg-[#f3f1ed] object-cover" src={apiAssetUrl(item.product?.thumbnailUrl)} alt="" />
+                              <div className="min-w-0">
+                                <p className="truncate font-bold text-[#1d1712]">{item.product?.name || 'Sản phẩm không xác định'}</p>
+                                <p className="mt-0.5 text-[10px] text-[#7b6556]">Giá gốc {formatCurrency(item.product?.price || 0)}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <p className="font-semibold">{item.shop?.name || 'Shop'}</p>
+                            <p className="mt-0.5 text-[10px] text-[#7b6556]">{item.shop?.ownerEmail || item.shop?.ownerName || ''}</p>
+                          </td>
+                          <td className="px-4 py-3 font-bold text-[#a15d00]">{formatCurrency(item.salePrice)}</td>
+                          <td className="px-4 py-3">
+                            <p>{formatCount(item.soldCount)} / {formatCount(item.registeredStock)}</p>
+                            <p className="mt-0.5 text-[10px] text-[#7b6556]">Tồn kho {formatCount(item.product?.stock || 0)}</p>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`inline-flex rounded-full px-2 py-1 text-[10px] font-bold ${statusMeta.className}`}>{statusMeta.label}</span>
+                            {item.rejectReason ? <p className="mt-1 max-w-[220px] text-[10px] text-[#b42318]">{item.rejectReason}</p> : null}
+                          </td>
+                          <td className="px-4 py-3">
+                            {item.status === 'pending' ? (
+                              <div className="flex justify-center gap-2">
+                                <button className="rounded-md bg-[#087c32] px-3 py-1.5 text-[11px] font-bold text-white disabled:opacity-60" type="button" disabled={isWorking} onClick={() => onReviewFlashSaleRegistration(item, 'approve')}>
+                                  Duyệt
+                                </button>
+                                <button className="rounded-md bg-[#b42318] px-3 py-1.5 text-[11px] font-bold text-white disabled:opacity-60" type="button" disabled={isWorking} onClick={() => onReviewFlashSaleRegistration(item, 'reject')}>
+                                  Từ chối
+                                </button>
+                              </div>
+                            ) : (
+                              <p className="text-center text-[11px] text-[#7b6556]">Đã xử lý</p>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+                {!visibleRegistrations.length ? <p className="border-t border-[#f0e7df] px-4 py-10 text-center text-[13px] text-[#6e5c51]">Không có đăng ký phù hợp trong khung giờ này.</p> : null}
+              </div>
+            </>
+          ) : (
+            <div className="flex min-h-[360px] items-center justify-center px-4 py-12 text-center">
+              <div>
+                <span className="material-symbols-outlined text-[44px] text-[#c57900]">event_busy</span>
+                <h3 className="mt-3 text-[17px] font-bold text-[#15110d]">Chưa có khung giờ</h3>
+                <p className="mt-1 max-w-sm text-[12px] leading-5 text-[#7b6556]">Tạo khung giờ flash sale mới để seller bắt đầu đăng ký sản phẩm.</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  )
+}
+
 export function PromotionsDashboard({ searchTerm, promotionsData, flashSalesData, onPromotionsDataChange, onFlashSalesDataChange }) {
+  const [activePromotionTab, setActivePromotionTab] = useState('vouchers')
   const [activeScope, setActiveScope] = useState('all')
   const [voucherForm, setVoucherForm] = useState(emptyVoucherForm)
   const [editingVoucherId, setEditingVoucherId] = useState(null)
+  const [voucherModalOpen, setVoucherModalOpen] = useState(false)
   const [savingVoucher, setSavingVoucher] = useState(false)
   const [workingVoucherId, setWorkingVoucherId] = useState(null)
   const [flashSaleForm, setFlashSaleForm] = useState(emptyFlashSaleForm)
+  const [flashSaleModalOpen, setFlashSaleModalOpen] = useState(false)
   const [savingFlashSale, setSavingFlashSale] = useState(false)
   const [workingRegistrationId, setWorkingRegistrationId] = useState(null)
   const vouchers = useMemo(() => promotionsData?.items || [], [promotionsData])
@@ -1807,6 +2192,28 @@ export function PromotionsDashboard({ searchTerm, promotionsData, flashSalesData
     setVoucherForm(emptyVoucherForm)
   }
 
+  function openVoucherModal() {
+    resetVoucherForm()
+    setVoucherModalOpen(true)
+  }
+
+  function closeVoucherModal() {
+    if (savingVoucher) return
+    resetVoucherForm()
+    setVoucherModalOpen(false)
+  }
+
+  function openFlashSaleModal() {
+    setFlashSaleForm(emptyFlashSaleForm)
+    setFlashSaleModalOpen(true)
+  }
+
+  function closeFlashSaleModal() {
+    if (savingFlashSale) return
+    setFlashSaleForm(emptyFlashSaleForm)
+    setFlashSaleModalOpen(false)
+  }
+
   function updateVoucherField(field, value) {
     setVoucherForm((current) => {
       const next = { ...current, [field]: value }
@@ -1818,6 +2225,7 @@ export function PromotionsDashboard({ searchTerm, promotionsData, flashSalesData
 
   function editVoucher(voucher) {
     setEditingVoucherId(voucher.id)
+    setVoucherModalOpen(true)
     setVoucherForm({
       code: voucher.code || '',
       title: voucher.title || '',
@@ -1851,6 +2259,7 @@ export function PromotionsDashboard({ searchTerm, promotionsData, flashSalesData
         : await createAdminVoucher(payload)
       onPromotionsDataChange(nextData)
       resetVoucherForm()
+      setVoucherModalOpen(false)
       toast.success(editingVoucherId ? 'Đã cập nhật voucher.' : 'Đã tạo voucher.')
     } catch (err) {
       toast.error(err.message || 'Không lưu được voucher.')
@@ -1896,6 +2305,7 @@ export function PromotionsDashboard({ searchTerm, promotionsData, flashSalesData
       const nextData = await createAdminFlashSale(flashSaleForm)
       onFlashSalesDataChange(nextData)
       setFlashSaleForm(emptyFlashSaleForm)
+      setFlashSaleModalOpen(false)
       toast.success('Đã tạo khung giờ flash sale.')
     } catch (err) {
       toast.error(err.message || 'Không tạo được flash sale.')
@@ -1947,6 +2357,33 @@ export function PromotionsDashboard({ searchTerm, promotionsData, flashSalesData
         <OverviewMetricCard stat={{ label: 'Voucher shop', value: formatCount(promotionsData?.stats?.shop || 0), icon: 'storefront', change: 'Shop', iconClass: 'bg-[#f3e8ff] text-[#8c38d8]' }} />
       </div>
 
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#eaded2] bg-white p-3 shadow-sm">
+        <div className="flex overflow-hidden rounded-lg bg-[#f3f1ed] p-1">
+          {[
+            { value: 'vouchers', label: 'Voucher', icon: 'local_offer' },
+            { value: 'flashSales', label: 'Flash sales', icon: 'bolt' },
+          ].map((tab) => (
+            <button
+              key={tab.value}
+              className={`inline-flex h-10 items-center gap-2 rounded-md px-4 text-[12px] font-bold transition ${activePromotionTab === tab.value ? 'bg-white text-[#995900] shadow-sm' : 'text-[#4b3527] hover:text-[#995900]'}`}
+              type="button"
+              onClick={() => setActivePromotionTab(tab.value)}
+            >
+              <span className="material-symbols-outlined text-[18px]">{tab.icon}</span>
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        {activePromotionTab === 'vouchers' ? (
+          <button className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#995900] px-4 text-[12px] font-bold text-white hover:bg-[#7b4600]" type="button" onClick={openVoucherModal}>
+            <span className="material-symbols-outlined text-[18px]">add</span>
+            Thêm voucher
+          </button>
+        ) : null}
+      </div>
+
+      {voucherModalOpen ? (
+        <AdminFormModal title={editingVoucherId ? 'Cập nhật voucher' : 'Thêm voucher'} description="Nhập thông tin mã giảm giá và điều kiện áp dụng." onClose={closeVoucherModal}>
       <section className="rounded-lg border border-[#eaded2] bg-white p-4 shadow-[0_8px_24px_rgba(60,42,22,0.05)]">
         <form className="grid gap-3 xl:grid-cols-4" onSubmit={handleVoucherSubmit}>
           <label className="grid gap-1.5">
@@ -2020,14 +2457,17 @@ export function PromotionsDashboard({ searchTerm, promotionsData, flashSalesData
               {savingVoucher ? 'Đang lưu...' : editingVoucherId ? 'Cập nhật' : 'Thêm'}
             </button>
             {editingVoucherId ? (
-              <button className="h-10 rounded-lg border border-[#bba795] px-3 text-[12px] font-bold text-[#4e3d31] hover:border-[#9a5700]" type="button" onClick={resetVoucherForm}>
+              <button className="h-10 rounded-lg border border-[#bba795] px-3 text-[12px] font-bold text-[#4e3d31] hover:border-[#9a5700]" type="button" onClick={closeVoucherModal}>
                 Hủy
               </button>
             ) : null}
           </div>
         </form>
       </section>
+        </AdminFormModal>
+      ) : null}
 
+      {activePromotionTab === 'vouchers' ? (
       <section className="overflow-hidden rounded-lg border border-[#eaded2] bg-white shadow-[0_8px_24px_rgba(60,42,22,0.05)]">
         <div className="flex min-h-12 overflow-x-auto border-b border-[#eaded2]">
           {scopeTabs.map((tab) => (
@@ -2092,19 +2532,25 @@ export function PromotionsDashboard({ searchTerm, promotionsData, flashSalesData
           </div>
         ) : null}
       </section>
+      ) : null}
 
-      <AdminFlashSalesPanel
+      {activePromotionTab === 'flashSales' ? (
+      <AdminFlashSalesPanelV2
         flashSalesData={flashSalesData}
         flashSaleForm={flashSaleForm}
         flashSaleEvents={flashSaleEvents}
         flashSaleRegistrations={flashSaleRegistrations}
         savingFlashSale={savingFlashSale}
         workingRegistrationId={workingRegistrationId}
+        creatingFlashSale={flashSaleModalOpen}
         onFlashSaleFormChange={setFlashSaleForm}
         onFlashSaleSubmit={handleFlashSaleSubmit}
+        onCreateFlashSaleClick={openFlashSaleModal}
+        onCloseFlashSaleModal={closeFlashSaleModal}
         onToggleFlashSale={handleToggleFlashSale}
         onReviewFlashSaleRegistration={handleReviewFlashSaleRegistration}
       />
+      ) : null}
     </div>
   )
 }

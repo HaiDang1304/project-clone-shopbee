@@ -269,14 +269,14 @@ export default function ShopMessagesPanel({ mode = 'customer', initialShopId = '
 
   return (
     <section className={`overflow-hidden rounded-xl border border-[#e5ddd5] bg-white shadow-sm ${className}`}>
-      <div className="grid min-h-[calc(100vh-210px)] grid-cols-1 lg:min-h-[700px] lg:grid-cols-[360px_minmax(0,1fr)]">
-        <aside className="border-b border-[#e5ddd5] bg-[#fbfaf7] lg:border-b-0 lg:border-r">
+      <div className="grid h-[calc(100vh-210px)] min-h-[560px] max-h-[760px] grid-cols-1 lg:grid-cols-[360px_minmax(0,1fr)]">
+        <aside className="flex min-h-0 flex-col border-b border-[#e5ddd5] bg-[#fbfaf7] lg:border-b-0 lg:border-r">
           <div className="border-b border-[#e5ddd5] px-4 py-4">
             <h2 className="text-[18px] font-bold text-[#201915]">{copy.title}</h2>
             <p className="mt-1 text-[12px] leading-5 text-[#766a61]">{copy.description}</p>
           </div>
 
-          <div className="max-h-[320px] overflow-y-auto p-2 lg:max-h-[640px]">
+          <div className="min-h-0 flex-1 overflow-y-auto p-2">
             {loading ? (
               Array.from({ length: 5 }).map((_, index) => <div key={index} className="mb-2 h-[76px] animate-pulse rounded-xl bg-white" />)
             ) : conversations.length ? (
@@ -317,7 +317,7 @@ export default function ShopMessagesPanel({ mode = 'customer', initialShopId = '
           </div>
         </aside>
 
-        <div className="flex min-h-[560px] flex-col lg:min-h-[700px]">
+        <div className="flex min-h-0 flex-col">
           {currentConversation ? (
             <>
               <header className="flex min-h-16 items-center gap-3 border-b border-[#e5ddd5] px-4 py-3">
@@ -338,7 +338,7 @@ export default function ShopMessagesPanel({ mode = 'customer', initialShopId = '
                 ) : null}
               </header>
 
-              <div className="flex-1 overflow-y-auto bg-[#f5f6f1] px-3 py-4 sm:px-4">
+              <div className="min-h-0 flex-1 overflow-y-auto bg-[#f5f6f1] px-3 py-4 sm:px-4">
                 <div className="mx-auto flex w-full max-w-[780px] flex-col gap-3">
                   {error ? <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700">{error}</div> : null}
                   {loadingMessages ? <div className="h-20 animate-pulse rounded-lg bg-white" /> : null}
