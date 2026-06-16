@@ -111,7 +111,7 @@ function normalizeSellerVoucherPayload(body = {}, shopId, { partial = false } = 
   if (nextDiscountType === 'percent' && payload.discountValue > 100) {
     throwVoucherError('Voucher phần trăm không được vượt quá 100%')
   }
-  if (payload.startsAt && payload.endsAt && payload.startsAt > payload.endsAt) {
+  if (payload.startsAt && payload.endsAt && payload.startsAt >= payload.endsAt) {
     throwVoucherError('Thời gian bắt đầu không được lớn hơn thời gian kết thúc')
   }
 

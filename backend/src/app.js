@@ -15,6 +15,8 @@ const shopRoutes = require('./routes/shops')
 const voucherRoutes = require('./routes/vouchers')
 const { errorHandler, notFoundHandler } = require('./middleware/error')
 
+const frontendDistPath = path.resolve(__dirname, '..', '..', 'frontend', 'dist')
+
 function parseCorsOrigin() {
   const origin = process.env.CORS_ORIGIN || '*'
   if (origin === '*') return '*'
@@ -31,8 +33,13 @@ function createApp() {
       credentials: corsOrigin !== '*',
     }),
   )
+  app.use((req, res, next) => {
+    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups')
+    next()
+  })
   app.use(express.json({ limit: '64mb' }))
   app.use('/uploads', express.static(path.join(__dirname, '..', 'public', 'uploads')))
+  app.use(express.static(frontendDistPath))
 
   app.get('/api/health', (req, res) => {
     res.json({ ok: true })
@@ -49,6 +56,12 @@ function createApp() {
   app.use('/api/vouchers', voucherRoutes)
   app.use('/api/shops', shopRoutes)
   app.use('/api/shop-chats', shopChatRoutes)
+
+  app.get(/^\/(?!api\/|uploads\/).*/, (req, res, next) => {
+    res.sendFile(path.join(frontendDistPath, 'index.html'), (err) => {
+      if (err) next()
+    })
+  })
 
   app.use(notFoundHandler)
   app.use(errorHandler)

@@ -2245,6 +2245,10 @@ export function PromotionsDashboard({ searchTerm, promotionsData, flashSalesData
 
   async function handleVoucherSubmit(event) {
     event.preventDefault()
+    if (voucherForm.startsAt && voucherForm.endsAt && new Date(voucherForm.startsAt).getTime() >= new Date(voucherForm.endsAt).getTime()) {
+      toast.error('Thời gian kết thúc voucher phải lớn hơn thời gian bắt đầu.')
+      return
+    }
     setSavingVoucher(true)
 
     const payload = {

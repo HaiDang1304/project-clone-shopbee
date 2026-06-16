@@ -3,7 +3,7 @@ services:
     name: shopbee-backend
     env: node
     rootDir: backend
-    buildCommand: npm ci
+    buildCommand: npm ci && npm --prefix ../frontend ci && npm --prefix ../frontend run build
     startCommand: npm start
     healthCheckPath: /api/health
     envVars:

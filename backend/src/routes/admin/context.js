@@ -377,8 +377,8 @@ function normalizeVoucherPayload(body, { partial = false } = {}) {
     err.status = 400
     throw err
   }
-  if (payload.startsAt && payload.endsAt && payload.startsAt > payload.endsAt) {
-    const err = new Error('Thoi gian bat dau khong duoc lon hon thoi gian ket thuc')
+  if (payload.startsAt && payload.endsAt && payload.startsAt >= payload.endsAt) {
+    const err = new Error('Thoi gian ket thuc phai lon hon thoi gian bat dau')
     err.status = 400
     throw err
   }

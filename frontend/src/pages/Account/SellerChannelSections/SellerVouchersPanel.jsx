@@ -99,6 +99,10 @@ export function SellerVouchersPanel({ vouchersData, onVouchersDataChange }) {
 
   async function handleSubmit(event) {
     event.preventDefault()
+    if (form.startsAt && form.endsAt && new Date(form.startsAt).getTime() >= new Date(form.endsAt).getTime()) {
+      toast.error('Thời gian kết thúc voucher phải lớn hơn thời gian bắt đầu.')
+      return
+    }
     setSaving(true)
 
     try {
