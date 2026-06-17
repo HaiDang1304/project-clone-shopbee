@@ -106,14 +106,18 @@ async function readMessage(messageId, userId) {
   return rows[0] ? mapMessage(rows[0], userId) : null
 }
 
-function emitConversationUpdate(io, conversation, message) {
-  const payload = {
+function emitConversationUpdate(io, conversation, customerMessage, sellerMessage) {
+  const customerPayload = {
     conversation,
-    message,
+    message: customerMessage,
+  }
+  const sellerPayload = {
+    conversation,
+    message: sellerMessage,
   }
 
-  io.to(userRoom(conversation.customerId)).emit('shop-chat:conversation-updated', payload)
-  io.to(userRoom(conversation.sellerId)).emit('shop-chat:conversation-updated', payload)
+  io.to(userRoom(conversation.customerId)).emit('shop-chat:conversation-updated', customerPayload)
+  io.to(userRoom(conversation.sellerId)).emit('shop-chat:conversation-updated', sellerPayload)
 }
 
 function initShopChatSocket(server, corsOptions = {}) {
@@ -177,20 +181,27 @@ function initShopChatSocket(server, corsOptions = {}) {
         ])
         await query('UPDATE shop_conversations SET last_message_at = NOW() WHERE id = ?', [conversationId])
 
-        const [message, nextConversationRow] = await Promise.all([
+        const [customerMessage, sellerMessage, ackMessage, nextConversationRow] = await Promise.all([
+          readMessage(result.insertId, conversationRow.customer_id),
+          readMessage(result.insertId, conversationRow.seller_id),
           readMessage(result.insertId, userId),
           getConversationForUser(conversationId, userId),
         ])
         const conversation = mapConversation(nextConversationRow || conversationRow)
 
-        io.to(conversationRoom(conversationId)).emit('shop-chat:message', {
+        io.to(userRoom(conversation.customerId)).emit('shop-chat:message', {
           conversationId,
-          message,
+          message: customerMessage,
           conversation,
         })
-        emitConversationUpdate(io, conversation, message)
+        io.to(userRoom(conversation.sellerId)).emit('shop-chat:message', {
+          conversationId,
+          message: sellerMessage,
+          conversation,
+        })
+        emitConversationUpdate(io, conversation, customerMessage, sellerMessage)
 
-        ack?.({ ok: true, data: { message, conversation } })
+        ack?.({ ok: true, data: { message: ackMessage, conversation } })
       } catch (err) {
         ack?.({ ok: false, message: err.message || 'Không gửi được tin nhắn' })
       }

@@ -77,11 +77,17 @@ export default function ShopMessagesPanel({ mode = 'customer', initialShopId = '
   const [loadingMessages, setLoadingMessages] = useState(false)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [unreadByConversation, setUnreadByConversation] = useState({})
   const socket = useMemo(() => (user ? getChatSocket() : null), [user])
 
   const activeFromList = useMemo(
     () => conversations.find((item) => Number(item.id) === Number(activeConversationId)) || null,
     [activeConversationId, conversations],
+  )
+  const unreadTotal = useMemo(
+    () => Object.values(unreadByConversation).reduce((sum, count) => sum + Number(count || 0), 0),
+    [unreadByConversation],
   )
 
   useEffect(() => {
@@ -176,6 +182,12 @@ export default function ShopMessagesPanel({ mode = 'customer', initialShopId = '
     }
 
     joinedConversationRef.current = String(activeConversationId)
+    setUnreadByConversation((current) => {
+      if (!current[activeConversationId]) return current
+      const next = { ...current }
+      delete next[activeConversationId]
+      return next
+    })
     socket.emit('shop-chat:join', { conversationId: activeConversationId }, (response) => {
       if (!response?.ok) setError(response?.message || 'Không thể kết nối cuộc trò chuyện')
     })
@@ -210,7 +222,15 @@ export default function ShopMessagesPanel({ mode = 'customer', initialShopId = '
       const conversation = payload.conversation
       updateConversationList(conversation, nextMessage)
 
-      if (Number(payload.conversationId) !== Number(activeConversationId) || !nextMessage) return
+      if (Number(payload.conversationId) !== Number(activeConversationId) || !nextMessage) {
+        if (nextMessage && !nextMessage.mine) {
+          setUnreadByConversation((current) => ({
+            ...current,
+            [payload.conversationId]: Number(current[payload.conversationId] || 0) + 1,
+          }))
+        }
+        return
+      }
       if (conversation) setActiveConversation(conversation)
       setMessages((current) => {
         if (current.some((item) => Number(item.id) === Number(nextMessage.id))) return current
@@ -269,11 +289,36 @@ export default function ShopMessagesPanel({ mode = 'customer', initialShopId = '
 
   return (
     <section className={`overflow-hidden rounded-xl border border-[#e5ddd5] bg-white shadow-sm ${className}`}>
-      <div className="grid h-[calc(100vh-210px)] min-h-[560px] max-h-[760px] grid-cols-1 lg:grid-cols-[360px_minmax(0,1fr)]">
-        <aside className="flex min-h-0 flex-col border-b border-[#e5ddd5] bg-[#fbfaf7] lg:border-b-0 lg:border-r">
+      <div className="relative grid h-[calc(100dvh-150px)] min-h-[560px] max-h-[760px] grid-cols-1 lg:h-[calc(100vh-210px)] lg:grid-cols-[360px_minmax(0,1fr)]">
+        {sidebarOpen ? (
+          <button
+            className="absolute inset-0 z-20 bg-black/35 lg:hidden"
+            type="button"
+            aria-label="Đóng danh sách tin nhắn"
+            onClick={() => setSidebarOpen(false)}
+          />
+        ) : null}
+
+        <aside
+          className={`absolute inset-y-0 left-0 z-30 flex w-[min(86vw,340px)] min-h-0 flex-col border-r border-[#e5ddd5] bg-[#fbfaf7] shadow-2xl transition-transform duration-200 lg:static lg:z-auto lg:w-auto lg:translate-x-0 lg:shadow-none ${
+            sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}
+        >
           <div className="border-b border-[#e5ddd5] px-4 py-4">
-            <h2 className="text-[18px] font-bold text-[#201915]">{copy.title}</h2>
-            <p className="mt-1 text-[12px] leading-5 text-[#766a61]">{copy.description}</p>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="text-[18px] font-bold text-[#201915]">{copy.title}</h2>
+                <p className="mt-1 text-[12px] leading-5 text-[#766a61]">{copy.description}</p>
+              </div>
+              <button
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#5b4039] hover:bg-[#efe7df] lg:hidden"
+                type="button"
+                onClick={() => setSidebarOpen(false)}
+                aria-label="Đóng danh sách"
+              >
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto p-2">
@@ -282,6 +327,7 @@ export default function ShopMessagesPanel({ mode = 'customer', initialShopId = '
             ) : conversations.length ? (
               conversations.map((conversation) => {
                 const active = Number(conversation.id) === Number(activeConversationId)
+                const unreadCount = Number(unreadByConversation[conversation.id] || 0)
                 return (
                   <button
                     key={conversation.id}
@@ -291,9 +337,25 @@ export default function ShopMessagesPanel({ mode = 'customer', initialShopId = '
                         : 'border-transparent bg-white text-[#241f1b] hover:border-[#e5ddd5] hover:bg-[#f7f3ef]'
                     }`}
                     type="button"
-                    onClick={() => setActiveConversationId(String(conversation.id))}
+                    onClick={() => {
+                      setActiveConversationId(String(conversation.id))
+                      setSidebarOpen(false)
+                      setUnreadByConversation((current) => {
+                        if (!current[conversation.id]) return current
+                        const next = { ...current }
+                        delete next[conversation.id]
+                        return next
+                      })
+                    }}
                   >
-                    <img className="h-12 w-12 shrink-0 rounded-full object-cover" src={getConversationAvatar(conversation, mode)} alt="" />
+                    <span className="relative shrink-0">
+                      <img className="h-12 w-12 rounded-full object-cover" src={getConversationAvatar(conversation, mode)} alt="" />
+                      {unreadCount > 0 ? (
+                        <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#d45b32] px-1 text-[10px] font-bold text-white">
+                          {unreadCount > 9 ? '9+' : unreadCount}
+                        </span>
+                      ) : null}
+                    </span>
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center justify-between gap-2">
                         <span className="truncate text-[14px] font-bold">{getConversationTitle(conversation, mode)}</span>
@@ -302,7 +364,7 @@ export default function ShopMessagesPanel({ mode = 'customer', initialShopId = '
                       <span className="mt-1 block truncate text-[12px] font-medium text-[#6a5d55]">
                         {getConversationSubtitle(conversation, mode)}
                       </span>
-                      <span className="mt-1 block truncate text-[12px] text-[#8a7c73]">
+                      <span className={`mt-1 block truncate text-[12px] ${unreadCount > 0 ? 'font-bold text-[#3a241b]' : 'text-[#8a7c73]'}`}>
                         {conversation.lastMessage || 'Chưa có tin nhắn'}
                       </span>
                     </span>
@@ -320,7 +382,20 @@ export default function ShopMessagesPanel({ mode = 'customer', initialShopId = '
         <div className="flex min-h-0 flex-col">
           {currentConversation ? (
             <>
-              <header className="flex min-h-16 items-center gap-3 border-b border-[#e5ddd5] px-4 py-3">
+              <header className="flex min-h-16 items-center gap-3 border-b border-[#e5ddd5] px-3 py-3 sm:px-4">
+                <button
+                  className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#e5ddd5] bg-white text-[#3f352f] hover:border-[#d45b32] hover:text-[#d45b32] lg:hidden"
+                  type="button"
+                  onClick={() => setSidebarOpen(true)}
+                  aria-label="Mở danh sách tin nhắn"
+                >
+                  <span className="material-symbols-outlined text-[22px]">menu</span>
+                  {unreadTotal > 0 ? (
+                    <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#d45b32] px-1 text-[10px] font-bold text-white">
+                      {unreadTotal > 9 ? '9+' : unreadTotal}
+                    </span>
+                  ) : null}
+                </button>
                 <img className="h-11 w-11 rounded-full object-cover" src={currentAvatar} alt={currentTitle} />
                 <div className="min-w-0 flex-1">
                   <h3 className="truncate text-[15px] font-bold text-[#201915]">{currentTitle}</h3>
@@ -373,9 +448,9 @@ export default function ShopMessagesPanel({ mode = 'customer', initialShopId = '
                 <div ref={messagesEndRef} />
               </div>
 
-              <form className="flex items-end gap-2 border-t border-[#e5ddd5] bg-white p-3" onSubmit={sendMessage}>
+              <form className="flex items-end gap-2 border-t border-[#e5ddd5] bg-white p-2 sm:p-3" onSubmit={sendMessage}>
                 <textarea
-                  className="max-h-32 min-h-11 flex-1 resize-none rounded-lg border-[#ddd4cc] bg-[#fbfaf7] px-3 py-2 text-[13px] focus:border-[#d45b32] focus:ring-0"
+                  className="max-h-28 min-h-11 flex-1 resize-none rounded-lg border-[#ddd4cc] bg-[#fbfaf7] px-3 py-2 text-[16px] leading-6 focus:border-[#d45b32] focus:ring-0 sm:text-[13px]"
                   rows={1}
                   value={input}
                   onChange={(event) => setInput(event.target.value)}
@@ -396,6 +471,14 @@ export default function ShopMessagesPanel({ mode = 'customer', initialShopId = '
           ) : (
             <div className="flex flex-1 items-center justify-center px-5 py-12 text-center">
               <div>
+                <button
+                  className="mx-auto mb-4 flex h-11 items-center justify-center gap-2 rounded-lg border border-[#e5ddd5] bg-white px-4 text-[13px] font-bold text-[#3f352f] hover:border-[#d45b32] hover:text-[#d45b32] lg:hidden"
+                  type="button"
+                  onClick={() => setSidebarOpen(true)}
+                >
+                  <span className="material-symbols-outlined text-[20px]">menu</span>
+                  Danh sách tin nhắn
+                </button>
                 <span className="material-symbols-outlined text-[44px] text-[#d45b32]">forum</span>
                 <h3 className="mt-3 text-[18px] font-bold text-[#201915]">{copy.select}</h3>
                 <p className="mt-2 max-w-sm text-[13px] leading-6 text-[#766a61]">{copy.empty}</p>
