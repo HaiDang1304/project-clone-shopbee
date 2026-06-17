@@ -55,7 +55,7 @@ export default function RegisterForm({
         />
       </div>
       <div className="space-y-2">
-        <label className="text-label-md text-on-surface-variant">Email Gmail</label>
+        <label className="text-label-md text-on-surface-variant">Email</label>
         <input
           className="h-11 w-full rounded-lg border border-outline-variant bg-surface-container-low px-4 text-body-md focus:border-primary focus:ring-0"
           type="email"

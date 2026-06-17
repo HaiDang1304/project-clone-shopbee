@@ -76,7 +76,7 @@ export default function AuthModal({ open, initialMode = 'login', initialEmail = 
   function handleNeedsVerification({ email, devCode }) {
     setVerifyEmail(email)
     setMode('verify')
-    setMessage(devCode ? `Mã OTP dev: ${devCode}` : 'Đã gửi mã OTP tới Gmail của bạn.')
+    setMessage(devCode ? `Mã OTP dev: ${devCode}` : 'Mã OTP đã được tạo. Vui lòng kiểm tra email của bạn.')
   }
 
   return (

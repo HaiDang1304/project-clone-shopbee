@@ -212,9 +212,9 @@ export default function CartPage() {
               </Link>
             </section>
           ) : (
-            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+            <div className="grid gap-5 2xl:grid-cols-[minmax(0,1fr)_320px]">
               <section className="overflow-hidden rounded-lg bg-surface-container-lowest shadow-sm">
-                <div className="hidden grid-cols-[44px_minmax(0,1fr)_120px_140px_120px_80px] items-center gap-4 border-b border-outline-variant px-5 py-3 text-label-md font-label-md text-on-surface-variant md:grid">
+                <div className="hidden grid-cols-[36px_minmax(220px,1fr)_104px_124px_112px_48px] items-center gap-2 border-b border-outline-variant px-5 py-3 text-label-md font-label-md text-on-surface-variant lg:grid">
                   <input
                     className="rounded border-outline-variant text-primary focus:ring-primary"
                     type="checkbox"
@@ -242,7 +242,7 @@ export default function CartPage() {
                     return (
                       <article
                         key={item.id}
-                        className="grid grid-cols-[28px_minmax(0,1fr)] gap-4 px-4 py-4 md:grid-cols-[44px_minmax(0,1fr)_120px_140px_120px_80px] md:items-center md:px-5"
+                        className="grid grid-cols-[28px_minmax(0,1fr)] gap-4 px-4 py-4 lg:grid-cols-[36px_minmax(220px,1fr)_104px_124px_112px_48px] lg:items-center lg:gap-2 lg:px-5"
                       >
                         <input
                           className="rounded border-outline-variant text-primary focus:ring-primary"
@@ -273,43 +273,46 @@ export default function CartPage() {
                             )}
                           </Link>
                           <div className="min-w-0">
-                            <Link className="line-clamp-2 text-body-md font-semibold text-on-surface hover:text-primary" to={productPath(item)}>
+                            <Link className="line-clamp-2 text-body-md font-semibold leading-6 text-on-surface hover:text-primary" to={productPath(item)}>
                               {item.name}
                             </Link>
                             {item.shop?.name ? (
-                              <p className="mt-1 text-body-sm text-on-surface-variant">{item.shop.name}</p>
+                              <p className="mt-1 truncate text-body-sm text-on-surface-variant">{item.shop.name}</p>
                             ) : null}
                             {options ? (
-                              <p className="mt-1 text-body-sm text-on-surface-variant">Phân loại: {options}</p>
+                              <p className="mt-1 line-clamp-2 text-body-sm leading-5 text-on-surface-variant">Phân loại: {options}</p>
                             ) : item.variantName ? (
-                              <p className="mt-1 text-body-sm text-on-surface-variant">Phân loại: {item.variantName}</p>
+                              <p className="mt-1 line-clamp-2 text-body-sm leading-5 text-on-surface-variant">Phân loại: {item.variantName}</p>
                             ) : null}
                             <p className="mt-1 text-body-sm text-on-surface-variant">Còn {item.stock} sản phẩm</p>
                           </div>
                         </div>
 
-                        <p className="col-span-2 flex justify-between text-body-sm text-on-surface md:col-span-1 md:block md:text-right md:text-body-md">
-                          <span className="text-on-surface-variant md:hidden">Đơn giá</span>
+                        <p className="col-span-2 flex justify-between text-body-sm text-on-surface lg:col-span-1 lg:block lg:text-right lg:text-body-md">
+                          <span className="text-on-surface-variant lg:hidden">Đơn giá</span>
                           {formatCurrency(item.unitPrice)}
                         </p>
-                        <div className="col-span-2 justify-self-start md:col-span-1 md:justify-self-center">
+                        <div className="col-span-2 justify-self-start lg:col-span-1 lg:justify-self-center">
                           <QuantityControl
                             item={item}
                             disabled={workingItemId === item.id || loading}
                             onChange={(quantity) => handleQuantityChange(item, quantity)}
                           />
                         </div>
-                        <p className="col-span-2 flex justify-between text-title-sm font-title-sm text-primary md:col-span-1 md:block md:text-right">
-                          <span className="text-body-sm font-normal text-on-surface-variant md:hidden">Thành tiền</span>
+                        <p className="col-span-2 flex justify-between text-title-sm font-title-sm text-primary lg:col-span-1 lg:block lg:text-right">
+                          <span className="text-body-sm font-normal text-on-surface-variant lg:hidden">Thành tiền</span>
                           {formatCurrency(item.lineTotal)}
                         </p>
                         <button
-                          className="col-span-2 h-10 justify-self-start rounded-lg border border-outline-variant px-4 text-label-md font-label-md text-on-surface-variant hover:border-error hover:text-error md:col-span-1 md:h-auto md:border-0 md:px-0 md:justify-self-end"
+                          className="col-span-2 inline-flex h-10 items-center justify-center gap-2 justify-self-start rounded-lg border border-outline-variant px-4 text-label-md font-label-md text-on-surface-variant hover:border-error hover:text-error disabled:opacity-60 lg:col-span-1 lg:w-10 lg:justify-self-center lg:rounded-full lg:border-0 lg:px-0 lg:hover:bg-error/10"
                           type="button"
                           disabled={workingItemId === item.id || loading}
                           onClick={() => handleRemove(item)}
+                          aria-label={`Xóa ${item.name}`}
+                          title="Xóa"
                         >
-                          Xóa
+                          <span className="material-symbols-outlined text-[20px]">delete</span>
+                          <span className="lg:hidden">Xóa</span>
                         </button>
                       </article>
                     )
@@ -317,7 +320,7 @@ export default function CartPage() {
                 </div>
               </section>
 
-              <aside className="lg:sticky lg:top-24 lg:self-start">
+              <aside className="2xl:sticky 2xl:top-24 2xl:self-start">
                 <section className="rounded-lg bg-surface-container-lowest px-5 py-5 shadow-sm">
                   <div className="flex items-center justify-between gap-3 border-b border-outline-variant pb-4">
                     <label className="flex items-center gap-2 text-body-sm text-on-surface">
