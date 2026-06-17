@@ -122,7 +122,14 @@ function getProductLimit() {
   return Math.max(1, Math.min(safeLimit, 10))
 }
 
+function toLimitLiteral(value, fallback = 6, max = 50) {
+  const limit = Number.parseInt(value, 10)
+  const safeLimit = Number.isSafeInteger(limit) ? limit : fallback
+  return Math.max(1, Math.min(safeLimit, max))
+}
+
 async function loadFallbackProducts(limit) {
+  const safeLimit = toLimitLiteral(limit, getProductLimit(), 10)
   const rows = await query(
     `SELECT
        p.id, p.slug, p.name, p.description, p.price, p.original_price, p.stock,
@@ -136,14 +143,14 @@ async function loadFallbackProducts(limit) {
      JOIN users u ON u.id = s.owner_id
      WHERE p.is_active = 1 AND s.is_active = 1 AND u.role = 'seller' AND u.is_active = 1
      ORDER BY p.rating_avg DESC, p.sold_count DESC, p.created_at DESC
-     LIMIT ?`,
-    [limit],
+     LIMIT ${safeLimit}`,
   )
 
   return rows.map(mapProduct)
 }
 
 async function loadSearchableProducts(limit) {
+  const safeLimit = toLimitLiteral(Math.max(limit * 5, 30), 30, 50)
   const rows = await query(
     `SELECT
        p.id, p.slug, p.name, p.description, p.price, p.original_price, p.stock,
@@ -157,8 +164,7 @@ async function loadSearchableProducts(limit) {
      JOIN users u ON u.id = s.owner_id
      WHERE p.is_active = 1 AND s.is_active = 1 AND u.role = 'seller' AND u.is_active = 1
      ORDER BY p.rating_avg DESC, p.sold_count DESC, p.created_at DESC
-     LIMIT ?`,
-    [Math.max(limit * 5, 30)],
+     LIMIT ${safeLimit}`,
   )
 
   return rows.map(mapProduct)
@@ -272,6 +278,7 @@ async function searchProductsForChat(message) {
   }
 
   try {
+    const safeLimit = toLimitLiteral(limit, getProductLimit(), 10)
     const rows = await query(
       `SELECT
          p.id, p.slug, p.name, p.description, p.price, p.original_price, p.stock,
@@ -286,8 +293,8 @@ async function searchProductsForChat(message) {
        JOIN users u ON u.id = s.owner_id
        WHERE ${where.join(' AND ')}
        ORDER BY relevance_score DESC, p.rating_avg DESC, p.sold_count DESC, p.created_at DESC
-       LIMIT ?`,
-      [...relevanceParams, ...whereParams, limit],
+       LIMIT ${safeLimit}`,
+      [...relevanceParams, ...whereParams],
     )
 
     return rows.map(mapProduct)
