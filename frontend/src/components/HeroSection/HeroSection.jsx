@@ -3,17 +3,17 @@ import { Link } from 'react-router-dom'
 const heroBanners = [
   {
     href: '/vouchers',
-    image: '/banner-hero/6aa9c3ed-b9a7-401e-9c98-c18490c58010 (1).png',
+    image: '/banner-hero/ee3e373d-513b-40e1-9f86-8ad7e24849d6.png',
     alt: 'Banner khuyen mai chinh',
   },
   {
     href: '/category/thoi-trang',
-    image: '/banner-hero/99b18e89-ed5a-4980-b916-2d2807b27d96.png',
+    image: '/banner-hero/4943b7f1-c522-4e4c-b82d-88339a591eac.png',
     alt: 'Banner thoi trang',
   },
   {
     href: '/category/gia-dung',
-    image: '/banner-hero/a154fe3b-c097-4714-a169-f11fcfc91508.png',
+    image: '/banner-hero/5a73f3f0-a079-4798-a330-07cddb6b72ef.png',
     alt: 'Banner gia dung',
   },
 ]
@@ -27,8 +27,8 @@ const quickDeals = [
 
 function PromoCard({ banner }) {
   return (
-    <Link className="group relative block aspect-[4/3] overflow-hidden rounded-xl bg-white text-white shadow-[0_10px_28px_rgba(23,18,14,0.12)] lg:h-full lg:aspect-auto" to={banner.href}>
-      <img className="h-full w-full object-contain transition-transform duration-700 group-hover:scale-105" src={banner.image} alt={banner.alt} />
+    <Link className="group relative block aspect-[1916/821] overflow-hidden rounded-xl bg-white text-white shadow-[0_10px_28px_rgba(23,18,14,0.12)] lg:h-full lg:aspect-auto" to={banner.href}>
+      <img className="h-full w-full object-contain transition-transform duration-700 group-hover:scale-[1.02]" src={banner.image} alt={banner.alt} />
     </Link>
   )
 }
@@ -39,11 +39,11 @@ export default function HeroSection() {
   return (
     <section className="mx-auto mb-8 max-w-container-max px-margin-mobile md:px-margin-desktop">
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(320px,0.95fr)]">
-        <Link className="group relative block aspect-video overflow-hidden rounded-xl bg-white text-white shadow-[0_14px_40px_rgba(23,18,14,0.16)] lg:h-[430px] lg:aspect-auto" to={mainBanner.href}>
-          <img className="h-full w-full object-contain transition-transform duration-700 group-hover:scale-105" src={mainBanner.image} alt={mainBanner.alt} />
+        <Link className="group relative block aspect-[1916/821] overflow-hidden rounded-xl bg-white text-white shadow-[0_14px_40px_rgba(23,18,14,0.16)]" to={mainBanner.href}>
+          <img className="h-full w-full object-contain transition-transform duration-700 group-hover:scale-[1.02]" src={mainBanner.image} alt={mainBanner.alt} />
         </Link>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:h-[430px] lg:grid-cols-1 lg:grid-rows-2">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
           {sideBanners.map((banner) => (
             <PromoCard key={banner.image} banner={banner} />
           ))}
