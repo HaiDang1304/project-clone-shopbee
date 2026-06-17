@@ -6,7 +6,7 @@ import { formatCurrency, productPath } from '../../lib/format'
 
 const welcomeMessage = {
   role: 'assistant',
-  content: 'Chào bạn, mình có thể tìm sản phẩm trong cửa hàng và gợi ý link phù hợp. Bạn đang muốn mua gì?',
+  content: 'Chào bạn, mình là trợ lý mua sắm của ShopBee. Bạn đang tìm món gì, tầm giá bao nhiêu, hoặc thích phong cách nào?',
   products: [],
 }
 
@@ -18,17 +18,20 @@ function ChatProductCard({ product, onNavigate }) {
 
   return (
     <Link
-      className="flex min-w-0 gap-3 rounded-lg border border-surface-container bg-surface-container-lowest p-3 transition-colors hover:border-primary/50 hover:bg-surface-container-low"
+      className="flex min-w-0 gap-3 rounded-lg border border-outline-variant bg-surface-container-lowest p-3 transition-colors hover:border-primary/50 hover:bg-surface-container-low"
       to={productPath(product)}
       onClick={onNavigate}
     >
-      <img className="h-16 w-16 shrink-0 rounded-md object-cover" src={imageSrc} alt={product.name} />
+      <img className="h-[72px] w-[72px] shrink-0 rounded-md object-cover" src={imageSrc} alt={product.name} />
       <div className="min-w-0 flex-1">
-        <p className="line-clamp-2 text-body-sm font-semibold text-on-surface">{product.name}</p>
-        <p className="mt-1 text-body-sm font-bold text-primary">{formatCurrency(product.price)}</p>
+        <p className="line-clamp-2 text-body-sm font-bold leading-5 text-on-surface">{product.name}</p>
+        <p className="mt-1 text-title-sm font-title-sm text-primary">{formatCurrency(product.price)}</p>
         <p className="mt-1 truncate text-label-md text-on-surface-variant">
           {product.shop?.name || product.category?.name || 'ShopBee'}
         </p>
+        {Number.isFinite(Number(product.stock)) ? (
+          <p className="mt-1 text-label-md text-on-surface-variant">Còn {product.stock} sản phẩm</p>
+        ) : null}
       </div>
       <span className="material-symbols-outlined self-center text-[18px] text-primary">chevron_right</span>
     </Link>
@@ -40,18 +43,19 @@ function ChatBubble({ message, onNavigate }) {
 
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
-      <div className={`max-w-[86%] ${isUser ? 'items-end' : 'items-start'} flex flex-col gap-2`}>
+      <div className={`${isUser ? 'max-w-[84%] items-end' : 'max-w-[94%] items-start'} flex flex-col gap-2`}>
         <div
           className={`whitespace-pre-line rounded-lg px-4 py-3 text-body-sm leading-6 ${
             isUser
               ? 'bg-primary text-white'
-              : 'border border-surface-container bg-surface-container-lowest text-on-surface'
+              : 'border border-outline-variant bg-surface-container-lowest text-on-surface shadow-sm'
           }`}
         >
           {message.content}
         </div>
         {!isUser && message.products?.length ? (
           <div className="grid w-full gap-2">
+            <p className="px-1 text-label-md font-label-md text-on-surface-variant">Sản phẩm phù hợp</p>
             {message.products.slice(0, 3).map((product) => (
               <ChatProductCard key={product.id || product.slug} product={product} onNavigate={onNavigate} />
             ))}
@@ -156,8 +160,8 @@ export default function FloatingChatButton() {
           <img className="h-10 w-10 rounded-full object-cover" src={chatboxAvatar} alt="" aria-hidden="true" />
         </span>
         <div className="min-w-0 flex-1">
-          <h2 className="truncate text-title-md font-semibold">Tư vấn sản phẩm</h2>
-          <p className="truncate text-label-md text-white/80">Tìm trong CSDL ShopBee</p>
+          <h2 className="truncate text-title-md font-semibold">Bee AI</h2>
+         
         </div>
         <button
           className="flex h-9 w-9 items-center justify-center rounded-full text-white hover:bg-white/15"

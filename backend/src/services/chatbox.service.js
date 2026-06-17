@@ -32,8 +32,7 @@ function normalizeMessages(messages) {
 }
 
 function extractSearchTerms(message) {
-  const normalized = normalizeWhitespace(message)
-    .toLowerCase()
+  const normalized = toComparableText(message)
     .replace(/[^\p{L}\p{N}\s]/gu, ' ')
   const stopWords = new Set([
     'toi',
@@ -71,7 +70,10 @@ function extractSearchTerms(message) {
     'dưới',
     'tren',
     'trên',
+    'tam',
     'mua',
+    'di',
+    'choi',
   ])
 
   const terms = normalized
@@ -114,9 +116,137 @@ function mapProduct(row) {
   }
 }
 
+function getProductLimit() {
+  const configuredLimit = Number.parseInt(chatboxConfig.productLimit, 10)
+  const safeLimit = Number.isSafeInteger(configuredLimit) ? configuredLimit : 6
+  return Math.max(1, Math.min(safeLimit, 10))
+}
+
+async function loadFallbackProducts(limit) {
+  const rows = await query(
+    `SELECT
+       p.id, p.slug, p.name, p.description, p.price, p.original_price, p.stock,
+       p.thumbnail_url, p.rating_avg, p.rating_count, p.sold_count,
+       c.id AS category_id, c.name AS category_name, c.slug AS category_slug,
+       s.id AS shop_id, s.name AS shop_name, s.slug AS shop_slug,
+       (SELECT pi.image_url FROM product_images pi WHERE pi.product_id = p.id ORDER BY pi.sort_order ASC, pi.id ASC LIMIT 1) AS image_url
+     FROM products p
+     LEFT JOIN categories c ON c.id = p.category_id
+     JOIN shops s ON s.id = p.shop_id
+     JOIN users u ON u.id = s.owner_id
+     WHERE p.is_active = 1 AND s.is_active = 1 AND u.role = 'seller' AND u.is_active = 1
+     ORDER BY p.rating_avg DESC, p.sold_count DESC, p.created_at DESC
+     LIMIT ?`,
+    [limit],
+  )
+
+  return rows.map(mapProduct)
+}
+
+async function loadSearchableProducts(limit) {
+  const rows = await query(
+    `SELECT
+       p.id, p.slug, p.name, p.description, p.price, p.original_price, p.stock,
+       p.thumbnail_url, p.rating_avg, p.rating_count, p.sold_count,
+       c.id AS category_id, c.name AS category_name, c.slug AS category_slug,
+       s.id AS shop_id, s.name AS shop_name, s.slug AS shop_slug,
+       (SELECT pi.image_url FROM product_images pi WHERE pi.product_id = p.id ORDER BY pi.sort_order ASC, pi.id ASC LIMIT 1) AS image_url
+     FROM products p
+     LEFT JOIN categories c ON c.id = p.category_id
+     JOIN shops s ON s.id = p.shop_id
+     JOIN users u ON u.id = s.owner_id
+     WHERE p.is_active = 1 AND s.is_active = 1 AND u.role = 'seller' AND u.is_active = 1
+     ORDER BY p.rating_avg DESC, p.sold_count DESC, p.created_at DESC
+     LIMIT ?`,
+    [Math.max(limit * 5, 30)],
+  )
+
+  return rows.map(mapProduct)
+}
+
+function extractBudget(message) {
+  const text = toComparableText(message)
+  const match = text.match(/\b(duoi|toi da|max|tam|khoang)\s*(\d+(?:[.,]\d+)?)\s*(k|nghin|ngan|trieu|m)?\b/)
+  if (!match) return null
+
+  const amount = Number(String(match[2]).replace(',', '.'))
+  if (!Number.isFinite(amount) || amount <= 0) return null
+
+  const unit = match[3] || ''
+  if (unit === 'trieu' || unit === 'm') return Math.round(amount * 1000000)
+  if (unit === 'k' || unit === 'nghin' || unit === 'ngan') return Math.round(amount * 1000)
+  return amount >= 10000 ? Math.round(amount) : Math.round(amount * 1000)
+}
+
+function detectCategoryIntent(message) {
+  const text = toComparableText(message)
+  if (/\b(ao|quan|vay|dam|thoi trang|mac|outfit)\b/i.test(text)) return 'thoi trang'
+  if (/\b(dien thoai|tai nghe|quat|sac|pin|robot|dien tu)\b/i.test(text)) return 'dien tu'
+  if (/\b(bep|nha|gia dung|do nha|hut bui|den ban)\b/i.test(text)) return 'gia dung'
+  if (/\b(son|kem|my pham|lam dep|skincare)\b/i.test(text)) return 'lam dep'
+  return ''
+}
+
+function scoreProductForMessage(product, message, terms, budget, categoryIntent) {
+  const name = toComparableText(product.name)
+  const description = toComparableText(product.description)
+  const categoryName = toComparableText(product.category?.name || '')
+  const haystack = `${name} ${description} ${categoryName}`
+  let score = 0
+
+  terms.forEach((term) => {
+    if (name.includes(term)) score += 8
+    if (categoryName.includes(term)) score += 6
+    if (description.includes(term)) score += 2
+  })
+
+  if (categoryIntent && categoryName.includes(categoryIntent)) score += 18
+  if (categoryIntent && !categoryName.includes(categoryIntent)) score -= 12
+
+  if (budget) {
+    if (product.price <= budget) score += 12
+    else score -= 30
+  }
+
+  if (/(ban chay|hot|pho bien)/i.test(toComparableText(message))) score += Math.min(product.soldCount / 10, 8)
+  score += Math.min(Number(product.ratingAvg || 0), 5)
+
+  if (!terms.length && !categoryIntent && !budget) score += 1
+  if (terms.length && !terms.some((term) => haystack.includes(term)) && !categoryIntent) score -= 10
+
+  return score
+}
+
 async function searchProductsForChat(message) {
-  const limit = Math.max(1, Math.min(Number(chatboxConfig.productLimit || 6), 10))
+  const limit = getProductLimit()
   const terms = extractSearchTerms(message)
+  const budget = extractBudget(message)
+  const categoryIntent = detectCategoryIntent(message)
+
+  try {
+    const products = await loadSearchableProducts(limit)
+    const scoredProducts = products
+      .map((product) => ({
+        product,
+        score: scoreProductForMessage(product, message, terms, budget, categoryIntent),
+      }))
+      .filter(({ product, score }) => {
+        const categoryName = toComparableText(product.category?.name || '')
+        return (
+          score > 0 &&
+          (!budget || product.price <= budget) &&
+          (!categoryIntent || categoryName.includes(categoryIntent))
+        )
+      })
+      .sort((left, right) => right.score - left.score || right.product.soldCount - left.product.soldCount)
+      .slice(0, limit)
+      .map(({ product }) => product)
+
+    if (scoredProducts.length) return scoredProducts
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('Chatbox JS product search failed:', err)
+  }
 
   const where = ['p.is_active = 1', 's.is_active = 1', "u.role = 'seller'", 'u.is_active = 1']
   const whereParams = []
@@ -141,25 +271,31 @@ async function searchProductsForChat(message) {
     relevanceSql = relevanceParts.join(' + ')
   }
 
-  const rows = await query(
-    `SELECT
-       p.id, p.slug, p.name, p.description, p.price, p.original_price, p.stock,
-       p.thumbnail_url, p.rating_avg, p.rating_count, p.sold_count,
-       c.id AS category_id, c.name AS category_name, c.slug AS category_slug,
-       s.id AS shop_id, s.name AS shop_name, s.slug AS shop_slug,
-       (SELECT pi.image_url FROM product_images pi WHERE pi.product_id = p.id ORDER BY pi.sort_order ASC, pi.id ASC LIMIT 1) AS image_url,
-       ${relevanceSql} AS relevance_score
-     FROM products p
-     LEFT JOIN categories c ON c.id = p.category_id
-     JOIN shops s ON s.id = p.shop_id
-     JOIN users u ON u.id = s.owner_id
-     WHERE ${where.join(' AND ')}
-     ORDER BY relevance_score DESC, p.rating_avg DESC, p.sold_count DESC, p.created_at DESC
-     LIMIT ?`,
-    [...relevanceParams, ...whereParams, limit],
-  )
+  try {
+    const rows = await query(
+      `SELECT
+         p.id, p.slug, p.name, p.description, p.price, p.original_price, p.stock,
+         p.thumbnail_url, p.rating_avg, p.rating_count, p.sold_count,
+         c.id AS category_id, c.name AS category_name, c.slug AS category_slug,
+         s.id AS shop_id, s.name AS shop_name, s.slug AS shop_slug,
+         (SELECT pi.image_url FROM product_images pi WHERE pi.product_id = p.id ORDER BY pi.sort_order ASC, pi.id ASC LIMIT 1) AS image_url,
+         ${relevanceSql} AS relevance_score
+       FROM products p
+       LEFT JOIN categories c ON c.id = p.category_id
+       JOIN shops s ON s.id = p.shop_id
+       JOIN users u ON u.id = s.owner_id
+       WHERE ${where.join(' AND ')}
+       ORDER BY relevance_score DESC, p.rating_avg DESC, p.sold_count DESC, p.created_at DESC
+       LIMIT ?`,
+      [...relevanceParams, ...whereParams, limit],
+    )
 
-  return rows.map(mapProduct)
+    return rows.map(mapProduct)
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('Chatbox product search failed:', err)
+    return loadFallbackProducts(limit)
+  }
 }
 
 function buildProductContext(products) {
@@ -206,12 +342,15 @@ function getMeaningfulSearchTerms(message) {
     'kiem',
     'mua',
     'pham',
+    'gi',
+    'giup',
     're',
     'san',
     'shop',
     'tim',
     'tu',
     'van',
+    'the',
     'y',
   ])
 
@@ -234,10 +373,13 @@ function isConversationOnly(message) {
 function shouldSuggestProducts(message) {
   const text = toComparableText(message)
   const meaningfulTerms = getMeaningfulSearchTerms(message)
+  const budget = extractBudget(message)
+  const categoryIntent = detectCategoryIntent(message)
 
+  if (budget || categoryIntent) return true
   if (/ban chay|sale|khuyen mai|flash|gia re|duoi\s+\d|tren\s+\d|tam\s+\d/i.test(text)) return true
   if (!meaningfulTerms.length) return false
-  return hasShoppingIntent(message) || meaningfulTerms.some((term) => term.length >= 3)
+  return hasShoppingIntent(message)
 }
 
 function isWithinChatboxScope(message, products) {
@@ -258,10 +400,71 @@ function fallbackReply(message, products) {
   return `${intro}\n${lines.join('\n')}\nBạn bấm vào link sản phẩm để xem chi tiết nhé.`
 }
 
-async function askGroq({ message, history, products }) {
-  if (!chatboxConfig.groqApiKey) {
-    return fallbackReply(message, products)
+function formatVnd(value) {
+  return `${Number(value || 0).toLocaleString('vi-VN')}đ`
+}
+
+function createProductReply(message, products) {
+  if (!products.length) {
+    return 'Mình chưa thấy sản phẩm nào khớp thật sát với yêu cầu này. Bạn nói thêm giúp mình loại sản phẩm, ngân sách hoặc phong cách bạn thích nhé, mình lọc lại cho gọn hơn.'
   }
+
+  const budget = extractBudget(message)
+  const categoryIntent = detectCategoryIntent(message)
+  const topProduct = products[0]
+  const introParts = []
+
+  if (categoryIntent) introParts.push('đúng nhóm bạn đang tìm')
+  if (budget) introParts.push(`trong tầm dưới ${formatVnd(budget)}`)
+
+  const intro = introParts.length
+    ? `Mình lọc được vài lựa chọn ${introParts.join(', ')}.`
+    : 'Mình tìm được vài lựa chọn khá hợp với nhu cầu của bạn.'
+
+  const reason = topProduct
+    ? `Mình ưu tiên "${topProduct.name}" vì giá ${formatVnd(topProduct.price)} và đang còn ${topProduct.stock} sản phẩm.`
+    : ''
+
+  return [
+    intro,
+    reason,
+    'Bạn xem các thẻ sản phẩm bên dưới nhé. Nếu muốn, mình có thể lọc tiếp theo màu, shop, mức giá hoặc kiểu dáng bạn thích.',
+  ]
+    .filter(Boolean)
+    .join('\n\n')
+}
+
+function createSmallTalkReply(message) {
+  const text = toComparableText(message).replace(/[^\p{L}\p{N}\s?]/gu, ' ').replace(/\s+/g, ' ').trim()
+
+  if (/^(hi|hello|alo|hey|chao|xin chao)$/i.test(text)) {
+    return 'Chào bạn, mình đây. Bạn cứ nói món muốn mua, tầm giá hoặc phong cách bạn thích, mình sẽ lọc sản phẩm trên ShopBee cho thật gọn.'
+  }
+
+  if (/ban la ai|ban giup duoc gi|shopbee co gi/i.test(text)) {
+    return 'Mình là trợ lý mua sắm của ShopBee. Mình có thể tìm sản phẩm theo nhu cầu, lọc theo giá, gợi ý món phù hợp và dẫn bạn tới đúng sản phẩm đang có trên sàn.'
+  }
+
+  if (/cam on|thanks|thank you/i.test(text)) {
+    return 'Không có gì đâu, mình ở đây để phụ bạn chọn đồ cho đỡ mất thời gian. Cần lọc thêm theo giá, màu, shop hoặc loại sản phẩm thì nói mình nhé.'
+  }
+
+  if (/^(ok|oke|uk|uh|duoc|duoc roi)$/i.test(text)) {
+    return 'Ổn rồi. Khi nào cần tìm thêm món nào khác, bạn cứ nhắn mình nhé.'
+  }
+
+  return CHATBOX_CLARIFY_REPLY
+}
+
+async function askGroq({ message, history, products = [] }) {
+  if (!chatboxConfig.groqApiKey) {
+    return products.length ? fallbackReply(message, products) : 'Mình đang sẵn sàng trò chuyện đây. Bạn muốn hỏi gì?'
+  }
+
+  const hasProducts = products.length > 0
+  const systemPrompt = hasProducts
+    ? 'Ban la tro ly mua sam ShopBee. Xung ho "minh" va "ban". Hay tra loi tu nhien, am ap, ngan gon toi da 3 cau. San pham goi y phai dua tren PRODUCT_CONTEXT, khong bia ten/gia/link/thong tin ngoai PRODUCT_CONTEXT. Khong viet danh sach danh so, khong bullet, khong nhac chu PRODUCT_CONTEXT, khong tu tinh lai ngan sach. Giao dien da hien thi the san pham rieng, nen chi can noi vi sao lua chon dau tien hop va hoi 1 cau de loc tiep neu can.'
+    : 'Ban la tro ly chat cua ShopBee. Xung ho "minh" va "ban". Hay tro chuyen tu nhien, than thien va huu ich bang tieng Viet. Co the tra loi cac cau hoi thong thuong, gioi thieu ban than, huong dan nguoi dung, va neu cau hoi lien quan mua sam thi goi y nguoi dung noi ro san pham/gia/phong cach. Khong noi ban bi gioi han vao mot mau cau co dinh.'
 
   const response = await fetch(`${chatboxConfig.groqBaseUrl}/chat/completions`, {
     method: 'POST',
@@ -276,13 +479,16 @@ async function askGroq({ message, history, products }) {
       messages: [
         {
           role: 'system',
-          content:
-            'Ban la tro ly tu van mua sam cua ShopBee. Pham vi duy nhat: tro chuyen de lam ro nhu cau mua sam, tim kiem va goi y san pham dang co tren san ShopBee dua tren PRODUCT_CONTEXT. Khong tra loi bat ky van de nao khac nhu code, tho, tin tuc, thoi tiet, y te, phap luat, tai chinh, bai tap, email hay kien thuc chung. Neu nguoi dung hoi ngoai pham vi, chi tra loi: "Minh chi ho tro tim kiem va goi y cac san pham dang co tren san ShopBee. Ban hay mo ta san pham, nhu cau su dung hoac muc gia mong muon nhe." Neu nhu cau mua sam con mo ho, hay hoi them 1-2 cau ngan gon ve loai san pham, ngan sach hoac muc dich su dung thay vi goi y ngay. Khi goi y san pham, phai nhac dung ten va link san pham trong PRODUCT_CONTEXT. Khong duoc bia san pham, gia, link hoac thong tin khong co trong PRODUCT_CONTEXT.',
+          content: systemPrompt,
         },
-        {
-          role: 'system',
-          content: `PRODUCT_CONTEXT:\n${buildProductContext(products)}`,
-        },
+        ...(hasProducts
+          ? [
+              {
+                role: 'system',
+                content: `PRODUCT_CONTEXT:\n${buildProductContext(products)}`,
+              },
+            ]
+          : []),
         ...normalizeMessages(history),
         {
           role: 'user',
@@ -317,43 +523,25 @@ async function createChatboxReply({ message, history }) {
     throw err
   }
 
-  if (isConversationOnly(cleanMessage)) {
-    return {
-      reply: CHATBOX_CLARIFY_REPLY,
-      products: [],
-    }
-  }
-
-  if (isOffTopicRequest(cleanMessage)) {
-    return {
-      reply: CHATBOX_SCOPE_REPLY,
-      products: [],
-    }
-  }
-
   if (!shouldSuggestProducts(cleanMessage)) {
     return {
-      reply: CHATBOX_CLARIFY_REPLY,
+      reply: await askGroq({
+        message: cleanMessage,
+        history,
+        products: [],
+      }),
       products: [],
     }
   }
 
   const products = await searchProductsForChat(cleanMessage)
-  if (!isWithinChatboxScope(cleanMessage, products)) {
-    return {
-      reply: CHATBOX_SCOPE_REPLY,
-      products: [],
-    }
-  }
-
-  const reply = await askGroq({
-    message: cleanMessage,
-    history,
-    products,
-  })
 
   return {
-    reply,
+    reply: await askGroq({
+      message: cleanMessage,
+      history,
+      products,
+    }),
     products,
   }
 }

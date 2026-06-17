@@ -3,6 +3,14 @@ const { createMysqlOptions } = require('./mysql-options')
 
 let pool
 
+function normalizeQueryParams(params = []) {
+  return params.map((param) => {
+    if (param === undefined) return null
+    if (typeof param === 'number' && !Number.isFinite(param)) return null
+    return param
+  })
+}
+
 function getPool() {
   if (pool) return pool
 
@@ -12,7 +20,7 @@ function getPool() {
 }
 
 async function query(sql, params = []) {
-  const [rows] = await getPool().execute(sql, params)
+  const [rows] = await getPool().execute(sql, normalizeQueryParams(params))
   return rows
 }
 
@@ -43,6 +51,7 @@ async function testConnection() {
 
 module.exports = {
   getPool,
+  normalizeQueryParams,
   query,
   testConnection,
   transaction,
