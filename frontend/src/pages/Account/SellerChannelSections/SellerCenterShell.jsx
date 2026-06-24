@@ -12,9 +12,9 @@ export function SellerCenterShell({ profile, shop, activeTab, onTabChange, child
   }
 
   return (
-    <main className="min-h-screen bg-surface-container-low font-['Be_Vietnam_Pro'] text-on-surface">
-      <div className="grid min-h-screen grid-cols-1 lg:grid-cols-[230px_minmax(0,1fr)]">
-        <aside className="hidden border-r border-outline-variant bg-surface-container-lowest lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col lg:overflow-hidden">
+    <main className="min-h-screen bg-surface-container-low font-['Be_Vietnam_Pro'] text-on-surface lg:h-screen lg:overflow-hidden">
+      <div className="grid min-h-screen grid-cols-1 lg:h-full lg:min-h-0 lg:grid-cols-[250px_minmax(0,1fr)]">
+        <aside className="hidden min-h-full flex-col border-r border-outline-variant bg-surface-container-lowest lg:flex lg:h-full lg:min-h-0 lg:overflow-hidden">
           <div className="flex h-16 items-center gap-2 border-b border-outline-variant px-4">
             <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-on-primary">
               <span className="material-symbols-outlined text-[21px]">storefront</span>
@@ -25,7 +25,7 @@ export function SellerCenterShell({ profile, shop, activeTab, onTabChange, child
             </div>
           </div>
 
-          <nav className="flex-1 space-y-2 px-3 py-4">
+          <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-4 [scrollbar-gutter:stable]">
             {sellerTabs.map((tab) => (
               <button
                 key={tab.value}
@@ -43,13 +43,13 @@ export function SellerCenterShell({ profile, shop, activeTab, onTabChange, child
             ))}
           </nav>
 
-          <div className="border-t border-outline-variant px-4 py-4">
+          <div className="shrink-0 border-t border-outline-variant px-4 py-4">
             <p className="truncate text-label-md font-label-md text-on-surface">{profile?.name || 'Seller'}</p>
             <p className="truncate text-body-sm text-on-surface-variant">{profile?.email || ''}</p>
           </div>
         </aside>
 
-        <section className="min-w-0 lg:flex lg:min-h-screen lg:flex-col">
+        <section className="min-w-0 lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:overflow-hidden">
           <header className="sticky top-0 z-10 flex min-h-16 shrink-0 items-center justify-between gap-3 border-b border-outline-variant bg-surface-container-lowest px-4 md:px-6">
             <div className="flex min-w-0 items-center gap-3">
               <button
@@ -88,7 +88,7 @@ export function SellerCenterShell({ profile, shop, activeTab, onTabChange, child
             ))}
           </nav>
 
-          <div id="top" className="px-4 py-5 md:px-6 xl:px-8">
+          <div id="top" className="px-4 py-5 md:px-6 xl:px-8 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
             <div className="w-full">{children}</div>
           </div>
         </section>
@@ -97,7 +97,7 @@ export function SellerCenterShell({ profile, shop, activeTab, onTabChange, child
       {sidebarOpen ? (
         <div className="fixed inset-0 z-40 lg:hidden">
           <button className="absolute inset-0 bg-black/45" type="button" aria-label="Close seller menu" onClick={() => setSidebarOpen(false)} />
-          <aside className="absolute left-0 top-0 flex h-full w-[min(86vw,320px)] flex-col overflow-y-auto border-r border-outline-variant bg-surface-container-lowest shadow-2xl">
+          <aside className="absolute left-0 top-0 flex h-full w-[min(86vw,320px)] flex-col overflow-hidden border-r border-outline-variant bg-surface-container-lowest shadow-2xl">
             <div className="flex h-16 items-center justify-between gap-3 border-b border-outline-variant px-4">
               <div className="flex min-w-0 items-center gap-2">
                 <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-on-primary">
@@ -113,7 +113,7 @@ export function SellerCenterShell({ profile, shop, activeTab, onTabChange, child
               </button>
             </div>
 
-            <nav className="flex-1 space-y-2 px-3 py-4">
+            <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-4 [scrollbar-gutter:stable]">
               {sellerTabs.map((tab) => (
                 <button
                   key={tab.value}
